@@ -832,6 +832,7 @@ export const en: Dictionary = {
     supprimerAide: 'It will be erased from your phone.',
   },
   ephemere: {
+    bandeau: 'Messages disappear {duree} after reading, on both your phones.',
     apercuActive: 'Disappearing messages on',
     apercuCoupe: 'Disappearing messages off',
     active: 'turned on disappearing messages ({duree})',

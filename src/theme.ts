@@ -146,6 +146,8 @@ export const fixed = {
   // Verrou : le capteur d'empreinte et ses arcs au repos.
   sensor: 'rgba(255, 255, 255, 0.07)',
   ridgeIdle: 'rgba(255, 255, 255, 0.18)',
+  // Appel audio (planche « Appel ») : boutons au repos, translucides sur le fond à grain.
+  callButton: 'rgba(255, 255, 255, 0.1)',
 };
 
 // --- Choix du thème : suit le système, ou forcé clair / sombre (réglage du profil) ---

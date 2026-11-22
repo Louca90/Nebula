@@ -4,6 +4,7 @@ import Reanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-
 import { EASE } from '../../motion';
 import { BlurTargetView } from 'expo-blur';
 import { Backdrop } from '../../components/nebula';
+import { EphemeralBanner } from './components/EphemeralBanner';
 import { useChatBackdrop } from '../../couple/backdrop';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
@@ -617,6 +618,7 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
         <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={topInset} style={styles.flex}>
           <View ref={listArea} collapsable={false} style={styles.flex}>
           {palettes.hasWallpaper && <ComposerFade />}
+          {!!ephemeral && <EphemeralBanner seconds={ephemeral} />}
           <PinnedBanner messages={pinnedMessages} onJump={jumpTo} />
           <PullView gesture={pull.gesture} offset={pull.offset} indicator={canWrite ? <PullPear
               offset={pull.offset}

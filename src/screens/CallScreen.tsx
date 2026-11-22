@@ -9,6 +9,7 @@ import { chat, CallEnd, CallState } from '../chat/manager';
 import { getContactProfile } from '../chat/database';
 import { formatCallDuration } from '../chat/callText';
 import { Avatar, useInsets, usePressFeedback } from '../components/ui';
+import { Backdrop } from '../components/nebula';
 import { Sheet, SheetChoice } from '../components/Sheet';
 import { showDialog } from '../components/dialog';
 import type { CallOutput, CallOutputType } from '../../modules/pear-native';
@@ -203,7 +204,11 @@ function CallFull({ call, name, onMinimize }: { call: CallState; name: string; o
       {onVideo ? (
         <VideoStage call={call} showRemote={showRemote} showLocal={showLocal} top={top} bottom={bottom} onTap={toggleChrome} chromeHidden={chromeHidden} />
       ) : (
-        <Pressable style={StyleSheet.absoluteFill} onPress={toggleChrome} accessibilityLabel={t('appel.commandes')} />
+        <>
+          {/* Nébula : l'appel audio sur le fond Horizon à grain (planche « Appel »). */}
+          <Backdrop kind="horizon" />
+          <Pressable style={StyleSheet.absoluteFill} onPress={toggleChrome} accessibilityLabel={t('appel.commandes')} />
+        </>
       )}
 
       <Reanimated.View pointerEvents={chromeEvents} style={[styles.topBar, { paddingTop: top + spacing.sm }, chromeStyle]}>
@@ -458,7 +463,7 @@ function RoundButton({
   useEffect(() => {
     on.set(timing(active ? 1 : 0, DURATION.small));
   }, [active, on]);
-  const idle = onVideo ? 'rgba(255,255,255,0.18)' : colors.surface;
+  const idle = onVideo ? 'rgba(255,255,255,0.18)' : fixed.callButton;
   const lit = onVideo ? fixed.white : colors.text;
   const fill = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(on.get(), [0, 1], [idle, lit]) }));
   const size = big ? 72 : 60;

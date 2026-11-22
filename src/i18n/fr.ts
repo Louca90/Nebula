@@ -831,6 +831,7 @@ export const fr = {
     supprimerAide: 'Il sera effacé de ton téléphone.',
   },
   ephemere: {
+    bandeau: 'Les messages disparaissent {duree} après lecture, sur vos deux téléphones.',
     apercuActive: 'Messages éphémères activés',
     apercuCoupe: 'Messages éphémères désactivés',
     active: 'activé les messages éphémères ({duree})',

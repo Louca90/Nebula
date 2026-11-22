@@ -55,3 +55,6 @@ export function LilyMark({ height, color }: { height: number; color: string }) {
   const open = useSharedValue(1);
   return <Lily size={(height * 92) / 88} color={color} open={open} />;
 }
+
+// Les tracés du lys, pour les dessins qui l'animent autrement (pétale qui tombe du mode éphémère).
+export const LILY_PATHS = { left: PETAL_LEFT, right: PETAL_RIGHT, stamens: STAMENS, heart: HEART, stem: STEM };
