@@ -20,6 +20,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Circle, ClipPath, Defs, G, Mask, Path, Rect } from 'react-native-svg';
 
 import { fixed, useColors } from '../theme';
+import { Lily } from './Lily';
 
 // L'icône « Pépins » : une poire coupée en deux, peau verte, chair pâle, deux pépins reliés par un lien
 // en pointillés (la connexion pair à pair). C'est un logo qui s'anime, pas un personnage : aucun visage,
@@ -188,7 +189,22 @@ const AnimatedPath = Reanimated.createAnimatedComponent(Path);
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
 const AnimatedG = Reanimated.createAnimatedComponent(G);
 
+// Nébula : la marque animée est le lys, avec les mêmes états que l'ancienne poire. ripening et bitten :
+// les pétales s'ouvrent selon `progress`. searching et resting : le lys respire. leaf : ouvert, en lilas.
+const LILY_EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 export function Pear({ height, color, state = 'idle', progress = 0, leafColor }: Props) {
+  const open = useSharedValue(state === 'ripening' || state === 'bitten' ? progress : 1);
+  const breathing = state === 'searching' || state === 'resting';
+  useEffect(() => {
+    if (breathing) {
+      open.set(withRepeat(withSequence(withTiming(state === 'searching' ? 0.25 : 0.6, { duration: 900, easing: LILY_EASE }), withTiming(1, { duration: 900, easing: LILY_EASE })), -1, false));
+    } else open.set(withTiming(state === 'ripening' || state === 'bitten' ? progress : 1, { duration: 260, easing: LILY_EASE }));
+  }, [state, progress, breathing, open]);
+  return <Lily size={(height * 92) / 88} color={state === 'leaf' ? (leafColor ?? color) : color} open={open} />;
+}
+
+// La poire de Pear, gardée pour mémoire (plus affichée dans Nébula).
+export function PearDrawing({ height, color, state = 'idle', progress = 0, leafColor }: Props) {
   const colors = useColors();
   // Deux versions, choisies par le mode (planche « Nouvelle icône de l'app ») : la peau prend le vert
   // signature du mode (#9DB84A en clair, #B4CC68 en sombre), la chair reste pâle et les pépins noirs dessus ;

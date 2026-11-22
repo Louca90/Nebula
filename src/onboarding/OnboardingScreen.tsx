@@ -2,7 +2,7 @@ import { ComponentRef, useCallback, useEffect, useRef, useState } from 'react';
 import Reanimated, { Easing, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { AppState, BackHandler, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { BatteryCharging, Bell, Camera, ChevronRight, Download, ImageIcon, LucideIcon, FileUp, MapPin } from 'lucide-react-native';
+import { BatteryCharging, Bell, Camera, ChevronRight, Download, ImageIcon, LucideIcon, MapPin } from 'lucide-react-native';
 
 import { chat } from '../chat/manager';
 import { LINK_NAME_LENGTH } from '../crypto/pairing';
@@ -17,6 +17,7 @@ import { PermissionCard } from './PermissionCard';
 import { enterUp } from '../motion';
 import { PEAR_RATIO } from '../components/Pear';
 import { LilyMark } from '../components/Lily';
+import { Backdrop, GrainButton } from '../components/nebula';
 import { BackupSheet } from '../components/BackupSheet';
 import { MediaPicker } from '../components/MediaPicker';
 import { ProfilePhotoCropper } from '../components/ProfilePhotoCropper';
@@ -227,6 +228,8 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
 
   return (
     <Reanimated.View style={[styles.screen, screenStyle]}>
+      {/* Nébula : le fond Améthyste à grain de la planche « Bienvenue ». */}
+      <Backdrop kind="amethyste" />
       <Reanimated.View pointerEvents="none" style={[styles.pear, { left: pearLeft, top: pearTop }, pearStyle]}>
         <LilyMark height={pearHeight} color={colors.text} />
       </Reanimated.View>
@@ -244,8 +247,8 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
                 <Text style={styles.title}>{t('priseEnMain.bienvenue')}</Text>
                 <Text style={styles.text}>{t('priseEnMain.presentation')}</Text>
                 <View style={styles.spacer} />
-                <Button label={t('priseEnMain.commencer')} icon={ChevronRight} onPress={() => goTo(1)} />
-                <Button label={t('sauvegarde.restaurer')} icon={FileUp} variant="secondary" onPress={() => setRestoring(true)} />
+                <GrainButton label={t('priseEnMain.commencer')} onPress={() => goTo(1)} />
+                <GrainButton label={t('sauvegarde.restaurer')} variant="smoke" onPress={() => setRestoring(true)} />
               </View>
             )}
             {step === 1 && (

@@ -576,8 +576,8 @@ export const fr = {
     revoirPriseEnMain: 'Revoir la prise en main (debug)',
   },
   priseEnMain: {
-    bienvenue: 'Bienvenue dans Nébula',
-    presentation: 'Une messagerie privée : tes messages sont chiffrés de bout en bout et passent directement de ton téléphone à celui de tes contacts.',
+    bienvenue: 'Nébula',
+    presentation: 'Une app pour deux. Vos messages vont directement d’un téléphone à l’autre, chiffrés de bout en bout.',
     commencer: 'Commencer',
     autorisations: 'Quelques autorisations',
     autorisationsAide: 'Chacune sert à une seule chose. Tu peux les changer plus tard.',
