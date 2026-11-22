@@ -66,7 +66,6 @@ type Props = {
   pending: boolean;
   onBack: () => void;
   onInfo: () => void;
-  onCustomize: () => void;
   // Affichée sous la page pendant le geste de retour : elle ne doit pas marquer les messages comme lus.
   preview?: boolean;
   // Message à rejoindre à l'ouverture (résultat de la recherche de l'accueil).
@@ -81,7 +80,7 @@ type Props = {
 
 export type ChatIntent = 'search' | 'location' | 'ephemeral';
 
-export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustomize, preview, jump, intent, onNotifications, onMedia, onCamera }: Props) {
+export function ChatScreen({ contactKey, name, pending, onBack, onInfo, preview, jump, intent, onNotifications, onMedia, onCamera }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const [draft, setDraft] = useState(() => getDraft(contactKey));
@@ -599,7 +598,7 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
       <BlurTargetView ref={blurTarget} style={styles.flex}>
         {/* Nébula : sans photo de fond, le fond à grain choisi dans le Profil ; Soie en mode éphémère. */}
         {wallpaper ? <Image source={{ uri: wallpaper }} style={styles.wallpaper} resizeMode="cover" /> : <Backdrop kind={ephemeral ? 'soie' : chatBackdrop} />}
-        <ChatHeader contactKey={contactKey} name={name} onBack={onBack} onInfo={onInfo} onCustomize={onCustomize} onSearch={() => setSearching(true)} onMenu={() => setMenuOpen(true)} ephemeral={ephemeral} onEphemeral={chooseEphemeral} dimmed={attachOpen} onUndim={() => setAttachOpen(false)} />
+        <ChatHeader contactKey={contactKey} name={name} onBack={onBack} onInfo={onInfo} onSearch={() => setSearching(true)} onMenu={() => setMenuOpen(true)} ephemeral={ephemeral} onEphemeral={chooseEphemeral} dimmed={attachOpen} onUndim={() => setAttachOpen(false)} />
         {/* Le décalage compense la barre d'état, placée au-dessus de la zone floutée. */}
         <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={topInset} style={styles.flex}>
           <View ref={listArea} collapsable={false} style={styles.flex}>

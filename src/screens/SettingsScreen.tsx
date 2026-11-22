@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AppState, Linking, ScrollView, Text } from 'react-native';
-import { Ban, Bell, Download, Eye, HardDrive, Languages, Link2, Lock, Sparkles, RefreshCw, Share2, ShieldCheck, Stethoscope } from 'lucide-react-native';
+import { Bell, Download, Eye, HardDrive, Languages, Link2, Lock, Sparkles, RefreshCw, Share2, ShieldCheck, Stethoscope } from 'lucide-react-native';
 import { linkPreviewsEnabled, setLinkPreviewsEnabled } from '../chat/linkPreview';
 
 import { getSetting, setSetting } from '../chat/database';
@@ -25,10 +25,10 @@ const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'dark', label: t('profil.themeSombre') },
 ];
 
-type Props = { onBack: () => void; onDiagnostic: () => void; onBlocked: () => void; onStorage: () => void; onServers: () => void; onDiscover: () => void; onReplayOnboarding: () => void };
+type Props = { onBack: () => void; onDiagnostic: () => void; onStorage: () => void; onServers: () => void; onReplayOnboarding: () => void };
 
 // Les réglages de l'app, ouverts depuis le bouton en haut à droite du Profil.
-export function SettingsScreen({ onBack, onDiagnostic, onBlocked, onStorage, onServers, onDiscover, onReplayOnboarding }: Props) {
+export function SettingsScreen({ onBack, onDiagnostic, onStorage, onServers, onReplayOnboarding }: Props) {
   const styles = useStyles();
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const currentPages = pagesFor(appVersionName() ?? '');
@@ -140,7 +140,6 @@ export function SettingsScreen({ onBack, onDiagnostic, onBlocked, onStorage, onS
           />
           <SettingRow icon={Lock} label={t('reglages.verrou')} detail={t('reglages.verrouAide')} right={<Toggle value={lock} onChange={changeLock} label={t('reglages.verrou')} />} />
           <SettingRow icon={Eye} label={t('reglages.serveurs')} detail={t('reglages.serveursAide')} onPress={onServers} />
-          <SettingRow icon={Ban} label={t('reglages.bloques')} onPress={onBlocked} />
         </SettingsGroup>
 
         <SettingsGroup title={t('profil.misesAJour')}>
@@ -154,7 +153,6 @@ export function SettingsScreen({ onBack, onDiagnostic, onBlocked, onStorage, onS
           <SettingRow icon={ShieldCheck} label={t('profil.installationMaj')} detail={canInstall ? t('profil.autorisee') : t('profil.aAutoriser')} onPress={requestInstallPermission} />
           {__DEV__ && update.status === 'available' && <SettingRow icon={Download} label={t('profil.apercuMaj')} onPress={() => previewUpdateScreen(true)} chevron={false} />}
           {currentPages.length > 0 && <SettingRow icon={Sparkles} label={t('nouveautes.version', { version: appVersionName() ?? '?' })} onPress={() => setWhatsNewOpen(true)} chevron={false} />}
-          <SettingRow icon={Sparkles} label={t('nouveautes.decouvrir')} onPress={onDiscover} />
           {__DEV__ && <SettingRow icon={RefreshCw} label={t('reglages.revoirPriseEnMain')} onPress={onReplayOnboarding} chevron={false} />}
         </SettingsGroup>
       </ScrollView>

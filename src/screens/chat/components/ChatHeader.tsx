@@ -22,7 +22,6 @@ type Props = {
   name: string;
   onBack: () => void;
   onInfo: () => void;
-  onCustomize: () => void;
   onSearch: () => void;
   // Le bouton « 3 points » ouvre le menu de la conversation.
   onMenu: () => void;
@@ -45,7 +44,7 @@ function OnlineDot({ online }: { online: boolean }) {
   return <Reanimated.View pointerEvents="none" style={[styles.dot, style]} />;
 }
 
-export function ChatHeader({ contactKey, name, onBack, onInfo, onCustomize, onSearch, onMenu, ephemeral, onEphemeral, dimmed, onUndim }: Props) {
+export function ChatHeader({ contactKey, name, onBack, onInfo, onSearch, onMenu, ephemeral, onEphemeral, dimmed, onUndim }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const photo = getContactProfile(contactKey).photo_uri;

@@ -29,7 +29,6 @@ import { ChatScreen } from './src/screens/chat/ChatScreen';
 import { isSelf } from './src/chat/self';
 import { ContactScreen } from './src/screens/ContactScreen';
 import { NotificationSettingsScreen } from './src/screens/NotificationSettingsScreen';
-import { CustomizeScreen } from './src/screens/CustomizeScreen';
 import { NousScreen } from './src/screens/NousScreen';
 import { PenseScreen } from './src/screens/PenseScreen';
 import { DatesScreen } from './src/screens/DatesScreen';
@@ -38,7 +37,6 @@ import { OnboardingScreen, OnboardingStep } from './src/onboarding/OnboardingScr
 import { checkAllPermissions } from './src/onboarding/permissions';
 import { setPermissionsMissing } from './src/onboarding/permissionStatus';
 import { isOnboardingDone, loadOnboardingStep, markOnboardingDone } from './src/onboarding/progress';
-import { BlockedScreen } from './src/screens/BlockedScreen';
 import { DiagnosticScreen } from './src/screens/DiagnosticScreen';
 import { RequestsScreen } from './src/screens/RequestsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -54,7 +52,6 @@ import { createStyles, fixed, loadTheme, motion, Palette, spacing, useColors } f
 import { markUpdateSeen, pendingUpdatedInfo, UpdatedInfo } from './src/update/updated';
 import { UpdatedPopup } from './src/update/UpdatedPopup';
 import { WhatsNew } from './src/update/WhatsNew';
-import { DiscoverScreen } from './src/screens/DiscoverScreen';
 import { checkForUpdate, isBlocking, useUpdateState } from './src/update/updates';
 import { UpdateScreen } from './src/update/UpdateScreen';
 import { log } from './src/log';
@@ -74,20 +71,17 @@ type Route =
   | { name: 'diagnostic' }
   | { name: 'storage' }
   | { name: 'servers' }
-  | { name: 'discover' }
   | { name: 'settings' }
   // La carte des contacts ; focus : le contact à montrer d'abord.
   | { name: 'map'; focus: string | null }
   // Une catégorie des réglages, ouverte depuis le Profil.
   | { name: 'settingsPage'; page: SettingsPage }
-  | { name: 'blocked' }
   | { name: 'requests' }
   // Nébula : Pense à toi (et pouce contre pouce), puis Nos dates.
   | { name: 'pense'; publicKey: string }
   | { name: 'dates' }
   // Nébula : les médias échangés (planche « Médias et visionneuse »).
   | { name: 'media'; publicKey: string }
-  | { name: 'customize'; publicKey: string }
   | { name: 'notifications'; publicKey: string }
   // name : le pseudo lu dans le QR code ou le lien, proposé comme nom du contact.
   | { name: 'contact'; publicKey: string; suggestedName?: string | null; tab?: 'profile' | 'media' }
@@ -355,12 +349,12 @@ function App() {
   const parentOf = (current: Route): Route | null => {
     if (current.name === 'home') return null;
     // Ouverts depuis une page des réglages (ou depuis Tous les réglages, qui y ramène aussi).
-    if (current.name === 'servers' || current.name === 'blocked') return { name: 'settingsPage', page: 'privacy' };
-    if (current.name === 'diagnostic' || current.name === 'discover') return { name: 'settingsPage', page: 'updates' };
+    if (current.name === 'servers') return { name: 'settingsPage', page: 'privacy' };
+    if (current.name === 'diagnostic') return { name: 'settingsPage', page: 'updates' };
     if (current.name === 'storage' || current.name === 'settings' || current.name === 'settingsPage') return { name: 'profile' };
-    if (current.name === 'customize') return { name: 'chat', publicKey: current.publicKey };
     if (current.name === 'camera' && current.to) return { name: 'chat', publicKey: current.to };
-    if (current.name === 'notifications') return { name: 'customize', publicKey: current.publicKey };
+    // Nébula : plus de page « Personnaliser » ; les notifications d'une conversation y reviennent directement.
+    if (current.name === 'notifications') return { name: 'chat', publicKey: current.publicKey };
     if (current.name === 'contact' && isSaved(current.publicKey)) return { name: 'chat', publicKey: current.publicKey };
     return { name: 'home' };
   };
@@ -605,10 +599,8 @@ function App() {
         <SettingsScreen
           onBack={() => setRoute({ name: 'profile' })}
           onDiagnostic={() => setRoute({ name: 'diagnostic' })}
-          onBlocked={() => setRoute({ name: 'blocked' })}
           onStorage={() => setRoute({ name: 'storage' })}
           onServers={() => setRoute({ name: 'servers' })}
-          onDiscover={() => setRoute({ name: 'discover' })}
           onReplayOnboarding={() => setOnboarding({ mode: 'full', step: 0 })}
         />
       );
@@ -621,24 +613,18 @@ function App() {
       if (current.page === 'permissions') return <PermissionsPage onBack={back} />;
       if (current.page === 'appearance') return <AppearancePage onBack={back} />;
       if (current.page === 'notifications') return <NotificationsPage onBack={back} />;
-      if (current.page === 'privacy') return <PrivacyPage onBack={back} onServers={() => setRoute({ name: 'servers' })} onBlocked={() => setRoute({ name: 'blocked' })} />;
+      if (current.page === 'privacy') return <PrivacyPage onBack={back} onServers={() => setRoute({ name: 'servers' })} />;
       if (current.page === 'backup') return <BackupPage onBack={back} />;
-      return <UpdatesPage onBack={back} onDiscover={() => setRoute({ name: 'discover' })} onDiagnostic={() => setRoute({ name: 'diagnostic' })} />;
+      return <UpdatesPage onBack={back} onDiagnostic={() => setRoute({ name: 'diagnostic' })} />;
     }
     if (current.name === 'storage') {
       return <StorageScreen contacts={contacts} onBack={() => setRoute(parentOf(current) ?? { name: 'profile' })} />;
-    }
-    if (current.name === 'discover') {
-      return <DiscoverScreen onBack={() => setRoute(parentOf(current) ?? { name: 'profile' })} />;
     }
     if (current.name === 'servers') {
       return <ServersScreen onBack={() => setRoute(parentOf(current) ?? { name: 'profile' })} />;
     }
     if (current.name === 'diagnostic') {
       return <DiagnosticScreen onBack={() => setRoute(parentOf(current) ?? { name: 'profile' })} />;
-    }
-    if (current.name === 'blocked') {
-      return <BlockedScreen onBack={() => setRoute(parentOf(current) ?? { name: 'profile' })} />;
     }
     if (current.name === 'requests') {
       return (
@@ -654,24 +640,13 @@ function App() {
         />
       );
     }
-    if (current.name === 'customize') {
-      const publicKey = current.publicKey;
-      return (
-        <CustomizeScreen
-          contactKey={publicKey}
-          name={contacts.find((contact) => contact.publicKey === publicKey)?.name ?? t('app.contact')}
-          onBack={() => setRoute({ name: 'chat', publicKey })}
-          onInfo={() => setRoute({ name: 'contact', publicKey })}
-        />
-      );
-    }
     if (current.name === 'notifications') {
       const publicKey = current.publicKey;
       return (
         <NotificationSettingsScreen
           contactKey={publicKey}
           name={contacts.find((contact) => contact.publicKey === publicKey)?.name ?? t('app.contact')}
-          onBack={() => setRoute({ name: 'customize', publicKey })}
+          onBack={() => setRoute({ name: 'chat', publicKey })}
         />
       );
     }
@@ -685,7 +660,6 @@ function App() {
           pending={contacts.find((contact) => contact.publicKey === publicKey)?.pending ?? false}
           onBack={() => setRoute({ name: 'home' })}
           onInfo={() => setRoute({ name: 'contact', publicKey })}
-          onCustomize={() => setRoute({ name: 'customize', publicKey })}
           preview={preview}
           jump={current.jump}
           intent={current.intent}
@@ -709,7 +683,6 @@ function App() {
           initialTab={current.tab}
           onBack={() => backFromContact(publicKey)}
           onOpen={(intent) => setRoute({ name: 'chat', publicKey, intent })}
-          onCustomize={() => setRoute({ name: 'customize', publicKey })}
           onNotifications={() => setRoute({ name: 'notifications', publicKey })}
           onSave={(name) => {
             // Un nouveau contact attend que l'autre accepte la demande ; un contact connu reste tel quel.

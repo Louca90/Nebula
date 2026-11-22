@@ -1,10 +1,10 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Reanimated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { BatteryCharging, Bell, Ban, Camera, Download, Eye, FlaskConical, FileDown, FileText, FileUp, ImageIcon, Languages, PhoneIncoming, Link2, LucideIcon, MapPin, RefreshCw, Share2, ShieldCheck, Sparkles, Stethoscope } from 'lucide-react-native';
+import { BatteryCharging, Bell, Camera, Download, Eye, FileDown, FileText, FileUp, ImageIcon, Languages, PhoneIncoming, Link2, LucideIcon, MapPin, Share2, ShieldCheck, Sparkles, Stethoscope } from 'lucide-react-native';
 
 import { appVersionCode, appVersionName, authenticate } from '../../../modules/pear-native';
-import { getBlockedKeys, getSetting, setSetting } from '../../chat/database';
+import { getSetting, setSetting } from '../../chat/database';
 import { linkPreviewsEnabled, setLinkPreviewsEnabled } from '../../chat/linkPreview';
 import { BackupSheet } from '../../components/BackupSheet';
 import { showDialog } from '../../components/dialog';
@@ -22,7 +22,7 @@ import { PermissionCard } from '../../onboarding/PermissionCard';
 import { setPermissionsMissing } from '../../onboarding/permissionStatus';
 import { createStyles, radius, setTextScaleIndex, spacing, TEXT_SCALES, useColors, useTextScaleIndex } from '../../theme';
 import { pagesFor } from '../../update/pages';
-import { acceptTestUpdate, checkForUpdate, getInstallPermission, isTestBuild, requestInstallPermission, setTesterEnabled, testerEnabled, useUpdateState } from '../../update/updates';
+import { checkForUpdate, getInstallPermission, requestInstallPermission, useUpdateState } from '../../update/updates';
 import { WhatsNew } from '../../update/WhatsNew';
 
 export type SettingsPage = 'permissions' | 'appearance' | 'notifications' | 'privacy' | 'backup' | 'updates';
@@ -202,11 +202,11 @@ function LockCard({ on, onChange }: { on: boolean; onChange: (value: boolean) =>
   );
 }
 
-export function PrivacyPage({ onBack, onServers, onBlocked }: { onBack: () => void; onServers: () => void; onBlocked: () => void }) {
+// Nébula : pas de liste de contacts bloqués (on est lié à une seule personne).
+export function PrivacyPage({ onBack, onServers }: { onBack: () => void; onServers: () => void }) {
   const [lock, setLock] = useState(() => getSetting('app_lock') === '1');
   const [relay, setRelay] = useState(() => getSetting('relay_enabled') !== '0');
   const [linkPreviews, setLinkPreviews] = useState(linkPreviewsEnabled);
-  const blocked = getBlockedKeys().length;
   // On vérifie que l'empreinte ou le code marche avant d'activer : sinon on s'enfermerait dehors.
   const changeLock = async (value: boolean) => {
     if (value) {
@@ -259,7 +259,6 @@ export function PrivacyPage({ onBack, onServers, onBlocked }: { onBack: () => vo
       <Block index={2}>
         <SettingsGroup title={t('reglages.transparence')}>
           <SettingRow icon={Eye} label={t('reglages.serveurs')} onPress={onServers} />
-          <SettingRow icon={Ban} label={t('reglages.bloques')} value={blocked > 0 ? String(blocked) : null} onPress={onBlocked} />
         </SettingsGroup>
       </Block>
     </Page>
@@ -333,14 +332,12 @@ export function BackupPage({ onBack }: { onBack: () => void }) {
 
 // --- Mises à jour ---
 
-export function UpdatesPage({ onBack, onDiscover, onDiagnostic }: { onBack: () => void; onDiscover: () => void; onDiagnostic: () => void }) {
+export function UpdatesPage({ onBack, onDiagnostic }: { onBack: () => void; onDiagnostic: () => void }) {
   const colors = useColors();
   const styles = useStyles();
   const update = useUpdateState();
   const [canInstall, setCanInstall] = useState(getInstallPermission);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-  const [tester, setTester] = useState(testerEnabled);
-  const testBuild = isTestBuild();
   const version = appVersionName() ?? '?';
   const pages = pagesFor(appVersionName() ?? '');
   useEffect(() => {
@@ -362,7 +359,7 @@ export function UpdatesPage({ onBack, onDiscover, onDiagnostic }: { onBack: () =
       <Block index={0}>
         <View style={styles.hero}>
           <LilyMark height={60} color={colors.text} />
-          <Text style={styles.versionTitle}>{`Pear ${version}`}</Text>
+          <Text style={styles.versionTitle}>{`Nébula ${version}`}</Text>
           <View style={styles.statusRow} accessibilityLiveRegion="polite">
             {checking ? <ActivityIndicator size="small" color={colors.signatureStrong} /> : null}
             <Text style={[styles.status, good && { color: colors.signatureStrong }]}>{status}</Text>
@@ -370,32 +367,14 @@ export function UpdatesPage({ onBack, onDiscover, onDiagnostic }: { onBack: () =
           <Pressable onPress={() => checkForUpdate(true)} accessibilityRole="button" style={({ pressed }) => [styles.check, pressed && styles.pressed]}>
             <Text style={styles.checkLabel}>{t('profil.rechercherMaj')}</Text>
           </Pressable>
-          <Text style={styles.heroMeta}>{`${t('commun.version')} ${version} (${appVersionCode() ?? '?'})${testBuild ? ` · ${t('profil.versionTest')}` : ''}`}</Text>
+          <Text style={styles.heroMeta}>{`${t('commun.version')} ${version} (${appVersionCode() ?? '?'})`}</Text>
         </View>
       </Block>
       <Block index={1}>
         <SettingsGroup title={t('reglages.versions')}>
-          <SettingRow
-            icon={FlaskConical}
-            label={t('profil.testeur')}
-            detail={t('profil.testeurAide')}
-            right={
-              <Toggle
-                value={tester}
-                label={t('profil.testeur')}
-                onChange={(value) => {
-                  setTester(value);
-                  setTesterEnabled(value);
-                }}
-              />
-            }
-          />
-          {update.status === 'available' && update.release?.prerelease && !update.testAccepted && (
-            <SettingRow icon={Download} label={t('profil.installerTest', { version: update.release.version })} detail={t('profil.versionTestAide')} onPress={acceptTestUpdate} />
-          )}
+          {/* Nébula : pas de programme testeur ni de versions de test. */}
           <SettingRow icon={Download} label={t('profil.installationMaj')} detail={canInstall ? t('profil.autorisee') : t('profil.aAutoriser')} onPress={requestInstallPermission} />
           {pages.length > 0 && <SettingRow icon={Sparkles} label={t('nouveautes.version', { version })} onPress={() => setWhatsNewOpen(true)} />}
-          <SettingRow icon={RefreshCw} label={t('nouveautes.decouvrir')} onPress={onDiscover} />
           <SettingRow icon={Stethoscope} label={t('diag.ouvrir')} onPress={onDiagnostic} />
           {/* Ce que demande la licence Apache 2.0 des bibliothèques libres embarquées. */}
           <SettingRow

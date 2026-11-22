@@ -37,7 +37,6 @@ type Props = {
   initialTab?: Tab;
   // Ouvre la conversation pour une action (recherche, position, éphémères), ou simplement pour écrire.
   onOpen: (intent?: ChatIntent) => void;
-  onCustomize: () => void;
   onNotifications: () => void;
 };
 
@@ -108,7 +107,7 @@ function Tabs({ tab, mediaCount, onChange }: { tab: Tab; mediaCount: number; onC
   );
 }
 
-export function ContactScreen({ initialName, profile, isNew, initialTab = 'profile', onBack, onSave, onRemove, blocked, onToggleBlock, contactKey, verified, onOpen, onCustomize, onNotifications }: Props) {
+export function ContactScreen({ initialName, profile, isNew, initialTab = 'profile', onBack, onSave, onRemove, blocked, onToggleBlock, contactKey, verified, onOpen, onNotifications }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const [name, setName] = useState(initialName);
