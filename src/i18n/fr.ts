@@ -177,6 +177,7 @@ export const fr = {
     modifierNom: 'Modifier le nom',
     chiffre: 'Chiffré de bout en bout : seuls toi et tes contacts pouvez lire vos messages.',
     groupeGeneral: 'Général',
+    nousDeux: 'Nous deux',
     active: 'Activé',
     desactive: 'Désactivé',
     tousReglages: 'Tous les réglages',

@@ -1,7 +1,7 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Reanimated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { Bell, Camera, Check, Eye, FileDown, HardDrive, KeyRound, Lock, Moon, Pencil, RefreshCw, Settings, ShieldCheck } from 'lucide-react-native';
+import { Bell, Camera, Check, Eye, FileDown, HardDrive, KeyRound, Lock, CalendarHeart, Moon, Pencil, RefreshCw, Settings, ShieldCheck } from 'lucide-react-native';
 import { usePermissionsMissing } from '../onboarding/permissionStatus';
 
 import { appVersionName, authenticate } from '../../modules/pear-native';
@@ -17,14 +17,14 @@ import type { SettingsPage } from './settings/SettingsPages';
 import { Avatar, Header, Screen, usePressFeedback } from '../components/ui';
 import { haptics } from '../haptics';
 import { DURATION, enterUp, timing } from '../motion';
-import { createStyles, radius, spacing, useColors, useThemePreference } from '../theme';
+import { createStyles, radius, spacing, useColors } from '../theme';
 import { t } from '../i18n';
 
 const AVATAR = 72;
 // Les blocs de la page arrivent l'un après l'autre à l'ouverture.
 const STEP_MS = 40;
 
-type Props = { onSettings: () => void; onStorage: () => void; onPage: (page: SettingsPage) => void };
+type Props = { onSettings: () => void; onStorage: () => void; onPage: (page: SettingsPage) => void; onDates: () => void };
 
 // Le bouton rond à droite de la carte : un crayon, qui devient une coche pendant qu'on écrit le nom.
 function EditButton({ editing, onPress }: { editing: boolean; onPress: () => void }) {
@@ -53,12 +53,11 @@ function EditButton({ editing, onPress }: { editing: boolean; onPress: () => voi
 
 // L'onglet Profil : ma carte (photo et nom, tels que mes contacts les voient), puis les réglages
 // les plus utiles, rangés par groupes. « Tous les réglages » ouvre le reste.
-export function ProfileScreen({ onSettings, onStorage, onPage }: Props) {
+export function ProfileScreen({ onSettings, onStorage, onPage, onDates }: Props) {
   const permissionsMissing = usePermissionsMissing();
   const colors = useColors();
   const styles = useStyles();
   const barSpace = useBottomBarSpace();
-  const theme = useThemePreference();
   const saved = chat.getMyProfile();
   const [name, setName] = useState(saved.name ?? '');
   const [photo, setPhoto] = useState(saved.photo);
@@ -117,7 +116,6 @@ export function ProfileScreen({ onSettings, onStorage, onPage }: Props) {
     ]);
   };
 
-  const themeLabel = theme === 'light' ? t('profil.themeClair') : theme === 'dark' ? t('profil.themeSombre') : t('profil.themeAuto');
 
   return (
     <Screen>
@@ -159,9 +157,16 @@ export function ProfileScreen({ onSettings, onStorage, onPage }: Props) {
             <Text style={styles.secureText}>{t('profil.chiffre')}</Text>
           </Reanimated.View>
 
+          {/* Nébula : ce qui est à vous deux. */}
+          <Reanimated.View entering={enterUp(10, 260, STEP_MS * 2)}>
+            <SettingsGroup title={t('profil.nousDeux')}>
+              <SettingRow icon={CalendarHeart} label={t('nous.nosDates')} onPress={onDates} />
+            </SettingsGroup>
+          </Reanimated.View>
+
           <Reanimated.View entering={enterUp(10, 260, STEP_MS * 2)}>
             <SettingsGroup title={t('profil.groupeGeneral')}>
-              <SettingRow icon={Moon} label={t('profil.apparence')} value={themeLabel} onPress={() => onPage('appearance')} />
+              <SettingRow icon={Moon} label={t('profil.apparence')} onPress={() => onPage('appearance')} />
               <SettingRow icon={Bell} label={t('commun.notifications')} onPress={() => onPage('notifications')} />
               <SettingRow icon={KeyRound} label={t('priseEnMain.pageTitre')} right={permissionsMissing ? <View style={styles.dot} /> : undefined} onPress={() => onPage('permissions')} />
               <SettingRow icon={HardDrive} label={t('stockage.titre')} onPress={onStorage} />
@@ -176,7 +181,7 @@ export function ProfileScreen({ onSettings, onStorage, onPage }: Props) {
           </Reanimated.View>
 
           <Reanimated.View entering={enterUp(10, 260, STEP_MS * 4)}>
-            <SettingsGroup title="Pear">
+            <SettingsGroup title="Nébula">
               <SettingRow icon={FileDown} label={t('sauvegarde.chiffree')} onPress={() => onPage('backup')} />
               <SettingRow icon={RefreshCw} label={t('profil.misesAJour')} value={appVersionName() ?? ''} onPress={() => onPage('updates')} />
               <SettingRow icon={Settings} label={t('profil.tousReglages')} onPress={onSettings} />

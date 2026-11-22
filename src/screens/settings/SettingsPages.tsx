@@ -11,7 +11,6 @@ import { showDialog } from '../../components/dialog';
 import { LanguageSheet } from '../../components/LanguageSheet';
 import { Pear } from '../../components/Pear';
 import { LockIcon } from '../../components/AnimatedIcons';
-import { SegmentedControl } from '../../components/SegmentedControl';
 import { SettingRow, SettingsGroup } from '../../components/SettingsGroup';
 import { Toggle } from '../../components/Toggle';
 import { Header, Screen, usePressFeedback } from '../../components/ui';
@@ -21,7 +20,7 @@ import { enterUp, timing } from '../../motion';
 import { checkPermission, checkPermissions, ONBOARDING_PERMISSIONS, PermissionId, PERMISSIONS, PermissionState, requestPermission } from '../../onboarding/permissions';
 import { PermissionCard } from '../../onboarding/PermissionCard';
 import { setPermissionsMissing } from '../../onboarding/permissionStatus';
-import { createStyles, radius, setTextScaleIndex, setThemePreference, spacing, TEXT_SCALES, ThemePreference, useColors, useTextScaleIndex, useThemePreference } from '../../theme';
+import { createStyles, radius, setTextScaleIndex, spacing, TEXT_SCALES, useColors, useTextScaleIndex } from '../../theme';
 import { pagesFor } from '../../update/pages';
 import { acceptTestUpdate, checkForUpdate, getInstallPermission, isTestBuild, requestInstallPermission, setTesterEnabled, testerEnabled, useUpdateState } from '../../update/updates';
 import { WhatsNew } from '../../update/WhatsNew';
@@ -61,11 +60,6 @@ function usePermission(id: 'notifications' | 'battery') {
 
 // --- Apparence ---
 
-const THEMES: { value: ThemePreference; label: string }[] = [
-  { value: 'auto', label: t('profil.themeAuto') },
-  { value: 'light', label: t('profil.themeClair') },
-  { value: 'dark', label: t('profil.themeSombre') },
-];
 
 // La taille du texte : quatre crans sur une piste ; le cran choisi est un rond clair, la piste se remplit.
 function TextSizeSlider({ value, onChange }: { value: number; onChange: (value: number) => void }) {
@@ -107,7 +101,6 @@ function TextSizeSlider({ value, onChange }: { value: number; onChange: (value: 
 
 export function AppearancePage({ onBack }: { onBack: () => void }) {
   const styles = useStyles();
-  const theme = useThemePreference();
   const textSize = useTextScaleIndex();
   const [languageOpen, setLanguageOpen] = useState(false);
   return (
@@ -122,10 +115,7 @@ export function AppearancePage({ onBack }: { onBack: () => void }) {
           </View>
         </View>
       </Block>
-      <Block index={1}>
-        <SettingsGroup title={t('reglages.theme')} before={<SegmentedControl options={THEMES} value={theme} onChange={setThemePreference} />} />
-        <Text style={styles.note}>{t('reglages.themeAide')}</Text>
-      </Block>
+      {/* Nébula n'a qu'un thème, sombre : pas de choix clair / sombre. */}
       <Block index={2}>
         <SettingsGroup title={t('reglages.tailleTexte')} before={<TextSizeSlider value={textSize} onChange={setTextScaleIndex} />} />
       </Block>

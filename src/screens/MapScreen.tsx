@@ -21,15 +21,15 @@ import { EASE, enterUp, timing } from '../motion';
 import { Contact } from '../storage';
 import { createStyles, Palette, radius, spacing, useIsDark } from '../theme';
 
-// La carte suit le thème. Sombre : l'allure de la planche « Carte » (verte, calme). Clair : la même
+// Nébula : la planche « Nébula · Carte » (violette, calme, grain). Clair (non utilisé) : la même
 // carte en clair, pastilles et fiche blanches.
 type MapInk = { ink: string; muted: string; signature: string; chrome: string; sheet: string; face: string; ended: string; line: string; map: MapColors };
 const DARK_INK: MapInk = {
   ink: '#F2F2F0',
   muted: '#8E8E93',
-  signature: '#B4CC68',
-  chrome: 'rgba(11, 11, 12, 0.85)',
-  sheet: 'rgba(20, 20, 22, 0.96)',
+  signature: '#B9A3E3',
+  chrome: 'rgba(20, 16, 28, 0.78)',
+  sheet: 'rgba(20, 16, 28, 0.94)',
   face: '#2A2A2E',
   ended: '#5A5A60',
   line: '#222226',

@@ -141,6 +141,8 @@ export const fixed = {
   thumbFace: '#232327',
   onSignatureSoft: '#E6DDF5',
   ringTrack: '#26262A',
+  transparent: 'transparent',
+  hairline: 'rgba(255, 255, 255, 0.07)',
 };
 
 // --- Choix du thème : suit le système, ou forcé clair / sombre (réglage du profil) ---

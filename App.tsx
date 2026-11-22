@@ -570,7 +570,7 @@ function App() {
       );
     }
     if (current.name === 'profile') {
-      return <ProfileScreen onSettings={() => setRoute({ name: 'settings' })} onStorage={() => setRoute({ name: 'storage' })} onPage={(page) => setRoute({ name: 'settingsPage', page })} />;
+      return <ProfileScreen onDates={() => setRoute({ name: 'dates' })} onSettings={() => setRoute({ name: 'settings' })} onStorage={() => setRoute({ name: 'storage' })} onPage={(page) => setRoute({ name: 'settingsPage', page })} />;
     }
     if (current.name === 'settings') {
       return (

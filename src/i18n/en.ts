@@ -178,6 +178,7 @@ export const en: Dictionary = {
     modifierNom: 'Edit name',
     chiffre: 'End-to-end encrypted: only you and your contacts can read your messages.',
     groupeGeneral: 'General',
+    nousDeux: 'The two of us',
     active: 'On',
     desactive: 'Off',
     tousReglages: 'All settings',

@@ -9,7 +9,7 @@ import { Message } from '../../../chat/database';
 import { MAX_TEXT_LENGTH } from '../../../chat/manager';
 import { IconButton, useNavigationBarHeight } from '../../../components/ui';
 import { MicIcon, SendIcon } from '../../../components/AnimatedIcons';
-import { createStyles, radius, spacing, useColors } from '../../../theme';
+import { createStyles, fixed, radius, spacing, useColors } from '../../../theme';
 
 import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { useChatStyles } from '../styles';
@@ -183,8 +183,9 @@ export function Composer({
 }
 
 const useLocalStyles = createStyles((colors) => ({
+  // Nébula : la saisie est posée sur le fond à grain, sans bande opaque.
   composerArea: {
-    backgroundColor: colors.background,
+    backgroundColor: fixed.transparent,
   },
   composerUnderlay: {
     position: 'absolute',
@@ -192,7 +193,7 @@ const useLocalStyles = createStyles((colors) => ({
     right: 0,
     top: '100%',
     height: 400,
-    backgroundColor: colors.background,
+    backgroundColor: fixed.transparent,
   },
   composerMode: {
     flexDirection: 'row',
@@ -200,7 +201,7 @@ const useLocalStyles = createStyles((colors) => ({
     gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    backgroundColor: colors.background,
+    backgroundColor: fixed.transparent,
   },
   composerModeTitle: {
     fontSize: 13,
@@ -217,7 +218,7 @@ const useLocalStyles = createStyles((colors) => ({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    backgroundColor: colors.background,
+    backgroundColor: fixed.transparent,
   },
   field: {
     flex: 1,
@@ -252,7 +253,7 @@ const useLocalStyles = createStyles((colors) => ({
     alignItems: 'flex-end',
     minHeight: 44,
     borderRadius: 22,
-    backgroundColor: colors.surface,
+    backgroundColor: fixed.card,
     paddingLeft: spacing.md,
     paddingRight: 4,
   },

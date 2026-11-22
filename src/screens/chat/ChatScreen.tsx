@@ -3,6 +3,7 @@ import { FlatList, Image, Keyboard, KeyboardAvoidingView, Linking, PermissionsAn
 import Reanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { EASE } from '../../motion';
 import { BlurTargetView } from 'expo-blur';
+import { Backdrop } from '../../components/nebula';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
@@ -607,7 +608,8 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
     <Screen edgeToEdgeBottom>
       <View ref={root} collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill} />
       <BlurTargetView ref={blurTarget} style={styles.flex}>
-        {wallpaper && <Image source={{ uri: wallpaper }} style={styles.wallpaper} resizeMode="cover" />}
+        {/* Nébula : sans fond choisi, le fond Aube à grain de la planche Conversation. */}
+        {wallpaper ? <Image source={{ uri: wallpaper }} style={styles.wallpaper} resizeMode="cover" /> : <Backdrop kind="aube" />}
         <ChatHeader contactKey={contactKey} name={name} onBack={onBack} onInfo={onInfo} onCustomize={onCustomize} onSearch={() => setSearching(true)} onMenu={() => setMenuOpen(true)} ephemeral={ephemeral} onEphemeral={chooseEphemeral} />
         {/* Le décalage compense la barre d'état, placée au-dessus de la zone floutée. */}
         <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={topInset} style={styles.flex}>

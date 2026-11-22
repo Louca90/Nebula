@@ -9,21 +9,23 @@ import type { StyleSpecification } from '@maplibre/maplibre-react-native';
 
 export type MapColors = typeof MAP_COLORS;
 
+// Nébula (planche « Nébula · Carte ») : le fond noir violacé des planches, des routes à peine plus claires,
+// l'eau en violet nuit, les parcs en prune profond. Les noms restent discrets.
 export const MAP_COLORS = {
-  background: '#121613',
-  park: '#18241A',
-  wood: '#162117',
-  residential: '#141A15',
-  water: '#22303A',
-  waterway: '#22303A',
-  building: '#171D18',
-  minor: '#1C221D',
-  major: '#20261F',
-  motorway: '#1F2720',
-  rail: '#1A201B',
-  label: '#6E7A70',
-  labelStrong: '#8E998F',
-  halo: '#121613',
+  background: '#0B0914',
+  park: '#151021',
+  wood: '#130F1E',
+  residential: '#0F0C18',
+  water: '#221B3A',
+  waterway: '#221B3A',
+  building: '#120E1C',
+  minor: '#171322',
+  major: '#1D1829',
+  motorway: '#1A1526',
+  rail: '#16121F',
+  label: '#77708A',
+  labelStrong: '#9C95B0',
+  halo: '#0B0914',
 };
 
 export const MAP_COLORS_LIGHT: MapColors = {

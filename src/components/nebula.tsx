@@ -13,6 +13,7 @@ const BACKDROPS = {
   spot: require('../../assets/backgrounds/spot.webp'),
   amethyste: require('../../assets/backgrounds/amethyste.webp'),
   soie: require('../../assets/backgrounds/soie.webp'),
+  aube: require('../../assets/backgrounds/aube.webp'),
 };
 export type BackdropKind = keyof typeof BACKDROPS;
 const GRAIN = require('../../assets/backgrounds/grain.webp');

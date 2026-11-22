@@ -10,7 +10,7 @@ import { Pear } from '../../../components/Pear';
 import { chat } from '../../../chat/manager';
 import { isSelf } from '../../../chat/self';
 import { Avatar, Header, IconButton } from '../../../components/ui';
-import { createStyles, motion, radius, spacing, useColors } from '../../../theme';
+import { createStyles, fixed, motion, radius, spacing, useColors } from '../../../theme';
 
 import { ROUTE } from '../constants';
 import { ephemeralLabel } from '../format';
@@ -134,10 +134,11 @@ export function ChatHeader({ contactKey, name, onBack, onInfo, onCustomize, onSe
 }
 
 const useStyles = createStyles((colors) => ({
+  // Nébula : l'en-tête laisse voir le fond à grain, séparé par un filet clair (planche Conversation).
   headerBar: {
-    backgroundColor: colors.background,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    backgroundColor: fixed.transparent,
+    borderBottomWidth: 1,
+    borderBottomColor: fixed.hairline,
   },
   dot: {
     position: 'absolute',
