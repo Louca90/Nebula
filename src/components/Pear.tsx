@@ -20,7 +20,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Circle, ClipPath, Defs, G, Mask, Path, Rect } from 'react-native-svg';
 
 import { fixed, useColors } from '../theme';
-import { Lily } from './Lily';
+import { Lily, LilyFill } from './Lily';
 
 // L'icône « Pépins » : une poire coupée en deux, peau verte, chair pâle, deux pépins reliés par un lien
 // en pointillés (la connexion pair à pair). C'est un logo qui s'anime, pas un personnage : aucun visage,
@@ -200,6 +200,8 @@ export function Pear({ height, color, state = 'idle', progress = 0, leafColor }:
       open.set(withRepeat(withSequence(withTiming(state === 'searching' ? 0.25 : 0.6, { duration: 900, easing: LILY_EASE }), withTiming(1, { duration: 900, easing: LILY_EASE })), -1, false));
     } else open.set(withTiming(state === 'ripening' || state === 'bitten' ? progress : 1, { duration: 260, easing: LILY_EASE }));
   }, [state, progress, breathing, open]);
+  // Envoi d'un fichier : le lys se remplit selon le pourcentage, sur un lys pâle.
+  if (state === 'ripening') return <LilyFill size={(height * 92) / 88} color={color} trackColor={fixed.ridgeIdle} progress={progress} />;
   return <Lily size={(height * 92) / 88} color={state === 'leaf' ? (leafColor ?? color) : color} open={open} />;
 }
 

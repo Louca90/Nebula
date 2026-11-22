@@ -1,5 +1,6 @@
-import Reanimated, { useAnimatedProps, useSharedValue, type SharedValue } from 'react-native-reanimated';
-import Svg, { G, Path } from 'react-native-svg';
+import { useEffect, useId } from 'react';
+import Reanimated, { Easing, useAnimatedProps, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import Svg, { ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
 
 // Le lys d'un seul tenant des planches Elvira (même dessin, même boîte « 4 10 92 88 »).
 // `open` va de 0 (fermé : pétales repliés, étamines cachées) à 1 (ouvert), sur le fil natif.
@@ -58,3 +59,33 @@ export function LilyMark({ height, color }: { height: number; color: string }) {
 
 // Les tracés du lys, pour les dessins qui l'animent autrement (pétale qui tombe du mode éphémère).
 export const LILY_PATHS = { left: PETAL_LEFT, right: PETAL_RIGHT, stamens: STAMENS, heart: HEART, stem: STEM };
+
+// Le lys qui se remplit de bas en haut selon `progress` (0 à 1) : un fichier qui part ou arrive. Le lys
+// entier est dessiné pâle, la version pleine apparaît par une découpe fixe que l'on fait glisser (sur
+// Android, une découpe animée n'est jamais redessinée : on déplace le groupe par sa matrix, et le contenu
+// est remis en place par le déplacement inverse).
+const AnimatedFillG = Reanimated.createAnimatedComponent(G);
+const LILY_HEIGHT = 88;
+export function LilyFill({ size, color, trackColor, progress }: { size: number; color: string; trackColor: string; progress: number }) {
+  const id = useId().replace(/[^A-Za-z0-9_-]/g, '');
+  const level = useSharedValue(progress);
+  useEffect(() => {
+    level.set(withTiming(Math.max(0, Math.min(1, progress)), { duration: 260, easing: Easing.bezier(0.2, 0.8, 0.2, 1) }));
+  }, [progress, level]);
+  const window = useAnimatedProps(() => ({ matrix: [1, 0, 0, 1, 0, LILY_HEIGHT * (1 - level.get())] }) as object);
+  const back = useAnimatedProps(() => ({ matrix: [1, 0, 0, 1, 0, -LILY_HEIGHT * (1 - level.get())] }) as object);
+  const paths = (fill: string) => [PETAL_LEFT, PETAL_RIGHT, STAMENS, HEART, STEM].map((d) => <Path key={d.slice(0, 12)} d={d} fill={fill} />);
+  return (
+    <Svg width={size} height={(size * 88) / 92} viewBox="4 10 92 88">
+      <Defs>
+        <ClipPath id={`fill${id}`}>
+          <Rect x={4} y={10} width={92} height={LILY_HEIGHT} />
+        </ClipPath>
+      </Defs>
+      {paths(trackColor)}
+      <AnimatedFillG animatedProps={window} clipPath={`url(#fill${id})`}>
+        <AnimatedFillG animatedProps={back}>{paths(color)}</AnimatedFillG>
+      </AnimatedFillG>
+    </Svg>
+  );
+}

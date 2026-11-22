@@ -1073,6 +1073,9 @@ export const en: Dictionary = {
     amethyste: 'Amethyst',
     soie: 'Silk',
   },
+  medias: {
+    sousTitre: '{nom} · {n} items',
+  },
   carte: {
     titre: 'Map',
     voir: 'See on the map',

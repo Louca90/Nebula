@@ -200,3 +200,22 @@ export function LockIcon({ size = 24, color, strokeWidth = 1.75, play, autoPlay,
     </View>
   );
 }
+
+// Copier (planche « Icônes animées ») : la feuille de devant glisse de sa copie à sa place.
+export function CopyIcon({ size = 24, color, strokeWidth = 1.75, play, autoPlay, delay = 0 }: AnimatedIconProps) {
+  const line = useStroke(color, strokeWidth);
+  const slide = useSharedValue(0);
+  useTrigger(play, autoPlay, delay, (wait) => bounceBack(slide, 120, 260, wait));
+  const unit = size / 24;
+  const style = useAnimatedStyle(() => ({ transform: [{ translateX: -5 * unit * slide.get() }, { translateY: 5 * unit * slide.get() }] }));
+  return (
+    <View style={{ width: size, height: size }}>
+      <Layer size={size}>
+        <Path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" {...line} />
+      </Layer>
+      <Layer size={size} style={style}>
+        <Rect x={8} y={8} width={14} height={14} rx={2} ry={2} {...line} />
+      </Layer>
+    </View>
+  );
+}

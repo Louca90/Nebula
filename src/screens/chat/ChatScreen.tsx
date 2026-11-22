@@ -29,7 +29,7 @@ import { bubblePalette, createStyles, fixed, motion, radius, spacing, useColors 
 import { ChatHeader } from './components/ChatHeader';
 import { ChatSearch } from './components/ChatSearch';
 import { ChatMenu, ChatMenuItem } from './components/ChatMenu';
-import { BellIcon, PinIcon, TrashIcon } from '../../components/AnimatedIcons';
+import { BellIcon, CopyIcon, PinIcon, TrashIcon } from '../../components/AnimatedIcons';
 import { LocationSheet, ShareChoice } from './components/LocationSheet';
 import { DraftPreviewCard } from './components/LinkPreview';
 import { StickerSheet } from './components/StickerSheet';
@@ -379,7 +379,7 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
   // Un message programmé n'est pas encore parti : l'envoyer tout de suite, le copier ou l'annuler.
   const scheduledActions = (message: Message): Action[] => [
     { label: t('programme.envoyerMaintenant'), icon: Send, onPress: () => chat.sendScheduledNow(contactKey, message.id) },
-    { label: t('chat.copier'), icon: Copy, onPress: () => Clipboard.setStringAsync(message.text) },
+    { label: t('chat.copier'), icon: Copy, animated: CopyIcon, onPress: () => Clipboard.setStringAsync(message.text) },
     { label: t('programme.annuler'), icon: Trash2, animated: TrashIcon, danger: true, onPress: () => chat.deleteForMe(contactKey, message.id) },
   ];
 
@@ -392,7 +392,7 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
   const actionsFor = (message: Message): Action[] => message.status === 'scheduled' ? scheduledActions(message) : message.view_once ? onceActions(message) : [
     { label: t('chat.repondre'), icon: Reply, onPress: () => startReply(message) },
     ...(message.kind === 'text'
-      ? [{ label: t('chat.copier'), icon: Copy, onPress: () => Clipboard.setStringAsync(message.text) }]
+      ? [{ label: t('chat.copier'), icon: Copy, animated: CopyIcon, onPress: () => Clipboard.setStringAsync(message.text) }]
       : []),
     ...(message.kind === 'text' && message.mine === 1
       ? [

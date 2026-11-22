@@ -33,6 +33,7 @@ import { CustomizeScreen } from './src/screens/CustomizeScreen';
 import { NousScreen } from './src/screens/NousScreen';
 import { PenseScreen } from './src/screens/PenseScreen';
 import { DatesScreen } from './src/screens/DatesScreen';
+import { MediaScreen } from './src/screens/MediaScreen';
 import { OnboardingScreen, OnboardingStep } from './src/onboarding/OnboardingScreen';
 import { checkAllPermissions } from './src/onboarding/permissions';
 import { setPermissionsMissing } from './src/onboarding/permissionStatus';
@@ -84,6 +85,8 @@ type Route =
   // Nébula : Pense à toi (et pouce contre pouce), puis Nos dates.
   | { name: 'pense'; publicKey: string }
   | { name: 'dates' }
+  // Nébula : les médias échangés (planche « Médias et visionneuse »).
+  | { name: 'media'; publicKey: string }
   | { name: 'customize'; publicKey: string }
   | { name: 'notifications'; publicKey: string }
   // name : le pseudo lu dans le QR code ou le lien, proposé comme nom du contact.
@@ -737,6 +740,10 @@ function App() {
       const partner = contacts.find((contact) => contact.publicKey === current.publicKey);
       if (partner) return <PenseScreen contact={partner} onBack={() => setRoute({ name: 'home' })} />;
     }
+    if (current.name === 'media') {
+      const partner = contacts.find((contact) => contact.publicKey === current.publicKey);
+      if (partner) return <MediaScreen contact={partner} onBack={() => setRoute(parentOf(current) ?? { name: 'home' })} />;
+    }
     if (current.name === 'dates') {
       return <DatesScreen partner={contacts.find((contact) => !contact.pending) ?? null} onBack={() => setRoute(parentOf(current) ?? { name: 'home' })} />;
     }
@@ -751,6 +758,7 @@ function App() {
         onRequests={() => setRoute({ name: 'requests' })}
         onOpenChat={(contact) => setRoute({ name: 'chat', publicKey: contact.publicKey })}
         onProfile={(contact) => setRoute({ name: 'contact', publicKey: contact.publicKey })}
+        onMedia={(contact) => setRoute({ name: 'media', publicKey: contact.publicKey })}
         onPense={(contact) => setRoute({ name: 'pense', publicKey: contact.publicKey })}
         onDates={() => setRoute({ name: 'dates' })}
       />

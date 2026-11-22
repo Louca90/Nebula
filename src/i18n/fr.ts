@@ -1072,6 +1072,9 @@ export const fr = {
     amethyste: 'Améthyste',
     soie: 'Soie',
   },
+  medias: {
+    sousTitre: '{nom} · {n} éléments',
+  },
   carte: {
     titre: 'Carte',
     voir: 'Voir sur la carte',

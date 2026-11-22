@@ -78,7 +78,8 @@ function MonthPicker({ value, onChange }: { value: number; onChange: (at: number
             <View key={`e${index}`} style={styles.cell} />
           ) : (
             <Pressable key={at} onPress={() => onChange(at)} accessibilityRole="button" accessibilityLabel={format(at, { day: 'numeric', month: 'long', year: 'numeric' })} style={styles.cell}>
-              <View style={[styles.day, startOfDay(value) === at && styles.daySelected]}>
+              {/* Jamais fusionnée par React Native (sinon le rond du jour choisi sortait carré). */}
+              <View collapsable={false} style={[styles.day, startOfDay(value) === at && styles.daySelected]}>
                 <Text style={[styles.dayText, startOfDay(value) === at && styles.dayTextSelected]}>{new Date(at).getDate()}</Text>
               </View>
             </Pressable>
@@ -308,7 +309,7 @@ const useStyles = createStyles((colors) => ({
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   weekday: { width: `${100 / 7}%`, textAlign: 'center', fontSize: 12, color: colors.textMuted, paddingVertical: 4, textTransform: 'uppercase' },
   cell: { width: `${100 / 7}%`, height: 42, alignItems: 'center', justifyContent: 'center' },
-  day: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  day: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: fixed.transparent },
   daySelected: { backgroundColor: fixed.lilac },
   dayText: { fontSize: 15, color: colors.text, fontVariant: ['tabular-nums'] },
   dayTextSelected: { color: colors.background, fontWeight: '700' },
