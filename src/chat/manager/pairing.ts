@@ -74,6 +74,10 @@ export function acceptPairing(core: ChatCore, contact: string) {
   setRequestState(contact, 'accepted');
   clearPairNotification(contact);
   sendEvent(core, contact, { action: 'accepted', id: '' });
+  // Nébula : en plus, une demande en retour dans sa boîte. Son téléphone la lit en direct (topic Firebase)
+  // et, nous trouvant « en attente », nous active aussitôt : la liaison aboutit même sans connexion
+  // directe ni push (avant, il restait sur « En attente de sa réponse »).
+  requestPairing(core, contact).catch((e) => log.warn('demande en retour', e));
 }
 
 export function declinePairing(core: ChatCore, contact: string) {

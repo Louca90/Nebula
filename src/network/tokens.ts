@@ -47,6 +47,18 @@ function readJson<T>(key: string): T | null {
 }
 
 // La boîte est enregistrée auprès du serveur une fois par compte Firebase (refaite après une réinstallation).
+// L'uid d'un jeton Firebase (champ « sub » de sa partie centrale, en base64url), sans le vérifier :
+// le serveur le vérifie, on veut seulement savoir pour quel compte il a été émis.
+function tokenUid(token: string): string | null {
+  try {
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = JSON.parse(globalThis.atob(part + '='.repeat((4 - (part.length % 4)) % 4)));
+    return typeof json.sub === 'string' ? json.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 // Un seul enregistrement à la fois ; les appels simultanés attendent le même résultat.
 let registering: Promise<string> | null = null;
 export function registerInbox(identity: Identity): Promise<string> {
@@ -64,15 +76,22 @@ async function doRegisterInbox(identity: Identity): Promise<string> {
   const url = wakeUrl().replace(/\/wake$/, '/inbox');
   const { serverKey } = await (await fetch(url)).json();
   const at = Date.now();
+  const token = await getIdToken(user, true);
+  // Le serveur vérifie la preuve avec l'uid du jeton. Sous Android, le jeton vient du compte natif courant,
+  // qui peut différer du compte vu en JS : la preuve est faite pour l'uid lu dans le jeton lui-même.
+  const uid = tokenUid(token) ?? user.uid;
+  if (uid !== user.uid) log.warn('boîte', `uid du jeton différent du compte JS (${uid.slice(0, 6)} / ${user.uid.slice(0, 6)})`);
   const response = await fetch(url, {
     method: 'POST',
-    // Le jeton du compte de la preuve, demandé à ce compte-là.
-    headers: { Authorization: `Bearer ${await getIdToken(user, true)}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ v: 1, publicKey: identity.publicKey, at, proof: inboxProof(identity, serverKey, user.uid, at) }),
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 1, publicKey: identity.publicKey, at, proof: inboxProof(identity, serverKey, uid, at) }),
   });
-  if (!response.ok) throw new Error(`Enregistrement de la boîte refusé (${response.status})`);
+  if (!response.ok) {
+    log.warn('boîte', `refus ${response.status} · uid ${uid.slice(0, 6)} · clé ${identity.publicKey.slice(0, 6)} · serveur ${String(serverKey).slice(0, 6)} · décalage ${Math.round((Date.now() - at) / 1000)} s`);
+    throw new Error(`Enregistrement de la boîte refusé (${response.status})`);
+  }
   const { inboxId } = await response.json();
-  setSetting(INBOX_SETTING, JSON.stringify({ inboxId, uid: user.uid, serverKey }));
+  setSetting(INBOX_SETTING, JSON.stringify({ inboxId, uid, serverKey }));
   log.info('boîte enregistrée');
   return inboxId;
 }

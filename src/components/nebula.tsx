@@ -18,13 +18,17 @@ const BACKDROPS = {
 export type BackdropKind = keyof typeof BACKDROPS;
 const GRAIN = require('../../assets/backgrounds/grain.webp');
 
+// Une image locale garde sinon sa taille d'origine en points (1080 × 2337 pour un fond, 256 pour le grain),
+// qui l'emporte sur absoluteFill : le fond était 2,6 fois trop grand (zoomé) et le grain s'arrêtait en carré.
+const fill = [StyleSheet.absoluteFill, { width: '100%', height: '100%' }] as const;
+
 export function Backdrop({ kind }: { kind: BackdropKind }) {
-  return <Image source={BACKDROPS[kind]} style={StyleSheet.absoluteFill} resizeMode="cover" />;
+  return <Image source={BACKDROPS[kind]} style={fill} resizeMode="cover" />;
 }
 
 // Le grain des fonds, en incrustation sur un bouton (Grain : 0,45 ; Fumé : 0,25).
 function GrainOverlay({ opacity }: { opacity: number }) {
-  return <Image source={GRAIN} resizeMode="repeat" style={[StyleSheet.absoluteFill, { opacity, mixBlendMode: 'overlay' }]} />;
+  return <Image source={GRAIN} resizeMode="repeat" style={[fill, { opacity, mixBlendMode: 'overlay' }]} />;
 }
 
 type GrainButtonProps = {
