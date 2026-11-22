@@ -18,7 +18,8 @@ import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
 import { showDialog } from './dialog';
 
-type Mode = 'code' | 'scan';
+export type PairMode = 'code' | 'scan';
+type Mode = PairMode;
 
 const QR_SIZE = 210;
 const DRAW_MS = 600;
@@ -36,13 +37,14 @@ const codeIn: EntryExitAnimationFunction = () => {
 // La feuille « QR code » : « Mon code » et « Scanner » dans la même feuille, avec un sélecteur dont la
 // pastille glisse. Le contenu du code reste pear://pair?k=<clé>&n=<pseudo>. Un code lu ferme la feuille
 // et ouvre « Nouveau contact » (onKeyReceived).
-export function PairSheet({ visible, publicKey, onClose, onKeyReceived }: { visible: boolean; publicKey: string; onClose: () => void; onKeyReceived: (link: PairingLink) => void }) {
+// initialMode : ouvrir directement sur le scanner (bouton « Scanner son code » de Nébula).
+export function PairSheet({ visible, publicKey, onClose, onKeyReceived, initialMode = 'code' }: { visible: boolean; publicKey: string; onClose: () => void; onKeyReceived: (link: PairingLink) => void; initialMode?: Mode }) {
   if (!visible) return null;
-  return <Pair publicKey={publicKey} onClose={onClose} onKeyReceived={onKeyReceived} />;
+  return <Pair publicKey={publicKey} onClose={onClose} onKeyReceived={onKeyReceived} initialMode={initialMode} />;
 }
 
-function Pair({ publicKey, onClose, onKeyReceived }: { publicKey: string; onClose: () => void; onKeyReceived: (link: PairingLink) => void }) {
-  const [mode, setMode] = useState<Mode>('code');
+function Pair({ publicKey, onClose, onKeyReceived, initialMode }: { publicKey: string; onClose: () => void; onKeyReceived: (link: PairingLink) => void; initialMode: Mode }) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const { height } = useWindowDimensions();
   const options = [
     { value: 'code' as const, label: t('qr.monCode') },

@@ -1,4 +1,4 @@
-// Génère les fonds violets à grain de Nébula (planche « Fonds violets à grain ») en WebP, grain compris.
+// Génère la tuile de grain des boutons Grain et Fumé (planche « Boutons »).
 // Usage : node scripts/make-backgrounds.mjs   (écrit assets/backgrounds/*.webp, avec sharp)
 // Même SVG que les planches : formes en dégradé, gros flou, puis grain gris en incrustation.
 import { mkdirSync } from 'node:fs';
@@ -10,8 +10,6 @@ import { Buffer } from 'node:buffer';
 import sharp from 'sharp';
 
 const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'backgrounds');
-const WIDTH = 1080;
-const HEIGHT = 2340;
 
 function background(kind, W, H) {
   const id = kind;
@@ -31,11 +29,9 @@ function background(kind, W, H) {
 
 
 mkdirSync(out, { recursive: true });
-for (const kind of ['horizon', 'spot', 'amethyste', 'soie', 'aube']) {
-  const svg = background(kind, WIDTH, HEIGHT).replace('<svg aria-hidden="true"', '<svg xmlns="http://www.w3.org/2000/svg"');
-  await sharp(Buffer.from(svg)).webp({ quality: 86 }).toFile(join(out, kind + '.webp'));
-  console.log(kind);
-}
+// Les fonds eux-mêmes sont rendus par scripts/render-backgrounds.mjs (moteur des planches) : ce rendu
+// librsvg n'était pas fidèle. Ce script ne fait plus que le grain des boutons.
+void background;
 
 // Grain seul, en tuile, posé en incrustation sur les boutons Grain et Fumé (planche « Boutons »).
 const GRAIN = 256;

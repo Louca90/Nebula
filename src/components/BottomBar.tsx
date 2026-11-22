@@ -25,7 +25,8 @@ const SLIDE_MS = 300;
 const SLIDE_STEP = SLOT_WIDTH + SLOT_GAP;
 // Gros flou façon One UI. Sur Android, expo-blur tire de `intensity` à la fois le rayon (intensité ÷
 // réduction, en pixels) et un voile gris (69 % d'opacité à 100) : à 100, le voile cachait le flou.
-// Intensité basse = voile léger (≈ 17 %), réduction minuscule = rayon énorme (≈ 160 px).
+// Intensité basse = voile léger, réduction minuscule = rayon énorme (≈ 160 px). Teinte claire : un voile
+// blanc d'environ 10 %, le verre dépoli lumineux de One UI (la teinte sombre donnait une pastille grise).
 const BLUR_INTENSITY = 24;
 const BLUR_REDUCTION = 0.15;
 
@@ -148,7 +149,7 @@ export function BottomBar({ active, onChange, blurTarget }: { active: Tab; onCha
             blurMethod="dimezisBlurViewSdk31Plus"
             intensity={BLUR_INTENSITY}
             blurReductionFactor={BLUR_REDUCTION}
-            tint="dark"
+            tint="default"
             style={StyleSheet.absoluteFill}
           />
         )}

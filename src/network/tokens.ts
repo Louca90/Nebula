@@ -1,4 +1,5 @@
 import { getAuth, getIdToken, signInAnonymously } from '@react-native-firebase/auth';
+
 import { get, getDatabase, ref, remove, serverTimestamp, set } from '@react-native-firebase/database';
 
 import { getSetting, setSetting } from '../chat/database';
@@ -20,9 +21,20 @@ const REPUBLISH_MS = 30 * 24 * 3600000;
 
 type Inbox = { inboxId: string; uid: string; serverKey: string };
 
+// Une seule connexion anonyme à la fois : au démarrage, plusieurs tâches la demandent ensemble. Chacune
+// créait son propre compte, et le jeton envoyé (celui du compte courant) ne correspondait plus à l'uid de
+// la preuve : le serveur répondait 403.
+type FirebaseUser = NonNullable<ReturnType<typeof getAuth>['currentUser']>;
+let signingIn: Promise<FirebaseUser> | null = null;
 export async function currentUser() {
   const auth = getAuth();
-  return auth.currentUser ?? (await signInAnonymously(auth)).user;
+  if (auth.currentUser) return auth.currentUser;
+  signingIn ??= signInAnonymously(auth)
+    .then((result) => result.user)
+    .finally(() => {
+      signingIn = null;
+    });
+  return signingIn;
 }
 
 function readJson<T>(key: string): T | null {
@@ -35,7 +47,16 @@ function readJson<T>(key: string): T | null {
 }
 
 // La boîte est enregistrée auprès du serveur une fois par compte Firebase (refaite après une réinstallation).
-export async function registerInbox(identity: Identity): Promise<string> {
+// Un seul enregistrement à la fois ; les appels simultanés attendent le même résultat.
+let registering: Promise<string> | null = null;
+export function registerInbox(identity: Identity): Promise<string> {
+  registering ??= doRegisterInbox(identity).finally(() => {
+    registering = null;
+  });
+  return registering;
+}
+
+async function doRegisterInbox(identity: Identity): Promise<string> {
   const user = await currentUser();
   const saved = readJson<Inbox>(INBOX_SETTING);
   if (saved && saved.uid === user.uid) return saved.inboxId;
@@ -45,7 +66,8 @@ export async function registerInbox(identity: Identity): Promise<string> {
   const at = Date.now();
   const response = await fetch(url, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${await getIdToken(user)}`, 'Content-Type': 'application/json' },
+    // Le jeton du compte de la preuve, demandé à ce compte-là.
+    headers: { Authorization: `Bearer ${await getIdToken(user, true)}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ v: 1, publicKey: identity.publicKey, at, proof: inboxProof(identity, serverKey, user.uid, at) }),
   });
   if (!response.ok) throw new Error(`Enregistrement de la boîte refusé (${response.status})`);

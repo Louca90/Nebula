@@ -4,7 +4,8 @@ import Reanimated, { useSharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { chat } from '../chat/manager';
-import { describeMessage, getContactProfile, getLastMessage, getMediaMessages, getUnreadCounts, Message } from '../chat/database';
+import { describeMessage, getContactProfile, getLastMessage, getMediaMessages, getPendingRequests, getUnreadCounts, Message, PairingRequest } from '../chat/database';
+import type { PairMode } from '../components/PairSheet';
 import { useMediaPreview } from '../chat/media';
 import { useBottomBarSpace } from '../components/BottomBar';
 import { Lily } from '../components/Lily';
@@ -28,7 +29,8 @@ type Props = {
   onMedia: (contact: Contact) => void;
   onPense: (contact: Contact) => void;
   onDates: () => void;
-  onPair: () => void;
+  onPair: (mode: PairMode) => void;
+  onRequests: () => void;
 };
 
 const AVATAR = 72;
@@ -62,21 +64,50 @@ function MediaTile({ message, onPress, index }: { message: Message; onPress: () 
   );
 }
 
-// Pas encore liés : l'invitation à scanner son QR code, avec le lys et le bouton Grain.
-function PairInvite({ pending, onPair }: { pending: boolean; onPair: () => void }) {
+// Pas encore liés : comment faire, en trois étapes, et les deux boutons de la feuille QR (Scanner son
+// code en Grain, Montrer mon code en Fumé). Une demande reçue s'affiche en haut, prête à être acceptée.
+function PairInvite({ pending, request, onPair, onRequests }: { pending: boolean; request: PairingRequest | null; onPair: (mode: PairMode) => void; onRequests: () => void }) {
   const styles = useStyles();
   const colors = useColors();
+  const steps = [t('nous.etape1'), t('nous.etape2'), t('nous.etape3')];
   return (
     <View style={styles.invite}>
+      {request && (
+        <Reanimated.View entering={enterUp(10, 300)} style={styles.requestWrap}>
+          <Card style={styles.request}>
+            <Text style={styles.requestTitle}>{t('nous.demandeRecue', { nom: request.name || t('app.contact') })}</Text>
+            <Text style={styles.requestText}>{t('nous.demandeAide')}</Text>
+            <GrainButton label={t('nous.voirDemande')} onPress={onRequests} />
+          </Card>
+        </Reanimated.View>
+      )}
       <StaticLily size={64} color={colors.text} />
       <Text style={styles.inviteTitle}>{pending ? t('nous.enAttente') : t('nous.lierTitre')}</Text>
-      <Text style={styles.inviteText}>{pending ? t('nous.enAttenteAide') : t('nous.lierAide')}</Text>
-      {!pending && <GrainButton label={t('nous.lier')} onPress={onPair} style={styles.inviteButton} />}
+      {pending ? (
+        <Text style={styles.inviteText}>{t('nous.enAttenteAide')}</Text>
+      ) : (
+        <>
+          <View style={styles.steps}>
+            {steps.map((step, index) => (
+              <Reanimated.View key={step} entering={enterUp(8, 260, 120 + index * 60)} style={styles.step}>
+                <View style={styles.stepNumber}>
+                  <Text style={styles.stepNumberText}>{index + 1}</Text>
+                </View>
+                <Text style={styles.stepText}>{step}</Text>
+              </Reanimated.View>
+            ))}
+          </View>
+          <View style={styles.inviteButtons}>
+            <GrainButton label={t('nous.scanner')} onPress={() => onPair('scan')} />
+            <GrainButton label={t('nous.montrer')} variant="smoke" onPress={() => onPair('code')} />
+          </View>
+        </>
+      )}
     </View>
   );
 }
 
-export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, onDates, onPair }: Props) {
+export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, onDates, onPair, onRequests }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const { top } = useInsets();
@@ -105,7 +136,7 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
       <View style={styles.screen}>
         <Backdrop kind="horizon" />
         {header}
-        <PairInvite pending={!!partner?.pending} onPair={onPair} />
+        <PairInvite pending={!!partner?.pending} request={getPendingRequests()[0] ?? null} onPair={onPair} onRequests={onRequests} />
       </View>
     );
   }
@@ -378,9 +409,65 @@ const useStyles = createStyles((colors) => ({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 28,
     gap: 12,
     paddingBottom: 120,
+  },
+  requestWrap: {
+    alignSelf: 'stretch',
+    marginBottom: 12,
+  },
+  request: {
+    padding: 16,
+    gap: 8,
+  },
+  requestTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  requestText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: fixed.cardTextSoft,
+    marginBottom: 4,
+  },
+  steps: {
+    alignSelf: 'stretch',
+    gap: 10,
+    marginTop: 8,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: fixed.card,
+  },
+  stepNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.signature,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumberText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.onSignature,
+  },
+  stepText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text,
+  },
+  inviteButtons: {
+    alignSelf: 'stretch',
+    gap: 10,
+    marginTop: 12,
   },
   inviteTitle: {
     marginTop: 12,

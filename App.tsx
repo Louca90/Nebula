@@ -23,7 +23,7 @@ import { BottomBar, Tab } from './src/components/BottomBar';
 import { DialogHost, showDialog } from './src/components/dialog';
 import { ErrorBoundary, ErrorScreen } from './src/components/ErrorBoundary';
 import { deriveSharedSecret, getVerificationCode, Identity, PairingLink, parsePairingLink } from './src/crypto/pairing';
-import { PairSheet } from './src/components/PairSheet';
+import { PairSheet, type PairMode } from './src/components/PairSheet';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { ChatScreen } from './src/screens/chat/ChatScreen';
 import { isSelf } from './src/chat/self';
@@ -218,6 +218,8 @@ function App() {
   const [onboarding, setOnboarding] = useState<{ mode: 'full' | 'permissions'; step: OnboardingStep } | null>(null);
   // La feuille « QR code » (mon code, scanner), ouverte depuis l'accueil.
   const [pairOpen, setPairOpen] = useState(false);
+  // Nébula : la feuille QR s'ouvre sur « Mon code » ou directement sur le scanner.
+  const [pairMode, setPairMode] = useState<PairMode>('code');
 
   useEffect(() => {
     // La base est ouverte et migrée avant tout : un échec affiche une erreur au lieu de planter en boucle.
@@ -725,7 +727,11 @@ function App() {
     return (
       <NousScreen
         contacts={contacts}
-        onPair={() => setPairOpen(true)}
+        onPair={(mode) => {
+          setPairMode(mode);
+          setPairOpen(true);
+        }}
+        onRequests={() => setRoute({ name: 'requests' })}
         onOpenChat={(contact) => setRoute({ name: 'chat', publicKey: contact.publicKey })}
         onProfile={(contact) => setRoute({ name: 'contact', publicKey: contact.publicKey })}
         onMedia={(contact) => setRoute({ name: 'contact', publicKey: contact.publicKey, tab: 'media' })}
@@ -883,6 +889,7 @@ function App() {
       </BlurTargetView>
       {identity && !error && (
         <PairSheet
+          initialMode={pairMode}
           visible={pairOpen}
           publicKey={identity.publicKey}
           onClose={() => setPairOpen(false)}
