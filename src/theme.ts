@@ -68,31 +68,32 @@ const light: Palette = {
   bubbleTheirs: '#F5F5F5',
 };
 
+// Nébula : la palette des planches Elvira (noir violacé, lilas), seul thème de l'app.
 const dark: Palette = {
   scheme: 'dark',
   background: '#0B0B0C',
-  surface: '#1A1A1C',
-  elevated: '#1F1F22',
-  elevatedActive: '#36363A',
-  border: '#2C2C2F',
-  text: '#F5F5F7',
+  surface: '#161618',
+  elevated: '#16121E',
+  elevatedActive: '#2A2A2E',
+  border: '#222226',
+  text: '#F2F2F0',
   textMuted: '#8E8E93',
   onDarkMuted: '#B8B8B8',
   onDarkTrack: '#4A4A4A',
   overlay: 'rgba(0, 0, 0, 0.7)',
   selectionDim: 'rgba(0, 0, 0, 0.45)',
   disabled: '#4A4A4A',
-  danger: '#EF5350',
-  dangerSoft: '#3A1F1C',
-  accent: '#F5F5F7',
+  danger: '#FF8A7E',
+  dangerSoft: '#2A1617',
+  accent: '#F2F2F0',
   onAccent: '#0B0B0C',
-  signature: '#2B3420',
-  onSignature: '#E3EDC8',
-  signatureStrong: '#B4CC68',
+  signature: '#2A2433',
+  onSignature: '#E6DDF5',
+  signatureStrong: '#B9A3E3',
   shadow: 'rgba(0, 0, 0, 0.6)',
   onMedia: '#FFFFFF',
-  bubbleMine: '#E9E9EB',
-  bubbleTheirs: '#26262A',
+  bubbleMine: '#F2F2F0',
+  bubbleTheirs: '#232029',
 };
 
 // Couleurs qui ne changent jamais avec le thème : le contenu des photos et de l'éditeur, les dessins
@@ -119,6 +120,9 @@ export const fixed = {
   // Petit paysage qui montre l'effet des filtres, et son fond.
   scene: { sky: '#7FBDF0', sun: '#FFC93C', cloud: '#FFFFFF', hill: '#7CC36A', hillDark: '#2E8B4A', house: '#E5483B' },
   filterStripBackground: '#1C1C1E',
+  // Barre des onglets : voile violacé sur le flou, et son liseré.
+  tabBarTint: 'rgba(28, 22, 40, 0.38)',
+  tabBarEdge: 'rgba(255, 255, 255, 0.08)',
 };
 
 // --- Choix du thème : suit le système, ou forcé clair / sombre (réglage du profil) ---
@@ -128,7 +132,8 @@ const SETTING_KEY = 'theme';
 
 let preference: ThemePreference | null = null;
 // Avant la lecture du réglage (base pas encore ouverte), on suit le système.
-let palette: Palette = Appearance.getColorScheme() === 'dark' ? dark : light;
+// Nébula n'a qu'un thème, sombre : les planches n'existent qu'en sombre.
+let palette: Palette = dark;
 const listeners = new Set<() => void>();
 
 function readPreference(): ThemePreference {
@@ -145,9 +150,8 @@ function readPreference(): ThemePreference {
 
 // `changed` : le choix lui-même a changé (Automatique → Sombre peut garder la même palette).
 function update(changed = false) {
-  const wanted = readPreference();
-  const scheme = wanted === 'auto' ? (Appearance.getColorScheme() === 'dark' ? 'dark' : 'light') : wanted;
-  const next = scheme === 'dark' ? dark : light;
+  readPreference();
+  const next = dark;
   if (next === palette && !changed) return;
   palette = next;
   listeners.forEach((listener) => listener());

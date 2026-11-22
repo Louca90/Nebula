@@ -1,127 +1,123 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import Reanimated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
-import { haptics } from '../haptics';
-import { Camera, LucideIcon, Map as MapIcon, MessageCircle, User } from 'lucide-react-native';
-import { wakeCamera } from '../screens/cameraStandby';
+import { useEffect, type ComponentRef, type RefObject } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { BlurView } from 'expo-blur';
+import Reanimated, { useAnimatedProps, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Svg, { Circle, G, Path } from 'react-native-svg';
 
-import { chat } from '../chat/manager';
-import { useMediaUri } from '../chat/media';
-import { createStyles, radius, spacing, useColors } from '../theme';
+import { haptics } from '../haptics';
+import { createStyles, fixed, radius, spacing, useColors } from '../theme';
 import { useNavigationBarHeight } from './ui';
-import { CameraFilled, MapFilled, MessagesFilled, ProfileRing } from './TabIcons';
 import { t } from '../i18n';
 import { DURATION, timing } from '../motion';
-import { usePermissionsMissing } from '../onboarding/permissionStatus';
+import { Lily } from './Lily';
 
-export type Tab = 'home' | 'camera' | 'map' | 'profile';
+export type Tab = 'home' | 'map' | 'profile';
 
-type FilledIcon = typeof MessagesFilled;
-
-// Au repos, le contour ; choisi, l'icône pleine dont les éléments s'animent.
-const TABS: { tab: Tab; icon: LucideIcon; filled: FilledIcon | null; label: string }[] = [
-  { tab: 'home', icon: MessageCircle, filled: MessagesFilled, label: t('onglets.messages') },
-  { tab: 'camera', icon: Camera, filled: CameraFilled, label: t('onglets.appareilPhoto') },
-  { tab: 'map', icon: MapIcon, filled: MapFilled, label: t('carte.titre') },
-  { tab: 'profile', icon: User, filled: null, label: t('profil.titre') },
-];
-
-// La planche Accueil : des emplacements de 64 × 52 séparés de 4 points ; sous l'onglet choisi, une pastille
-// aux bouts ronds de la taille de l'emplacement (pas un rond) qui glisse de l'un à l'autre.
+// Planche « Nébula · onglets » : Nous (le lys), Carte, Profil. Emplacements de 64 × 52 séparés de 4 points,
+// une pastille qui glisse sous l'onglet choisi, et la pilule floutée en direct comme One UI.
 const SLOT_WIDTH = 64;
 const SLOT_HEIGHT = 52;
 const SLOT_GAP = 4;
 const BAR_PADDING = 6;
 const ICON_SIZE = 24;
-const KICK_MS = 650;
+const LILY_SIZE = 26;
 const SLIDE_MS = 300;
 const SLIDE_STEP = SLOT_WIDTH + SLOT_GAP;
-const PHOTO_SIZE = 30;
+// Gros flou : l'intensité maximale, peu divisée sur Android (sinon le flou reste petit).
+const BLUR_INTENSITY = 100;
+const BLUR_REDUCTION = 1.5;
+
+const AnimatedG = Reanimated.createAnimatedComponent(G);
+const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
+const AnimatedPath = Reanimated.createAnimatedComponent(Path);
+
+type BlurTarget = RefObject<ComponentRef<typeof View> | null>;
 
 // La place que les écrans laissent libre sous leur contenu, pour que la barre flottante ne le cache pas.
 export function useBottomBarSpace() {
   return SLOT_HEIGHT + BAR_PADDING * 2 + spacing.md * 2 + useNavigationBarHeight();
 }
 
-// L'onglet Profil montre ma photo (ou une silhouette), cerclée quand l'onglet est choisi.
-function ProfileIcon({ draw }: { draw: SharedValue<number> }) {
-  const permissionsMissing = usePermissionsMissing();
-  const colors = useColors();
-  const styles = useStyles();
-  useSyncExternalStore(chat.subscribe, chat.getVersion);
-  // Ma photo est chiffrée sur le disque (lot 2.3) : affichée depuis sa copie déchiffrée.
-  const photo = useMediaUri(chat.getMyProfile().photo, { scope: 'app' });
-  const initial = (chat.getMyProfile().name ?? '').trim().charAt(0).toUpperCase();
+// Carte : l'épingle descend et se pose, son ombre s'étire dessous.
+function PinIcon({ play, color }: { play: SharedValue<number>; color: string }) {
+  const pin = useAnimatedProps(() => {
+    const p = play.get();
+    return { matrix: [1, 0, 0, 1, 0, -8 * (1 - p)], opacity: p } as object;
+  });
+  const shadow = useAnimatedProps(() => {
+    const k = Math.max(0, (play.get() - 0.4) / 0.6);
+    return { matrix: [k, 0, 0, 1, 12 * (1 - k), 0] } as object;
+  });
   return (
-    <View style={styles.photoSlot}>
-      {photo ? (
-        <Image source={{ uri: photo }} style={styles.photo} />
-      ) : (
-        <View style={styles.initial}>
-          {initial ? <Text style={styles.initialText}>{initial}</Text> : <User size={ICON_SIZE - 6} color={colors.text} strokeWidth={1.75} />}
-        </View>
-      )}
-      <ProfileRing size={PHOTO_SIZE + 6} draw={draw} />
-      {permissionsMissing && <View style={styles.permissionDot} />}
-    </View>
+    <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <AnimatedG animatedProps={pin}>
+        <Path d="M12 20s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+        <Circle cx={12} cy={9} r={2.3} />
+      </AnimatedG>
+      <AnimatedG animatedProps={shadow}>
+        <Path d="M9 23h6" />
+      </AnimatedG>
+    </Svg>
   );
 }
 
-function TabButton({ tab, icon: Icon, filled: Filled, label, active, onPress }: { tab: Tab; icon: LucideIcon; filled: FilledIcon | null; label: string; active: boolean; onPress: () => void }) {
+// Profil : la silhouette se dessine d'un trait, la tête puis les épaules.
+const HEAD_LENGTH = 26;
+const BODY_LENGTH = 24;
+function ProfileIcon({ play, color }: { play: SharedValue<number>; color: string }) {
+  const head = useAnimatedProps(() => ({ strokeDashoffset: HEAD_LENGTH * (1 - Math.min(1, play.get() / 0.6)) }));
+  const body = useAnimatedProps(() => ({ strokeDashoffset: BODY_LENGTH * (1 - Math.max(0, (play.get() - 0.3) / 0.7)) }));
+  return (
+    <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round">
+      <AnimatedCircle cx={12} cy={8} r={4} strokeDasharray={HEAD_LENGTH} animatedProps={head} />
+      <AnimatedPath d="M4.5 21a7.5 7.5 0 0 1 15 0" strokeDasharray={BODY_LENGTH} animatedProps={body} />
+    </Svg>
+  );
+}
+
+const TABS: { tab: Tab; label: string }[] = [
+  { tab: 'home', label: t('onglets.messages') },
+  { tab: 'map', label: t('carte.titre') },
+  { tab: 'profile', label: t('profil.titre') },
+];
+
+function TabButton({ tab, label, active, onPress }: { tab: Tab; label: string; active: boolean; onPress: () => void }) {
   const colors = useColors();
   const styles = useStyles();
-  // Tout sur le fil natif : le fondu contour → plein, le cercle du profil et l'animation interne.
-  const fill = useSharedValue(active ? 1 : 0);
-  const kick = useSharedValue(0);
-  const draw = useSharedValue(active ? 1 : 0);
-  const mounted = useRef(false);
-
-  const playKick = () => {
-    kick.set(0);
-    kick.set(withTiming(1, { duration: KICK_MS, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.System }));
-  };
+  // Le lys s'ouvre quand Nous est choisi et se replie sinon ; l'épingle et la silhouette rejouent leur
+  // entrée à chaque sélection et restent entières au repos.
+  const open = useSharedValue(active ? 1 : 0);
+  const play = useSharedValue(1);
 
   useEffect(() => {
-    fill.set(timing(active ? 1 : 0, DURATION.small));
-    draw.set(timing(active ? 1 : 0, active ? DURATION.mascot : DURATION.small));
-    if (mounted.current && active) playKick();
-    mounted.current = true;
-  }, [active]);
-
-  const outline = useAnimatedStyle(() => ({ opacity: 1 - fill.get() }));
-  const solid = useAnimatedStyle(() => ({ opacity: fill.get() }));
+    open.set(timing(active ? 1 : 0, DURATION.mascot));
+    if (active) {
+      play.set(0);
+      play.set(timing(1, DURATION.mascot));
+    }
+  }, [active, open, play]);
 
   const press = () => {
     haptics.select();
-    if (active) playKick();
-    else onPress();
+    if (active) {
+      play.set(0);
+      play.set(timing(1, DURATION.mascot));
+    } else onPress();
   };
 
+  const color = active ? colors.text : colors.textMuted;
   return (
-    // Le doigt se pose sur l'appareil photo : la caméra commence à s'ouvrir avant même qu'il se lève.
-    <Pressable onPress={press} onPressIn={tab === 'camera' && !active ? wakeCamera : undefined} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: active }} style={styles.slot}>
-      <View style={styles.icon}>
-        {!Filled ? (
-          <ProfileIcon draw={draw} />
-        ) : (
-          <>
-            <Reanimated.View style={[StyleSheet.absoluteFill, outline]}>
-              <Icon size={ICON_SIZE} color={colors.onDarkTrack} strokeWidth={1.75} />
-            </Reanimated.View>
-            <Reanimated.View style={[StyleSheet.absoluteFill, styles.filled, solid]}>
-              <Filled size={ICON_SIZE} kick={kick} />
-            </Reanimated.View>
-          </>
-        )}
-      </View>
+    <Pressable onPress={press} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: active }} style={styles.slot}>
+      {tab === 'home' ? <Lily size={LILY_SIZE} color={color} open={open} /> : tab === 'map' ? <PinIcon play={play} color={color} /> : <ProfileIcon play={play} color={color} />}
     </Pressable>
   );
 }
-// Une pilule flottante : un cercle pâle glisse sous l'onglet choisi, et elle reste au-dessus de la barre d'Android.
-export function BottomBar({ active, onChange }: { active: Tab; onChange: (tab: Tab) => void }) {
+
+// La pilule flottante : le contenu passe dessous, flouté en direct. Elle reste au-dessus de la barre d'Android.
+export function BottomBar({ active, onChange, blurTarget }: { active: Tab; onChange: (tab: Tab) => void; blurTarget?: BlurTarget }) {
   const styles = useStyles();
   const bottom = useNavigationBarHeight();
-  const activeIndex = TABS.findIndex(({ tab }) => tab === active);
+  const activeIndex = Math.max(0, TABS.findIndex(({ tab }) => tab === active));
   const position = useSharedValue(activeIndex);
 
   useEffect(() => {
@@ -133,9 +129,20 @@ export function BottomBar({ active, onChange }: { active: Tab; onChange: (tab: T
   return (
     <View pointerEvents="box-none" style={[styles.wrapper, { bottom: bottom + spacing.md }]}>
       <View style={styles.bar} accessibilityRole="tablist">
+        {blurTarget && (
+          <BlurView
+            blurTarget={blurTarget}
+            blurMethod="dimezisBlurViewSdk31Plus"
+            intensity={BLUR_INTENSITY}
+            blurReductionFactor={BLUR_REDUCTION}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        <View style={styles.tint} />
         <Reanimated.View style={[styles.indicator, slide]} />
-        {TABS.map(({ tab, icon, filled, label }) => (
-          <TabButton key={tab} tab={tab} icon={icon} filled={filled} label={label} active={tab === active} onPress={() => onChange(tab)} />
+        {TABS.map(({ tab, label }) => (
+          <TabButton key={tab} tab={tab} label={label} active={tab === active} onPress={() => onChange(tab)} />
         ))}
       </View>
     </View>
@@ -154,45 +161,14 @@ const useStyles = createStyles((colors) => ({
     gap: SLOT_GAP,
     padding: BAR_PADDING,
     borderRadius: radius.full,
-    backgroundColor: colors.elevated,
-    boxShadow: `0px 8px 28px ${colors.shadow}`,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: fixed.tabBarEdge,
   },
-  // Centrée sur la zone de l'icône (plus petite que la photo) : la photo tombe pile au milieu du rond.
-  photoSlot: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initial: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE,
-    borderRadius: PHOTO_SIZE / 2,
-    backgroundColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  permissionDot: {
-    position: 'absolute',
-    top: 4,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.textMuted,
-  },
-  initialText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  photo: {
-    width: PHOTO_SIZE,
-    height: PHOTO_SIZE,
-    borderRadius: PHOTO_SIZE / 2,
+  // Voile violacé léger par-dessus le flou, comme la planche (rgba(28, 22, 40, .38)).
+  tint: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: fixed.tabBarTint,
   },
   indicator: {
     position: 'absolute',
@@ -206,14 +182,6 @@ const useStyles = createStyles((colors) => ({
   slot: {
     width: SLOT_WIDTH,
     height: SLOT_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
-  },
-  filled: {
     alignItems: 'center',
     justifyContent: 'center',
   },

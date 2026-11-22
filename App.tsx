@@ -1,10 +1,11 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ComponentRef, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, BackHandler, Keyboard, PanResponder, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Reanimated, { Easing, makeMutable, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { NavigationBar } from 'expo-navigation-bar';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BlurTargetView } from 'expo-blur';
 import * as Linking from 'expo-linking';
 import notifee from '@notifee/react-native';
 
@@ -99,7 +100,8 @@ const TAB_SWIPE_RATIO = 0.3;
 // Les bords restent au retour par geste d'Android.
 const TAB_EDGE = 28;
 // Dans l'ordre de la barre du bas : le glissement horizontal passe de l'un à l'autre.
-const TAB_ROUTES: string[] = ['home', 'camera', 'map', 'profile'];
+// Nébula : Nous (le lys), Carte, Profil. L'appareil photo s'ouvre depuis la conversation.
+const TAB_ROUTES: string[] = ['home', 'map', 'profile'];
 // L'écran parent reste monté sous la page (prêt pour le retour) ; pas la caméra, qui allumerait le capteur.
 const NOT_KEPT_UNDER = ['camera', 'scan'];
 // Délai avant de monter un parent qui ne l'était pas : la page qui vient d'arriver passe d'abord.
@@ -195,6 +197,8 @@ function App() {
   // Les valeurs à jour pour les fonctions créées une seule fois (écouteurs, navigation).
   const nav = useRef<{ route: Route; parent: Route | null }>({ route, parent: null });
   const tabDrag = useSharedValue(0);
+  // Tout ce qui passe sous la barre des onglets, flouté en direct par elle.
+  const pagesRef = useRef<ComponentRef<typeof View>>(null);
   const { width: screenWidth } = useWindowDimensions();
   const url = Linking.useURL();
   const update = useUpdateState();
@@ -821,6 +825,7 @@ function App() {
           déjà monté dessous, se rapproche. À l'arrivée d'un écran, il entre en fondu sur l'ancien. */}
       {/* L'appareil photo gardé au chaud passe en premier, caché, avec la même clé que l'onglet : en y
           revenant, React garde l'écran et sa caméra déjà prête. */}
+      <BlurTargetView ref={pagesRef} style={StyleSheet.absoluteFill}>
       {[...(warmCamera ? [CAMERA_ROUTE] : []), ...layers].map((layer, position) => {
         const key = routeKey(layer);
         if (warmCamera && position === 0) {
@@ -854,6 +859,7 @@ function App() {
           {neighbor.name === 'camera' || neighbor.name === 'map' ? <View style={styles.cameraPlaceholder} /> : render({ name: neighbor.name } as Route, true)}
         </NeighborLayer>
       )}
+      </BlurTargetView>
       {identity && !error && (
         <PairSheet
           visible={pairOpen}
@@ -866,7 +872,7 @@ function App() {
         />
       )}
       {identity && !error && !filming && TAB_ROUTES.includes(route.name) && (
-        <BottomBar active={route.name as Tab} onChange={(tab) => setRoute(tab === 'map' ? { name: 'map', focus: null } : ({ name: tab } as Route))} />
+        <BottomBar blurTarget={pagesRef} active={route.name as Tab} onChange={(tab) => setRoute(tab === 'map' ? { name: 'map', focus: null } : ({ name: tab } as Route))} />
       )}
       {updatedInfo && identity && route.name === 'home' && (
         // Des pages « Quoi de neuf » pour cette version : elles remplacent la popup courte.
