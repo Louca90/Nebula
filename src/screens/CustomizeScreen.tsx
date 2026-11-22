@@ -30,7 +30,7 @@ const FADE = { duration: FADE_MS, easing: EASE, reduceMotion: ReduceMotion.Syste
 const PANE_IN = enterUp(10, 240);
 const WALLPAPER_IN = enterUp(0, FADE_MS);
 // Les teintes proposées d'un appui (en plus des deux couleurs par défaut du thème) ; la roue fait le reste.
-const HUES = ['#B4CC68', '#6FB7C9', '#7FA2E0', '#9C8CE0', '#E08CB8', '#E08C8C', '#E0A88C', '#E0C68C'];
+const HUES = ['#B9A3E3', '#6FB7C9', '#7FA2E0', '#9C8CE0', '#E08CB8', '#E08C8C', '#E0A88C', '#E0C68C'];
 
 export type CustomizeTab = 'look' | 'wall' | 'notifications';
 type Target = 'my_bubble' | 'their_bubble';

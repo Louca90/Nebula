@@ -1,12 +1,11 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import Reanimated, { useSharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { chat } from '../chat/manager';
-import { describeMessage, getContactProfile, getLastMessage, getMediaMessages, getPendingRequests, getUnreadCounts, Message, PairingRequest } from '../chat/database';
+import { describeMessage, getContactProfile, getLastMessage, getPendingRequests, getUnreadCounts, PairingRequest } from '../chat/database';
 import type { PairMode } from '../components/PairSheet';
-import { useMediaPreview } from '../chat/media';
 import { useBottomBarSpace } from '../components/BottomBar';
 import { Lily } from '../components/Lily';
 import { Backdrop, Card, GrainButton } from '../components/nebula';
@@ -26,7 +25,6 @@ type Props = {
   contacts: Contact[];
   onOpenChat: (contact: Contact) => void;
   onProfile: (contact: Contact) => void;
-  onMedia: (contact: Contact) => void;
   onPense: (contact: Contact) => void;
   onDates: () => void;
   onPair: (mode: PairMode) => void;
@@ -34,7 +32,6 @@ type Props = {
 };
 
 const AVATAR = 72;
-const MEDIA_COUNT = 4;
 
 // L'heure du dernier message aujourd'hui (« 19:02 »), « hier », puis « il y a 3 j » ou la date.
 function when(at: number, now: number) {
@@ -50,18 +47,6 @@ function when(at: number, now: number) {
 function StaticLily({ size, color }: { size: number; color: string }) {
   const open = useSharedValue(1);
   return <Lily size={size} color={color} open={open} />;
-}
-
-function MediaTile({ message, onPress, index }: { message: Message; onPress: () => void; index: number }) {
-  const styles = useStyles();
-  const poster = useMediaPreview(message);
-  return (
-    <Reanimated.View entering={enterUp(8, 260, index * 30)} style={styles.tileWrap}>
-      <Pressable onPress={onPress} style={styles.tile}>
-        {poster && <Image source={{ uri: poster }} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-      </Pressable>
-    </Reanimated.View>
-  );
 }
 
 // Pas encore liés : comment faire, en trois étapes, et les deux boutons de la feuille QR (Scanner son
@@ -107,7 +92,7 @@ function PairInvite({ pending, request, onPair, onRequests }: { pending: boolean
   );
 }
 
-export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, onDates, onPair, onRequests }: Props) {
+export function NousScreen({ contacts, onOpenChat, onProfile, onPense, onDates, onPair, onRequests }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const { top } = useInsets();
@@ -149,7 +134,6 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
   const route = chat.getLink(key).route;
   const last = getLastMessage(key);
   const unread = getUnreadCounts().get(key) ?? 0;
-  const media = getMediaMessages(key).slice(0, MEDIA_COUNT);
   const status = typing ? t('nous.ecrit') : online ? (route === 'relay' ? t('nous.enLigneRelais') : t('nous.enLigneDirect')) : t('nous.horsLigne');
   const days = nextDate ? daysUntil(nextDate, now) : null;
 
@@ -214,21 +198,6 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
           </Pressable>
         </Reanimated.View>
 
-        {media.length > 0 && (
-          <>
-            <View style={styles.mediaHead}>
-              <Text style={styles.cap}>{t('nous.mediasPartages')}</Text>
-              <Pressable onPress={() => onMedia(partner)} hitSlop={10}>
-                <Text style={styles.seeAll}>{t('nous.toutVoir')}</Text>
-              </Pressable>
-            </View>
-            <View style={styles.media}>
-              {media.map((message, index) => (
-                <MediaTile key={message.id} message={message} index={index} onPress={() => onMedia(partner)} />
-              ))}
-            </View>
-          </>
-        )}
       </ScrollView>
     </View>
   );
@@ -371,39 +340,6 @@ const useStyles = createStyles((colors) => ({
     letterSpacing: -0.5,
     lineHeight: 28,
     color: colors.text,
-  },
-  mediaHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    paddingTop: 22,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-  },
-  cap: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    letterSpacing: 0.72,
-    textTransform: 'uppercase',
-  },
-  seeAll: {
-    fontSize: 13,
-    color: fixed.lilac,
-  },
-  media: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 12,
-  },
-  tileWrap: {
-    flex: 1,
-  },
-  tile: {
-    aspectRatio: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-    backgroundColor: fixed.tile,
   },
   invite: {
     flex: 1,

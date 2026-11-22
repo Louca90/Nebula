@@ -18,8 +18,8 @@ const RING_STROKE = 2.5;
 const RING_RADIUS = (RING - RING_STROKE) / 2;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
-// Le vert de la planche, sur l'aperçu sombre quel que soit le thème.
-const LIME = '#B4CC68';
+// Nébula : le lilas des planches, sur l'aperçu sombre quel que soit le thème.
+const LIME = '#B9A3E3';
 
 function CategoryPill({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const styles = useStyles();

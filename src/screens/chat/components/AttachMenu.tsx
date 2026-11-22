@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import Reanimated, { interpolateColor, ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withTiming, type EntryExitAnimationFunction } from 'react-native-reanimated';
 import { Camera, Eye, FileText, Images, LucideIcon, MapPin, Plus, Sticker } from 'lucide-react-native';
@@ -100,11 +100,12 @@ export function AttachButton({ open, onToggle }: { open: boolean; onToggle: () =
   );
 }
 
-// Le voile sur la conversation, menu ouvert : un appui referme le menu.
-export function AttachScrim({ onClose }: { onClose: () => void }) {
+// Le voile, menu ouvert : un appui referme le menu. Posé sur la conversation, l'en-tête (et la barre d'état
+// au-dessus) et la bande de la saisie, il assombrit tout l'écran sauf le menu et le champ.
+export function AttachScrim({ onClose, style }: { onClose: () => void; style?: StyleProp<ViewStyle> }) {
   const styles = useStyles();
   return (
-    <Reanimated.View entering={fadeIn} exiting={exitFade(DURATION.small)} style={[StyleSheet.absoluteFill, styles.scrim]}>
+    <Reanimated.View entering={fadeIn} exiting={exitFade(DURATION.small)} style={[StyleSheet.absoluteFill, styles.scrim, style]}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel={t('commun.fermer')} />
     </Reanimated.View>
   );

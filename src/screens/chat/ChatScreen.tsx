@@ -11,7 +11,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { haptics } from '../../haptics';
 import * as Sharing from 'expo-sharing';
-import { Ban, Bell, Copy, Download, Forward, Images, MapPin, Palette, Pencil, Pin, PinOff, Reply, Search, Send, Timer, Trash2, UserRound } from 'lucide-react-native';
+import { Bell, Copy, Download, Forward, Images, Pencil, Pin, PinOff, Reply, Search, Send, Timer, Trash2, UserRound } from 'lucide-react-native';
 
 import { deleteMessages, getContactProfile, getContactRows, getConversationSettings, getMutedKinds, getDraft, getMessagePosition, getMessages, getPeerState, getPinnedMessages, isBlocked, Message, setDraft as saveDraft } from '../../chat/database';
 import { formatSize, MAX_FILE_BYTES } from '../../chat/files';
@@ -563,16 +563,14 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
     onShowReactions: (message: Message) => setShowingReactions(message),
   }).current;
 
-  // Le menu « 3 points » : toutes les actions de la conversation, les destructrices à part, en rouge.
-  const blockedContact = isBlocked(contactKey);
+  // Le menu « 3 points » de Nébula : rien que l'utile à deux (le fond se choisit dans le Profil, la position
+  // dans l'onglet Carte, et on ne bloque pas la personne avec qui on est lié). Vider, à part, en rouge.
   const mutedKinds = getMutedKinds(contactKey).length;
   const menuItems: ChatMenuItem[] = [
     { icon: UserRound, label: t('menu.voirProfil'), onPress: onInfo },
     { icon: Search, label: t('recherche.dansConversation'), onPress: () => setSearching(true) },
-    { icon: Palette, label: t('chat.personnaliser'), onPress: onCustomize },
     { icon: Timer, label: t('contact.ephemeres'), value: ephemeral ? ephemeralLabel(ephemeral, true) : t('menu.non'), onPress: chooseEphemeral },
     { icon: Bell, animated: BellIcon, label: t('contact.notifications'), value: mutedKinds === 0 ? t('menu.toutes') : mutedKinds >= 5 ? t('menu.coupees') : t('menu.certaines'), onPress: onNotifications },
-    { icon: MapPin, label: t('menu.partagerPosition'), onPress: shareLocation },
     { icon: Images, label: t('menu.medias'), onPress: onMedia },
     {
       icon: Trash2,
@@ -593,18 +591,6 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
           { label: t('commun.annuler'), style: 'cancel' },
         ]),
     },
-    {
-      icon: Ban,
-      label: blockedContact ? t('statut.debloquerContact') : t('statut.bloquerContact'),
-      danger: !blockedContact,
-      onPress: () =>
-        blockedContact
-          ? chat.unblockContact(contactKey)
-          : showDialog(t('statut.bloquerQuestion'), t('statut.bloquerAide'), [
-              { label: t('demandes.bloquer'), style: 'danger', onPress: () => chat.blockContact(contactKey) },
-              { label: t('commun.annuler'), style: 'cancel' },
-            ]),
-    },
   ];
 
   return (
@@ -613,7 +599,7 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
       <BlurTargetView ref={blurTarget} style={styles.flex}>
         {/* Nébula : sans photo de fond, le fond à grain choisi dans le Profil ; Soie en mode éphémère. */}
         {wallpaper ? <Image source={{ uri: wallpaper }} style={styles.wallpaper} resizeMode="cover" /> : <Backdrop kind={ephemeral ? 'soie' : chatBackdrop} />}
-        <ChatHeader contactKey={contactKey} name={name} onBack={onBack} onInfo={onInfo} onCustomize={onCustomize} onSearch={() => setSearching(true)} onMenu={() => setMenuOpen(true)} ephemeral={ephemeral} onEphemeral={chooseEphemeral} />
+        <ChatHeader contactKey={contactKey} name={name} onBack={onBack} onInfo={onInfo} onCustomize={onCustomize} onSearch={() => setSearching(true)} onMenu={() => setMenuOpen(true)} ephemeral={ephemeral} onEphemeral={chooseEphemeral} dimmed={attachOpen} onUndim={() => setAttachOpen(false)} />
         {/* Le décalage compense la barre d'état, placée au-dessus de la zone floutée. */}
         <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={topInset} style={styles.flex}>
           <View ref={listArea} collapsable={false} style={styles.flex}>

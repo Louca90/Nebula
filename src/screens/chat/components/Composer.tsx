@@ -15,7 +15,7 @@ import { useVoiceRecorder } from '../hooks/useVoiceRecorder';
 import { useChatStyles } from '../styles';
 import { ComposerModeCard } from './ComposerModeCard';
 import { RecordingRow } from './RecordingRow';
-import { AttachButton, AttachSheet } from './AttachMenu';
+import { AttachButton, AttachScrim, AttachSheet } from './AttachMenu';
 import { PickedFile } from '../../../chat/manager';
 import { useBackInterceptor } from '../../../navigation/backInterceptors';
 import { t } from '../../../i18n';
@@ -105,6 +105,8 @@ export function Composer({
     <View style={styles.composerArea}>
       {/* Comble l'espace qui peut rester entre la saisie et le clavier (ou le bas de l'écran) : le fond d'écran n'y transparaît plus. */}
       <View pointerEvents="none" style={styles.composerUnderlay} />
+      {/* Le voile du menu descend aussi derrière la saisie et jusqu'en bas de l'écran. */}
+      {attachOpen && <AttachScrim onClose={onCloseAttach} style={styles.scrimDown} />}
       {attachOpen && <AttachSheet onPhotos={onPhotos} onFile={onFile} onLocation={onLocation} onStickers={onStickers} onCamera={onCamera} onOnce={onOnce} onSendRecent={onSendRecent} />}
       <ComposerModeCard mode={mode} name={name} onCancel={onCancelMode} onJump={onJump} />
       <View style={[styles.composer, { paddingBottom: keyboardOpen ? spacing.sm : bottom + spacing.sm }]}>
@@ -186,6 +188,9 @@ const useLocalStyles = createStyles((colors) => ({
   // Nébula : la saisie est posée sur le fond à grain, sans bande opaque.
   composerArea: {
     backgroundColor: fixed.transparent,
+  },
+  scrimDown: {
+    bottom: -400,
   },
   composerUnderlay: {
     position: 'absolute',

@@ -734,7 +734,6 @@ function App() {
         onRequests={() => setRoute({ name: 'requests' })}
         onOpenChat={(contact) => setRoute({ name: 'chat', publicKey: contact.publicKey })}
         onProfile={(contact) => setRoute({ name: 'contact', publicKey: contact.publicKey })}
-        onMedia={(contact) => setRoute({ name: 'contact', publicKey: contact.publicKey, tab: 'media' })}
         onPense={(contact) => setRoute({ name: 'pense', publicKey: contact.publicKey })}
         onDates={() => setRoute({ name: 'dates' })}
       />

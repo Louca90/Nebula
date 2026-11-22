@@ -11,6 +11,7 @@ import { chat } from '../../../chat/manager';
 import { isSelf } from '../../../chat/self';
 import { Avatar, Header, IconButton } from '../../../components/ui';
 import { createStyles, fixed, motion, radius, spacing, useColors } from '../../../theme';
+import { AttachScrim } from './AttachMenu';
 
 import { ROUTE } from '../constants';
 import { ephemeralLabel } from '../format';
@@ -28,6 +29,9 @@ type Props = {
   // Minuteur des messages éphémères (secondes), null si le mode est coupé. Un appui ouvre son réglage.
   ephemeral: number | null;
   onEphemeral: () => void;
+  // Menu des pièces jointes ouvert : l'en-tête et la barre d'état passent sous le voile.
+  dimmed?: boolean;
+  onUndim?: () => void;
 };
 
 // Le point « en ligne » au coin de l'avatar, en fondu.
@@ -41,7 +45,7 @@ function OnlineDot({ online }: { online: boolean }) {
   return <Reanimated.View pointerEvents="none" style={[styles.dot, style]} />;
 }
 
-export function ChatHeader({ contactKey, name, onBack, onInfo, onCustomize, onSearch, onMenu, ephemeral, onEphemeral }: Props) {
+export function ChatHeader({ contactKey, name, onBack, onInfo, onCustomize, onSearch, onMenu, ephemeral, onEphemeral, dimmed, onUndim }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const photo = getContactProfile(contactKey).photo_uri;
@@ -129,11 +133,15 @@ export function ChatHeader({ contactKey, name, onBack, onInfo, onCustomize, onSe
         }
       />
       <Reanimated.View pointerEvents="none" style={[styles.edge, edgeStyle]} />
+      {dimmed && onUndim && <AttachScrim onClose={onUndim} style={styles.scrimUp} />}
     </View>
   );
 }
 
 const useStyles = createStyles((colors) => ({
+  scrimUp: {
+    top: -200,
+  },
   // Nébula : l'en-tête laisse voir le fond à grain, séparé par un filet clair (planche Conversation).
   headerBar: {
     backgroundColor: fixed.transparent,

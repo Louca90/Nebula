@@ -38,7 +38,7 @@ const DARK_INK: MapInk = {
 const LIGHT_INK: MapInk = {
   ink: '#16181A',
   muted: '#6E6E73',
-  signature: '#7E9A3A',
+  signature: '#5B3FA0',
   chrome: 'rgba(255, 255, 255, 0.92)',
   sheet: 'rgba(255, 255, 255, 0.97)',
   face: '#E4E6DF',

@@ -33,8 +33,9 @@ const HEIGHT = 52;
 const BUTTON = 44;
 const WAVE_HEIGHT = 28;
 const BAR_WIDTH = 3;
-const PLAYED_LIGHT = '#566E1C';
-const PLAYED_DARK = '#B4CC68';
+const PLAYED_LIGHT = '#5B3FA0';
+// Nébula : la partie déjà jouée de l'onde en lilas (planche « Vocal »), plus le vert de Pear.
+const PLAYED_DARK = '#B9A3E3';
 const OPEN_MS = 320;
 const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
 // Ordre de la planche : la barre s'ouvre (40 ms) avant son contenu (150 ms), la teinte à 80 ms, le point à 220 ms.
