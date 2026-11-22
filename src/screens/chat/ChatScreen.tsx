@@ -4,6 +4,7 @@ import Reanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-
 import { EASE } from '../../motion';
 import { BlurTargetView } from 'expo-blur';
 import { Backdrop } from '../../components/nebula';
+import { useChatBackdrop } from '../../couple/backdrop';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
@@ -219,6 +220,7 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
 
   // Messages éphémères (lot 4.7) : le geste bascule le mode, la pastille de l'en-tête règle la durée.
   const ephemeral = settings.ephemeral;
+  const chatBackdrop = useChatBackdrop();
   const canWrite = !pending && !blockedByMe && peerState === null && !isSelf(contactKey);
   const pull = useEphemeralPull(
     () => canWrite && !preview && !keyboardOpen && scroll.isAtEdge() && !selection && !viewing,
@@ -608,8 +610,8 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
     <Screen edgeToEdgeBottom>
       <View ref={root} collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill} />
       <BlurTargetView ref={blurTarget} style={styles.flex}>
-        {/* Nébula : sans fond choisi, le fond Aube à grain de la planche Conversation. */}
-        {wallpaper ? <Image source={{ uri: wallpaper }} style={styles.wallpaper} resizeMode="cover" /> : <Backdrop kind="aube" />}
+        {/* Nébula : sans photo de fond, le fond à grain choisi dans le Profil ; Soie en mode éphémère. */}
+        {wallpaper ? <Image source={{ uri: wallpaper }} style={styles.wallpaper} resizeMode="cover" /> : <Backdrop kind={ephemeral ? 'soie' : chatBackdrop} />}
         <ChatHeader contactKey={contactKey} name={name} onBack={onBack} onInfo={onInfo} onCustomize={onCustomize} onSearch={() => setSearching(true)} onMenu={() => setMenuOpen(true)} ephemeral={ephemeral} onEphemeral={chooseEphemeral} />
         {/* Le décalage compense la barre d'état, placée au-dessus de la zone floutée. */}
         <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={topInset} style={styles.flex}>

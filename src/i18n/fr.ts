@@ -1042,6 +1042,14 @@ export const fr = {
     garde: 'Garde le doigt posé…',
     echec: 'Empreinte non reconnue, réessaie',
   },
+  fonds: {
+    titre: 'Fond des conversations',
+    aube: 'Aube',
+    spot: 'Spot',
+    horizon: 'Horizon',
+    amethyste: 'Améthyste',
+    soie: 'Soie',
+  },
   carte: {
     titre: 'Carte',
     voir: 'Voir sur la carte',

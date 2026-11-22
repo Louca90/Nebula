@@ -1043,6 +1043,14 @@ export const en: Dictionary = {
     garde: 'Keep your finger down…',
     echec: 'Fingerprint not recognized, try again',
   },
+  fonds: {
+    titre: 'Conversation background',
+    aube: 'Dawn',
+    spot: 'Spot',
+    horizon: 'Horizon',
+    amethyste: 'Amethyst',
+    soie: 'Silk',
+  },
   carte: {
     titre: 'Map',
     voir: 'See on the map',

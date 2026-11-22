@@ -18,6 +18,7 @@ import { Avatar, Header, Screen, usePressFeedback } from '../components/ui';
 import { haptics } from '../haptics';
 import { DURATION, enterUp, timing } from '../motion';
 import { createStyles, radius, spacing, useColors } from '../theme';
+import { BackdropPicker } from '../components/BackdropPicker';
 import { t } from '../i18n';
 
 const AVATAR = 72;
@@ -162,6 +163,7 @@ export function ProfileScreen({ onSettings, onStorage, onPage, onDates }: Props)
             <SettingsGroup title={t('profil.nousDeux')}>
               <SettingRow icon={CalendarHeart} label={t('nous.nosDates')} onPress={onDates} />
             </SettingsGroup>
+            <SettingsGroup title={t('fonds.titre')} before={<BackdropPicker />} />
           </Reanimated.View>
 
           <Reanimated.View entering={enterUp(10, 260, STEP_MS * 2)}>
