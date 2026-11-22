@@ -1,0 +1,89 @@
+// Recadrage et rotation d'une photo. La rotation se fait par quarts de tour ; le cadre est exprimé en
+// fractions (0 à 1) de la photo déjà tournée, pour ne pas dépendre de la taille de l'écran.
+
+export type Rotation = 0 | 90 | 180 | 270;
+export type Rect = { x: number; y: number; width: number; height: number };
+// ngle : le redressement fin, en degrés (de -45 à 45), en plus des quarts de tour. La photo est alors
+// agrandie juste assez pour qu'aucun coin vide n'entre dans la photo tournée.
+export type Crop = { rotation: Rotation; rect: Rect; angle?: number };
+
+export const STRAIGHTEN_MAX = 45;
+export type Aspect = 'free' | '1:1' | '4:5' | '3:4' | '9:16' | '16:9';
+
+export const NO_CROP: Crop = { rotation: 0, rect: { x: 0, y: 0, width: 1, height: 1 } };
+export const ASPECTS: { id: Aspect; ratio: number | null }[] = [
+  { id: 'free', ratio: null },
+  { id: '1:1', ratio: 1 },
+  { id: '4:5', ratio: 4 / 5 },
+  { id: '3:4', ratio: 3 / 4 },
+  { id: '9:16', ratio: 9 / 16 },
+  { id: '16:9', ratio: 16 / 9 },
+];
+
+type Size = { width: number; height: number };
+
+export function isCropped(crop: Crop) {
+  const { rect } = crop;
+  return crop.rotation !== 0 || Math.abs(crop.angle ?? 0) > 0.05 || rect.x > 1e-4 || rect.y > 1e-4 || rect.width < 1 - 1e-4 || rect.height < 1 - 1e-4;
+}
+
+export function rotatedSize(size: Size, rotation: Rotation): Size {
+  return rotation % 180 === 0 ? size : { width: size.height, height: size.width };
+}
+
+// L'agrandissement qui couvre le cadre de la photo tournée d'un quart de tour (largeur × hauteur)
+// quand on la penche en plus de ngle degrés.
+export function straightenScale(turned: Size, angle: number) {
+  const a = (Math.abs(angle) * Math.PI) / 180;
+  if (a === 0) return 1;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  return Math.max(cos + (turned.height / turned.width) * sin, cos + (turned.width / turned.height) * sin);
+}
+
+// L'aperçu (la zone gardée, ajustée à l'écran) et la place de la photo dedans : la photo, à sa taille
+// d'origine × fit, est centrée sur le centre de la photo tournée, puis tournée autour de son centre.
+export function cropGeometry(image: Size, crop: Crop, screen: Size) {
+  const turned = rotatedSize(image, crop.rotation);
+  const keptWidth = crop.rect.width * turned.width;
+  const keptHeight = crop.rect.height * turned.height;
+  const fit = Math.min(screen.width / keptWidth, screen.height / keptHeight);
+  const turnedWidth = turned.width * fit;
+  const turnedHeight = turned.height * fit;
+  const angle = crop.angle ?? 0;
+  const grow = straightenScale(turned, angle);
+  const imageWidth = image.width * fit * grow;
+  const imageHeight = image.height * fit * grow;
+  return {
+    width: keptWidth * fit,
+    height: keptHeight * fit,
+    // Les pixels de la photo par point de l'aperçu : l'échelle d'un enregistrement à pleine taille.
+    pixelsPerPoint: 1 / fit,
+    image: {
+      left: -crop.rect.x * turnedWidth + (turnedWidth - imageWidth) / 2,
+      top: -crop.rect.y * turnedHeight + (turnedHeight - imageHeight) / 2,
+      width: imageWidth,
+      height: imageHeight,
+      rotation: crop.rotation + angle,
+    },
+  };
+}
+
+export type ImagePlacement = ReturnType<typeof cropGeometry>['image'];
+
+// Le plus grand cadre centré, à ce format, dans la photo tournée (en fractions).
+export function fullRect(image: Size, rotation: Rotation, ratio: number | null): Rect {
+  if (!ratio) return { x: 0, y: 0, width: 1, height: 1 };
+  const turned = rotatedSize(image, rotation);
+  const imageRatio = turned.width / turned.height;
+  if (imageRatio > ratio) {
+    const width = ratio / imageRatio;
+    return { x: (1 - width) / 2, y: 0, width, height: 1 };
+  }
+  const height = imageRatio / ratio;
+  return { x: 0, y: (1 - height) / 2, width: 1, height };
+}
+
+export function nextRotation(rotation: Rotation): Rotation {
+  return ((rotation + 90) % 360) as Rotation;
+}

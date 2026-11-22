@@ -1,0 +1,83 @@
+{
+  "version": "1.9.1",
+  "versionCode": 14,
+  "summary": "- Répondre à un appel quand le téléphone est verrouillé ne fait plus planter Pear.\n- Changer de langue ne fait plus planter Pear : l'app redémarre proprement dans la nouvelle langue.\n- Le bouton du micro ne disparaît plus pendant un appel.\n- Après une mise à jour, les nouveautés s'ouvrent en grand, avec une petite démo pour chacune.\n- La mise à jour se télécharge avec une vraie barre de progression, et la notification « Pear est disponible » marche désormais app fermée.",
+  "pages": {
+    "1.6.0": [
+      {
+        "theme": "securite",
+        "titre": "nouveautes.ephemereTitre",
+        "texte": "nouveautes.ephemereTexte",
+        "demo": "ephemere"
+      },
+      {
+        "theme": "conversation",
+        "titre": "nouveautes.rechercheTitre",
+        "texte": "nouveautes.rechercheTexte",
+        "demo": "recherche"
+      },
+      {
+        "theme": "securite",
+        "titre": "nouveautes.uniqueTitre",
+        "texte": "nouveautes.uniqueTexte",
+        "demo": "unique"
+      },
+      {
+        "theme": "personnalisation",
+        "titre": "nouveautes.stickersTitre",
+        "texte": "nouveautes.stickersTexte",
+        "demo": "stickers"
+      },
+      {
+        "theme": "conversation",
+        "titre": "nouveautes.actualiserTitre",
+        "texte": "nouveautes.actualiserTexte",
+        "demo": "actualiser"
+      },
+      {
+        "theme": "conversation",
+        "titre": "nouveautes.luTitre",
+        "texte": "nouveautes.luTexte",
+        "demo": "lu"
+      },
+      {
+        "theme": "conversation",
+        "titre": "nouveautes.ecritTitre",
+        "texte": "nouveautes.ecritTexte",
+        "demo": "ecrit"
+      },
+      {
+        "theme": "personnalisation",
+        "titre": "nouveautes.signatureTitre",
+        "texte": "nouveautes.signatureTexte",
+        "demo": "signature"
+      }
+    ],
+    "1.9.0": [
+      {
+        "theme": "conversation",
+        "titre": "nouveautes.transfertTitre",
+        "texte": "nouveautes.transfertTexte",
+        "demo": "transfert"
+      },
+      {
+        "theme": "conversation",
+        "titre": "nouveautes.partageEcranTitre",
+        "texte": "nouveautes.partageEcranTexte",
+        "demo": "partageEcran"
+      },
+      {
+        "theme": "conversation",
+        "titre": "nouveautes.vocalTitre",
+        "texte": "nouveautes.vocalTexte",
+        "demo": "vocal"
+      },
+      {
+        "theme": "securite",
+        "titre": "nouveautes.statutTitre",
+        "texte": "nouveautes.statutTexte",
+        "demo": "statutEnvoi"
+      }
+    ]
+  }
+}

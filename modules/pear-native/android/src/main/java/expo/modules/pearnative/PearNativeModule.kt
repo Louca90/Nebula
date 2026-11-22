@@ -1,0 +1,1041 @@
+package expo.modules.pearnative
+
+import android.app.PictureInPictureParams
+import android.content.Intent
+import android.util.Rational
+import androidx.core.app.PictureInPictureModeChangedInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Matrix
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
+import android.os.CancellationSignal
+import android.view.WindowManager
+import android.widget.EditText
+import androidx.annotation.RequiresApi
+import android.media.ExifInterface
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import android.provider.Settings
+import android.util.Log
+import android.webkit.MimeTypeMap
+import android.view.View
+import android.view.ViewTreeObserver
+import androidx.activity.BackEventCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
+import androidx.annotation.OptIn
+import androidx.core.content.FileProvider
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.media3.common.C
+import androidx.media3.common.Effect
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.audio.SpeedProvider
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.BitmapOverlay
+import androidx.media3.effect.DefaultVideoFrameProcessor
+import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.RgbMatrix
+import androidx.media3.effect.TextureOverlay
+import androidx.media3.transformer.Composition
+import androidx.media3.transformer.DefaultEncoderFactory
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.Effects
+import androidx.media3.transformer.ExportException
+import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.Transformer
+import androidx.media3.transformer.VideoEncoderSettings
+import com.facebook.react.ReactActivity
+import com.facebook.react.bridge.ReactContext
+import com.facebook.react.uimanager.UIManagerHelper
+import expo.modules.kotlin.Promise
+import expo.modules.kotlin.functions.Queues
+import expo.modules.kotlin.modules.Module
+import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.records.Field
+import expo.modules.kotlin.records.Record
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
+
+private const val DOWNLOAD_TIMEOUT_MS = 20_000
+private const val DOWNLOAD_PROGRESS_MS = 250L
+private const val DOWNLOAD_ATTEMPTS = 3
+private const val DOWNLOAD_BACKOFF_MS = 2_000L
+private const val IME_FLAG_NO_PERSONALIZED_LEARNING = 0x1000000
+private const val APK_MIME = "application/vnd.android.package-archive"
+
+// Les retouches d'une vidéo, envoyées depuis l'éditeur. Sans valeur : rien ne change.
+class VideoEdit : Record {
+  @Field var overlayUri: String? = null
+  // 4 × 4 par colonnes, appliquée à (R, G, B, 1).
+  @Field var matrix: List<Double>? = null
+  @Field var startMs: Double? = null
+  @Field var endMs: Double? = null
+  @Field var mute: Boolean = false
+  @Field var speed: Double = 1.0
+  @Field var bitrate: Int = 4_000_000
+}
+
+@OptIn(UnstableApi::class)
+class PearNativeModule : Module() {
+  // Passe avant le retour de React Native, et transmet à l'app chaque étape du geste.
+  private val backCallback = object : OnBackPressedCallback(false) {
+    override fun handleOnBackStarted(backEvent: BackEventCompat) = sendBack("started", backEvent)
+    override fun handleOnBackProgressed(backEvent: BackEventCompat) = sendBack("progress", backEvent)
+    override fun handleOnBackCancelled() = sendBack("cancelled", null)
+    override fun handleOnBackPressed() = sendBack("invoked", null)
+  }
+  private var backRegistered = false
+
+  // Les marges système, remesurées à chaque mise en page et quand la fenêtre reprend le focus
+  // (déverrouillage) : lancée sous l'écran de verrouillage, l'app peut lire des valeurs fausses au départ.
+  private var insetsView: View? = null
+  private var lastInsets: Map<String, Double>? = null
+  private val layoutListener = ViewTreeObserver.OnGlobalLayoutListener { emitInsets() }
+  private val focusListener = ViewTreeObserver.OnWindowFocusChangeListener { emitInsets() }
+
+  private fun readInsets(): Map<String, Double>? {
+    val activity = appContext.currentActivity ?: return null
+    val insets = activity.window?.decorView?.rootWindowInsets ?: return null
+    val compat = WindowInsetsCompat.toWindowInsetsCompat(insets)
+    val density = activity.resources.displayMetrics.density
+    val top = compat.getInsets(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()).top
+    val bottom = compat.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+    return mapOf("top" to (top / density).toDouble(), "bottom" to (bottom / density).toDouble())
+  }
+
+  private fun emitInsets() {
+    val insets = readInsets() ?: return
+    if (insets == lastInsets) return
+    lastInsets = insets
+    sendEvent("onInsetsChange", insets)
+  }
+
+  private fun watchInsets() {
+    val view = appContext.currentActivity?.window?.decorView ?: return
+    if (insetsView === view) return
+    unwatchInsets()
+    view.viewTreeObserver.addOnGlobalLayoutListener(layoutListener)
+    view.viewTreeObserver.addOnWindowFocusChangeListener(focusListener)
+    insetsView = view
+    emitInsets()
+  }
+
+  private fun unwatchInsets() {
+    insetsView?.viewTreeObserver?.let {
+      if (it.isAlive) {
+        it.removeOnGlobalLayoutListener(layoutListener)
+        it.removeOnWindowFocusChangeListener(focusListener)
+      }
+    }
+    insetsView = null
+  }
+
+  private fun sendBack(type: String, event: BackEventCompat?) {
+    sendEvent("onBack", mapOf("type" to type, "progress" to (event?.progress ?: 0f), "fromRight" to (event?.swipeEdge == BackEventCompat.EDGE_RIGHT)))
+  }
+
+  // React Native garde son retour toujours actif, ce qui empêche l'aperçu d'Android. Il ne propose
+  // pas de réglage pour ça (vérifié avec React Native 0.88) : on atteint donc ce champ privé. S'il
+  // change un jour, seul cet aperçu est perdu : le retour normal continue de marcher, et l'app le
+  // signale dans son journal (backHookAvailable). À revérifier à chaque mise à jour de React Native.
+  private fun reactBackCallback(activity: ComponentActivity): OnBackPressedCallback? = try {
+    val field = ReactActivity::class.java.getDeclaredField("mBackPressedCallback")
+    field.isAccessible = true
+    field.get(activity) as? OnBackPressedCallback
+  } catch (e: Exception) {
+    Log.w("PearNative", "Champ mBackPressedCallback introuvable : aperçu du retour désactivé", e)
+    null
+  }
+
+  private var pipListening = false
+  // Clé de tag pour l'arrondi déjà appliqué à une vidéo.
+  private val R_CORNER = 0x7f0e4207
+
+  private fun findSurface(view: View): android.view.SurfaceView? {
+    if (view is android.view.SurfaceView) return view
+    if (view is android.view.ViewGroup) {
+      for (i in 0 until view.childCount) findSurface(view.getChildAt(i))?.let { return it }
+    }
+    return null
+  }
+
+  override fun definition() = ModuleDefinition {
+    Name("PearNative")
+
+    Events("onBack", "onDownloadProgress", "onInsetsChange", "onShare", "onHeadset", "onPip", "onCallHangUp")
+
+    OnCreate {
+      CallAudio.onHeadsetChange = { kind -> sendEvent("onHeadset", mapOf("kind" to kind)) }
+      PearCallService.onHangUp = { sendEvent("onCallHangUp", emptyMap<String, Any>()) }
+    }
+
+    // Notification de l'appel en cours (service de premier plan). info : name, photo, video, startedAt
+    // (0 = pas encore répondu), text, channelName, hangUpLabel.
+    Function("startCallService") { info: Map<String, Any?> ->
+      appContext.reactContext?.let { PearCallService.start(it, info) } ?: false
+    }
+    Function("stopCallService") {
+      appContext.reactContext?.let { PearCallService.stop(it) }
+      Unit
+    }
+
+    // Coins arrondis d'une vidéo (RTCView) : la vidéo est une SurfaceView, que le rognage de React Native
+    // ne touche pas. Android sait arrondir la surface elle-même (méthode cachée, présente depuis Android 12).
+    AsyncFunction("setVideoCorner") { tag: Int, radius: Double ->
+      val context = appContext.reactContext as? ReactContext ?: return@AsyncFunction false
+      val root = UIManagerHelper.getUIManagerForReactTag(context, tag)?.resolveView(tag) ?: return@AsyncFunction false
+      val surface = findSurface(root) ?: return@AsyncFunction false
+      try {
+        val method = android.view.SurfaceView::class.java.getMethod("setCornerRadius", Float::class.javaPrimitiveType)
+        val pixels = (radius * context.resources.displayMetrics.density).toFloat()
+        if ((surface.getTag(R_CORNER) as? Float) == pixels) return@AsyncFunction true
+        surface.setTag(R_CORNER, pixels)
+        method.invoke(surface, pixels)
+        // Android n'envoie l'arrondi à la surface que lorsqu'il la met à jour : un aller-retour de
+        // visibilité la recrée tout de suite, arrondie (la vidéo reprend à l'image suivante).
+        surface.visibility = View.INVISIBLE
+        surface.post { surface.visibility = View.VISIBLE }
+        true
+      } catch (e: Exception) {
+        Log.w("PearCall", "coins de la vidéo", e)
+        false
+      }
+    }.runOnQueue(Queues.MAIN)
+
+    // Photos et vidéos partagées depuis une autre app (menu « Partager », lot 12) : Pear déjà ouvert
+    // reçoit l'intention ici ; au lancement, elle est lue dans celle de l'activité.
+    OnNewIntent { intent ->
+      if (isShare(intent)) {
+        pendingShare = intent
+        sendEvent("onShare", emptyMap<String, Any>())
+      }
+    }
+
+    // Copiées dans le cache de Pear (l'autre app peut retirer son autorisation de lecture), puis
+    // l'intention est oubliée pour ne pas être relue au prochain retour dans l'app.
+    AsyncFunction("takeSharedMedia") {
+      val activity = appContext.currentActivity
+      val intent = pendingShare ?: activity?.intent?.takeIf { isShare(it) }
+      pendingShare = null
+      if (intent == null) return@AsyncFunction emptyList<Map<String, Any>>()
+      activity?.intent = Intent(Intent.ACTION_MAIN)
+      sharedMedia(intent)
+    }
+
+    // Partage direct (lot 2.6) : les contacts récents deviennent des raccourcis de partage. Chacun porte
+    // la clé publique du contact ; Android la renvoie dans EXTRA_SHORTCUT_ID au partage. L'appel remplace
+    // tous les raccourcis précédents (un contact supprimé disparaît du menu).
+    AsyncFunction("setShareShortcuts") { contacts: List<Map<String, String>> ->
+      val context = appContext.reactContext ?: return@AsyncFunction
+      val launch = Intent(context, Class.forName(context.packageName + ".MainActivity")).setAction(Intent.ACTION_VIEW)
+      val shortcuts = contacts.take(4).mapIndexed { index, contact ->
+        ShortcutInfoCompat.Builder(context, SHORTCUT_PREFIX + contact["key"])
+          .setShortLabel(contact["name"] ?: "")
+          .setLongLived(true)
+          .setRank(index)
+          .setIcon(contactIcon(contact["photo"], contact["name"] ?: ""))
+          .setIntent(launch)
+          .setCategories(setOf(SHARE_CATEGORY))
+          .build()
+      }
+      ShortcutManagerCompat.setDynamicShortcuts(context, shortcuts)
+    }
+
+    // "system" : Android montre son propre aperçu pour quitter. "app" : l'app anime elle-même le geste.
+    // "default" : retour normal, sans aperçu.
+    AsyncFunction("setBackMode") { mode: String -> setBackMode(mode) }.runOnQueue(Queues.MAIN)
+
+    // Faux si la réflexion sur React Native ne marche plus (voir reactBackCallback).
+    Function("backHookAvailable") {
+      val activity = appContext.currentActivity as? ComponentActivity ?: return@Function true
+      reactBackCallback(activity) != null
+    }
+
+    // Le geste est allé au bout : le retour repasse par le chemin normal, jusqu'au BackHandler de l'app.
+    AsyncFunction("completeBack") { completeBack() }.runOnQueue(Queues.MAIN)
+
+    // Recharge l'interface (changement de langue) : le code JS repart de zéro, l'app reste ouverte.
+    // Redémarre vraiment l'app (nouvelle langue). Recharger seulement le JavaScript (reactHost.reload)
+    // faisait planter la version publiée : les modules natifs (appels, vidéo, carte, animations) ne
+    // supportent pas d'être rechargés à chaud. On relance l'activité principale dans une tâche neuve,
+    // puis le processus s'arrête : Android rouvre Pear dans un processus propre.
+    AsyncFunction("reloadApp") {
+      val context = appContext.reactContext ?: throw IllegalStateException("Contexte introuvable.")
+      val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        ?: throw IllegalStateException("Activité introuvable.")
+      val restart = Intent.makeRestartActivityTask(launch.component)
+      context.startActivity(restart)
+      android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ Runtime.getRuntime().exit(0) }, 150)
+      Unit
+    }.runOnQueue(Queues.MAIN)
+
+    // Appels (vague 5) : son de l'appel, sonnerie, écran par-dessus le verrou.
+    Function("setCallAudio") { route: String ->
+      appContext.reactContext?.let { CallAudio.setRoute(it, route) }
+      Unit
+    }
+    Function("startRinging") {
+      appContext.reactContext?.let { CallAudio.startRinging(it) }
+      Unit
+    }
+    Function("stopRinging") { CallAudio.stopRinging() }
+    // Appel en cours : quitter Pear (accueil, autre app) ouvre la fenêtre flottante de l'appel, à ce format.
+    // Android 12 et plus ; enabled = false à la fin de l'appel.
+    AsyncFunction("setCallPip") { enabled: Boolean, width: Int, height: Int ->
+      val activity = appContext.currentActivity as? ComponentActivity ?: return@AsyncFunction
+      if (!pipListening) {
+        pipListening = true
+        activity.addOnPictureInPictureModeChangedListener { info: PictureInPictureModeChangedInfo ->
+          val active = info.isInPictureInPictureMode
+          sendEvent("onPip", mapOf("active" to active))
+          // Le changement de taille de la fenêtre n'est pas toujours remesuré tout de suite : l'écran restait
+          // à moitié dessiné jusqu'au premier toucher. On remesure et on redessine plusieurs fois, et on
+          // redit l'état à JavaScript pour qu'il redessine aussi.
+          val decor = activity.window.decorView
+          for (delay in longArrayOf(0, 80, 200, 450, 900)) {
+            decor.postDelayed({
+              decor.requestLayout()
+              decor.invalidate()
+              if (delay > 0) sendEvent("onPip", mapOf("active" to active))
+            }, delay)
+          }
+        }
+      }
+      if (Build.VERSION.SDK_INT >= 31) {
+        try {
+          activity.setPictureInPictureParams(
+            PictureInPictureParams.Builder()
+              .setAutoEnterEnabled(enabled)
+              .setSeamlessResizeEnabled(false)
+              .setAspectRatio(Rational(width.coerceAtLeast(1), height.coerceAtLeast(1)))
+              .build(),
+          )
+        } catch (e: Exception) {
+          Log.w("PearCall", "fenêtre flottante", e)
+        }
+      }
+      Unit
+    }.runOnQueue(Queues.MAIN)
+    // Fin de l'appel : la fenêtre flottante se ferme tout de suite (l'app reste ouverte en arrière-plan).
+    AsyncFunction("closeCallPip") {
+      val activity = appContext.currentActivity
+      if (activity == null) return@AsyncFunction Unit
+      if (Build.VERSION.SDK_INT >= 26 && activity.isInPictureInPictureMode) activity.moveTaskToBack(true)
+      Unit
+    }.runOnQueue(Queues.MAIN)
+    Function("callOutputs") { appContext.reactContext?.let { CallAudio.outputs(it) } ?: emptyList<Map<String, Any>>() }
+    Function("setCallOutput") { id: Int -> appContext.reactContext?.let { CallAudio.setOutput(it, id) }; Unit }
+    Function("callHeadset") { appContext.reactContext?.let { CallAudio.headset(it) } ?: "" }
+    AsyncFunction("showOverLock") { on: Boolean ->
+      CallAudio.overLockWanted = on
+      appContext.currentActivity?.let { CallAudio.showOverLock(it, on) }
+      Unit
+    }.runOnQueue(Queues.MAIN)
+
+    // Android 14+ : « notifications plein écran » est une autorisation spéciale, retirable. Sans elle, un
+    // appel qui arrive téléphone verrouillé n'allume pas l'écran. Avant Android 14, toujours vrai.
+    Function("canUseFullScreenIntent") {
+      val context = appContext.reactContext ?: return@Function true
+      if (Build.VERSION.SDK_INT >= 34) context.getSystemService(android.app.NotificationManager::class.java).canUseFullScreenIntent() else true
+    }
+
+    Function("openFullScreenIntentSettings") {
+      val activity = appContext.currentActivity ?: return@Function false
+      try {
+        val intent = if (Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${activity.packageName}"))
+        else Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)
+        activity.startActivity(intent)
+        true
+      } catch (e: Exception) {
+        Log.w("PearCall", "réglage plein écran", e)
+        false
+      }
+    }
+
+    // Captures d'écran et aperçu des apps récentes bloqués (FLAG_SECURE), réappliqué à chaque retour au premier plan.
+    AsyncFunction("setSecureWindow") { enabled: Boolean ->
+      secureWindow = enabled
+      applySecure()
+    }.runOnQueue(Queues.MAIN)
+
+    // Empreinte, visage ou code du téléphone. "ok", "cancelled" ou "unavailable" (aucun verrou réglé, Android < 11).
+    AsyncFunction("authenticate") { title: String, promise: Promise -> authenticate(title, promise) }.runOnQueue(Queues.MAIN)
+
+    // Clavier incognito sur une saisie : le clavier n'apprend pas ce qui s'écrit.
+    AsyncFunction("setIncognitoKeyboard") { tag: Int ->
+      val context = appContext.reactContext as? ReactContext ?: return@AsyncFunction
+      val edit = UIManagerHelper.getUIManagerForReactTag(context, tag)?.resolveView(tag) as? EditText ?: return@AsyncFunction
+      edit.imeOptions = edit.imeOptions or IME_FLAG_NO_PERSONALIZED_LEARNING
+    }.runOnQueue(Queues.MAIN)
+
+    OnDestroy {
+      backCallback.remove()
+      unwatchInsets()
+    }
+
+    // Barre d'état (et encoche) en haut, barre de navigation en bas, en dp. null si l'app n'a pas encore de fenêtre.
+    Function("systemInsets") { readInsets() }
+
+    AsyncFunction("watchInsets") { watchInsets() }.runOnQueue(Queues.MAIN)
+
+    OnActivityEntersForeground {
+      appContext.currentActivity?.runOnUiThread {
+        // Appel reçu app fermée : l'activité n'existait pas quand l'écran de l'appel l'a demandé.
+        appContext.currentActivity?.let { CallAudio.showOverLock(it, CallAudio.overLockWanted) }
+        applySecure()
+        watchInsets()
+        emitInsets()
+      }
+    }
+
+    // La hauteur réelle de la barre d'Android : fine avec les gestes, plus haute avec les 3 boutons.
+    Function("navigationBarHeight") {
+      val activity = appContext.currentActivity ?: return@Function null
+      val insets = activity.window?.decorView?.rootWindowInsets ?: return@Function null
+      val bottom = WindowInsetsCompat.toWindowInsetsCompat(insets).getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+      (bottom / activity.resources.displayMetrics.density).toDouble()
+    }
+
+    // Le versionCode de l'APK installé, pour le comparer à celui de la dernière release.
+    Function("appVersionCode") {
+      val context = appContext.reactContext ?: return@Function null
+      val info = context.packageManager.getPackageInfo(context.packageName, 0)
+      (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()).toDouble()
+    }
+
+    Function("appVersionName") {
+      val context = appContext.reactContext ?: return@Function null
+      context.packageManager.getPackageInfo(context.packageName, 0).versionName
+    }
+
+    // « Installer des apps inconnues » : Android demande cette autorisation, app par app.
+    Function("canRequestPackageInstalls") {
+      val context = appContext.reactContext ?: return@Function false
+      Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
+    }
+
+    Function("openUnknownAppSourcesSettings") {
+      val activity = appContext.currentActivity ?: return@Function false
+      val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}"))
+      activity.startActivity(intent)
+      true
+    }
+
+    // Niveau de la batterie (0 à 100) et si elle charge, pour le filtre Batterie. Aucune autorisation.
+    Function("batteryStatus") {
+      val context = appContext.reactContext ?: return@Function null
+      val intent = context.registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return@Function null
+      val level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+      val scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100)
+      if (level < 0 || scale <= 0) return@Function null
+      val status = intent.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
+      val charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL
+      mapOf("level" to (level * 100 / scale), "charging" to charging)
+    }
+
+    // Dernière position connue du téléphone (approximative), pour le filtre Lieu. Lue sur l'appareil,
+    // jamais envoyée : la ville se trouve ensuite dans une liste embarquée. null sans autorisation.
+    Function("lastKnownLocation") {
+      val context = appContext.reactContext ?: return@Function null
+      if (context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) return@Function null
+      val manager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+      val best = manager.getProviders(true)
+        .mapNotNull { provider -> try { manager.getLastKnownLocation(provider) } catch (_: SecurityException) { null } }
+        .maxByOrNull { it.time }
+        ?: return@Function null
+      mapOf("latitude" to best.latitude, "longitude" to best.longitude)
+    }
+
+    // Une position fraîche, quand Android n'en a aucune en mémoire (téléphone où rien n'a encore demandé
+    // la position : lastKnownLocation rend null). Réseau et GPS en même temps, la première réponse gagne ;
+    // null au bout de timeoutMs, sans autorisation ou localisation coupée. Lue sur l'appareil, jamais envoyée.
+    AsyncFunction("currentLocation") { timeoutMs: Int, promise: Promise -> currentLocation(timeoutMs, promise) }.runOnQueue(Queues.MAIN)
+
+    // Batterie « sans restriction » : sinon Android retarde les pushs quand le téléphone dort.
+    Function("isIgnoringBatteryOptimizations") {
+      val context = appContext.reactContext ?: return@Function false
+      val power = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+      power.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
+    // Fenêtre système « Autoriser Pear à fonctionner en arrière-plan ? ». Si elle n'existe pas sur ce
+    // téléphone, on ouvre la liste des optimisations de batterie.
+    Function("requestIgnoreBatteryOptimizations") {
+      val activity = appContext.currentActivity ?: return@Function false
+      try {
+        activity.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${activity.packageName}")))
+      } catch (e: Exception) {
+        Log.w("PearNative", "Fenêtre de batterie indisponible", e)
+        activity.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+      }
+      true
+    }
+
+    // Reprend là où le fichier partiel s'est arrêté, si le serveur le permet.
+    AsyncFunction("downloadFile") { url: String, fileUri: String -> downloadFile(url, fileUri) }
+
+    AsyncFunction("sha256File") { fileUri: String -> sha256File(fileUri) }
+
+    // Réduit une image (photo de profil) : plus grand côté maxSize, recompressée en JPEG.
+    // Vignette d'une photo ou d'une vidéo de la galerie : celle qu'Android garde déjà (loadThumbnail,
+    // la même que la galerie du téléphone), enregistrée une fois dans le cache de Pear. Bien plus
+    // rapide que de décoder la photo entière pour une case de 120 points.
+    AsyncFunction("thumbnail") { id: String, video: Boolean, size: Int -> thumbnail(id, video, size) }
+
+    // Taille d'une photo telle qu'on la voit (orientation EXIF appliquée).
+    AsyncFunction("imageSize") { uri: String -> imageSize(uri) }
+
+    // Recadre une photo (rect en fractions de la photo vue puis tournée de rotation), la réduit et
+    // l'enregistre en JPEG, hors du fil de l'interface : photo de profil.
+    AsyncFunction("cropImage") { inputUri: String, outputUri: String, rect: List<Double>, rotation: Int, maxSize: Int, quality: Int ->
+      if (rect.size != 4) throw IllegalArgumentException("Cadre invalide.")
+      cropImage(inputUri, outputUri, FloatArray(4) { rect[it].toFloat() }, rotation, maxSize, quality)
+    }
+
+    AsyncFunction("blurCover") { inputUri: String, outputUri: String, video: Boolean -> blurCover(inputUri, outputUri, video) }
+
+    AsyncFunction("resizeImage") { inputUri: String, outputUri: String, maxSize: Int, quality: Int -> resizeImage(inputUri, outputUri, maxSize, quality) }
+
+    Function("installApk") { fileUri: String -> installApk(fileUri) }
+
+    // Media3 doit être lancé depuis un fil qui a une boucle de messages : ici, le fil principal.
+    // Le débit vient de src/config.ts : le même que l'appareil photo, l'incrustation ne fait pas regonfler la vidéo.
+    AsyncFunction("burnOverlay") { videoUri: String, overlayUri: String, bitrate: Int, promise: Promise ->
+      try {
+        editVideo(videoUri, VideoEdit().also { it.overlayUri = overlayUri; it.bitrate = bitrate }, promise)
+      } catch (e: Exception) {
+        promise.reject("ERR_PEAR_VIDEO", e.message ?: "Incrustation impossible", e)
+      }
+    }.runOnQueue(Queues.MAIN)
+
+    // Dessine une vue (et tout ce qu'elle contient) dans une image PNG, agrandie de `scale` : les textes
+    // et les traits sont redessinés à cette taille, donc nets. Le fond reste transparent.
+    // Luminosité de la fenêtre de Pear (0 à 1), -1 pour revenir au réglage du téléphone : l'écran
+    // éclaire le visage quand on filme avec la caméra avant et le flash.
+    AsyncFunction("setScreenBrightness") { value: Double ->
+      val window = appContext.currentActivity?.window ?: return@AsyncFunction
+      window.attributes = window.attributes.apply { screenBrightness = if (value < 0) -1f else value.toFloat().coerceIn(0f, 1f) }
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("captureView") { tag: Int, outputUri: String, scale: Double ->
+      captureView(tag, outputUri, scale)
+    }.runOnQueue(Queues.MAIN)
+
+    // Toutes les retouches d'une vidéo en un passage : couleurs (matrice), calque, découpe, son, vitesse.
+    AsyncFunction("editVideo") { videoUri: String, edit: VideoEdit, promise: Promise ->
+      try {
+        editVideo(videoUri, edit, promise)
+      } catch (e: Exception) {
+        promise.reject("ERR_PEAR_VIDEO", e.message ?: "Retouche impossible", e)
+      }
+    }.runOnQueue(Queues.MAIN)
+  }
+
+  private var secureWindow = true
+
+  private fun applySecure() {
+    val window = appContext.currentActivity?.window ?: return
+    if (secureWindow) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+  }
+
+  @Suppress("DEPRECATION")
+  private fun currentLocation(timeoutMs: Int, promise: Promise) {
+    val context = appContext.reactContext
+    if (context == null || context.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+      promise.resolve(null)
+      return
+    }
+    val manager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+    val providers = listOf(android.location.LocationManager.NETWORK_PROVIDER, android.location.LocationManager.GPS_PROVIDER)
+      .filter { provider -> try { manager.isProviderEnabled(provider) } catch (_: Exception) { false } }
+    if (providers.isEmpty()) {
+      promise.resolve(null)
+      return
+    }
+    val done = java.util.concurrent.atomic.AtomicBoolean(false)
+    val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    val cancel = CancellationSignal()
+    var listener: android.location.LocationListener? = null
+    fun finish(location: android.location.Location?) {
+      if (!done.compareAndSet(false, true)) return
+      handler.removeCallbacksAndMessages(null)
+      try { cancel.cancel() } catch (_: Exception) {}
+      listener?.let { try { manager.removeUpdates(it) } catch (_: Exception) {} }
+      promise.resolve(location?.let { mapOf("latitude" to it.latitude, "longitude" to it.longitude) })
+    }
+    handler.postDelayed({ finish(null) }, timeoutMs.toLong())
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      for (provider in providers) {
+        // Sans la position précise, le GPS refuse : le réseau suffit.
+        try {
+          manager.getCurrentLocation(provider, cancel, context.mainExecutor) { location -> if (location != null) finish(location) }
+        } catch (e: SecurityException) {
+          Log.w("PearNative", "position $provider", e)
+        }
+      }
+    } else {
+      val single = object : android.location.LocationListener {
+        override fun onLocationChanged(location: android.location.Location) = finish(location)
+        override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) = Unit
+        override fun onProviderEnabled(provider: String) = Unit
+        override fun onProviderDisabled(provider: String) = Unit
+      }
+      listener = single
+      for (provider in providers) {
+        try {
+          manager.requestSingleUpdate(provider, single, android.os.Looper.getMainLooper())
+        } catch (e: SecurityException) {
+          Log.w("PearNative", "position $provider", e)
+        }
+      }
+    }
+  }
+
+  private fun authenticate(title: String, promise: Promise) {
+    val activity = appContext.currentActivity
+    if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+      promise.resolve("unavailable")
+      return
+    }
+    authenticateApi30(activity, title, promise)
+  }
+
+  @RequiresApi(Build.VERSION_CODES.R)
+  private fun authenticateApi30(activity: android.app.Activity, title: String, promise: Promise) {
+    val allowed = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+    val manager = activity.getSystemService(BiometricManager::class.java)
+    if (manager == null || manager.canAuthenticate(allowed) != BiometricManager.BIOMETRIC_SUCCESS) {
+      promise.resolve("unavailable")
+      return
+    }
+    var done = false
+    val prompt = BiometricPrompt.Builder(activity).setTitle(title).setAllowedAuthenticators(allowed).build()
+    prompt.authenticate(CancellationSignal(), activity.mainExecutor, object : BiometricPrompt.AuthenticationCallback() {
+      override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+        if (!done) { done = true; promise.resolve("ok") }
+      }
+      override fun onAuthenticationError(errorCode: Int, errString: CharSequence?) {
+        if (!done) { done = true; promise.resolve("cancelled") }
+      }
+    })
+  }
+
+  private fun setBackMode(mode: String) {
+    val activity = appContext.currentActivity as? ComponentActivity ?: return
+    if (!backRegistered) {
+      activity.onBackPressedDispatcher.addCallback(activity, backCallback)
+      backRegistered = true
+    }
+    backCallback.isEnabled = mode == "app"
+    reactBackCallback(activity)?.isEnabled = mode != "system"
+  }
+
+  private fun completeBack() {
+    val activity = appContext.currentActivity as? ComponentActivity ?: return
+    val wasEnabled = backCallback.isEnabled
+    backCallback.isEnabled = false
+    activity.onBackPressedDispatcher.onBackPressed()
+    backCallback.isEnabled = wasEnabled
+  }
+
+  private fun pathOf(fileUri: String) = Uri.parse(fileUri).path ?: throw IllegalArgumentException("Fichier introuvable.")
+
+  // Plusieurs essais : GitHub répond parfois 502/503/504 ou coupe la connexion. Chaque essai reprend
+  // là où le précédent s'est arrêté ; si la reprise est refusée (416), on repart de zéro.
+  private fun downloadFile(url: String, fileUri: String) {
+    val file = File(pathOf(fileUri))
+    file.parentFile?.mkdirs()
+    var lastError: Exception? = null
+    for (attempt in 0 until DOWNLOAD_ATTEMPTS) {
+      if (attempt > 0) Thread.sleep(DOWNLOAD_BACKOFF_MS * attempt)
+      try {
+        downloadOnce(url, file)
+        return
+      } catch (e: DownloadHttpException) {
+        lastError = e
+        if (!e.retryable) throw e
+      } catch (e: java.io.IOException) {
+        lastError = e
+      }
+    }
+    throw lastError ?: IllegalStateException("Téléchargement impossible.")
+  }
+
+  private class DownloadHttpException(val code: Int) : IllegalStateException("Téléchargement refusé ($code).") {
+    val retryable = code >= 500 || code == 408 || code == 429
+  }
+
+  private fun downloadOnce(url: String, file: File) {
+    val already = if (file.exists()) file.length() else 0L
+    val connection = URL(url).openConnection() as HttpURLConnection
+    try {
+      connection.connectTimeout = DOWNLOAD_TIMEOUT_MS
+      connection.readTimeout = DOWNLOAD_TIMEOUT_MS
+      if (already > 0) connection.setRequestProperty("Range", "bytes=$already-")
+      val code = connection.responseCode
+      if (code == 416 && already > 0) {
+        // Reprise impossible (fichier partiel plus long ou abîmé) : on l'efface, l'essai suivant repart de zéro.
+        file.delete()
+        throw java.io.IOException("Reprise refusée.")
+      }
+      if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) throw DownloadHttpException(code)
+      // Le serveur a ignoré la reprise : on repart de zéro.
+      val resume = code == HttpURLConnection.HTTP_PARTIAL
+      val start = if (resume) already else 0L
+      val total = start + connection.contentLengthLong.coerceAtLeast(0L)
+      var received = start
+      var lastEvent = 0L
+      connection.inputStream.use { input ->
+        FileOutputStream(file, resume).use { output ->
+          val buffer = ByteArray(64 * 1024)
+          while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            output.write(buffer, 0, read)
+            received += read
+            val now = System.currentTimeMillis()
+            if (now - lastEvent > DOWNLOAD_PROGRESS_MS) {
+              lastEvent = now
+              sendEvent("onDownloadProgress", mapOf("received" to received.toDouble(), "total" to total.toDouble()))
+            }
+          }
+        }
+      }
+      sendEvent("onDownloadProgress", mapOf("received" to received.toDouble(), "total" to total.toDouble()))
+    } finally {
+      connection.disconnect()
+    }
+  }
+
+  private fun resizeImage(inputUri: String, outputUri: String, maxSize: Int, quality: Int): String {
+    val context = appContext.reactContext ?: throw IllegalStateException("Contexte indisponible.")
+    val uri = Uri.parse(inputUri)
+    // On lit d'abord la taille seule, pour décoder directement une version réduite (mémoire).
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, bounds) }
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= maxSize && bounds.outHeight / (sample * 2) >= maxSize) sample *= 2
+    val decoded = context.contentResolver.openInputStream(uri).use {
+      BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+    } ?: throw IllegalArgumentException("Image illisible.")
+    val scale = minOf(1f, maxSize.toFloat() / maxOf(decoded.width, decoded.height))
+    val bitmap = if (scale < 1f) Bitmap.createScaledBitmap(decoded, (decoded.width * scale).toInt(), (decoded.height * scale).toInt(), true) else decoded
+    val file = File(pathOf(outputUri))
+    file.parentFile?.mkdirs()
+    FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, quality, it) }
+    return outputUri
+  }
+
+  // Couverture floue d'une notification : l'image est réduite à 24 points de large puis agrandie, il ne
+  // reste que des taches de couleur. Pour une vidéo, on part de sa première image.
+  private fun blurCover(inputUri: String, outputUri: String, video: Boolean): String {
+    val context = appContext.reactContext ?: throw IllegalStateException("Contexte indisponible.")
+    val uri = Uri.parse(inputUri)
+    val source: Bitmap = if (video) {
+      val retriever = MediaMetadataRetriever()
+      try {
+        retriever.setDataSource(context, uri)
+        retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+      } finally {
+        retriever.release()
+      }
+    } else {
+      val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+      context.contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, bounds) }
+      var sample = 1
+      while (bounds.outWidth / (sample * 2) >= 96 && bounds.outHeight / (sample * 2) >= 96) sample *= 2
+      val decoded = context.contentResolver.openInputStream(uri).use {
+        BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+      }
+      val degrees = exifDegrees(context, uri)
+      if (decoded != null && degrees != 0) Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, Matrix().apply { postRotate(degrees.toFloat()) }, true) else decoded
+    } ?: throw IllegalArgumentException("Image illisible.")
+    val ratio = source.height.toFloat() / source.width
+    val small = Bitmap.createScaledBitmap(source, 24, maxOf(1, Math.round(24 * ratio)), true)
+    val blurred = Bitmap.createScaledBitmap(small, 512, maxOf(1, Math.round(512 * ratio)), true)
+    val file = File(pathOf(outputUri))
+    file.parentFile?.mkdirs()
+    val partial = File(file.parentFile, file.name + ".part")
+    FileOutputStream(partial).use { blurred.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+    partial.renameTo(file)
+    return outputUri
+  }
+
+  private fun thumbnail(id: String, video: Boolean, size: Int): String {
+    val context = appContext.reactContext ?: throw IllegalStateException("Contexte indisponible.")
+    val mediaId = id.toLongOrNull() ?: throw IllegalArgumentException("Média inconnu.")
+    val directory = File(context.cacheDir, "vignettes").apply { mkdirs() }
+    val file = File(directory, "${if (video) "v" else "p"}$mediaId-$size.jpg")
+    if (file.exists() && file.length() > 0) return Uri.fromFile(file).toString()
+    val base = if (video) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+    val uri = android.content.ContentUris.withAppendedId(base, mediaId)
+    val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      context.contentResolver.loadThumbnail(uri, android.util.Size(size, size), null)
+    } else {
+      @Suppress("DEPRECATION")
+      if (video) MediaStore.Video.Thumbnails.getThumbnail(context.contentResolver, mediaId, MediaStore.Video.Thumbnails.MINI_KIND, null)
+      else MediaStore.Images.Thumbnails.getThumbnail(context.contentResolver, mediaId, MediaStore.Images.Thumbnails.MINI_KIND, null)
+    } ?: throw IllegalArgumentException("Vignette indisponible.")
+    val partial = File(directory, file.name + ".part")
+    FileOutputStream(partial).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+    bitmap.recycle()
+    partial.renameTo(file)
+    return Uri.fromFile(file).toString()
+  }
+
+  private fun exifDegrees(context: android.content.Context, uri: Uri): Int = try {
+    context.contentResolver.openInputStream(uri)?.use { input ->
+      when (ExifInterface(input).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
+        ExifInterface.ORIENTATION_ROTATE_90, ExifInterface.ORIENTATION_TRANSPOSE -> 90
+        ExifInterface.ORIENTATION_ROTATE_180 -> 180
+        ExifInterface.ORIENTATION_ROTATE_270, ExifInterface.ORIENTATION_TRANSVERSE -> 270
+        else -> 0
+      }
+    } ?: 0
+  } catch (e: Exception) {
+    0
+  }
+
+  private fun imageSize(inputUri: String): Map<String, Int> {
+    val context = appContext.reactContext ?: throw IllegalStateException("Contexte indisponible.")
+    val uri = Uri.parse(inputUri)
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IllegalArgumentException("Image illisible.")
+    val sideways = exifDegrees(context, uri) % 180 != 0
+    return mapOf("width" to if (sideways) bounds.outHeight else bounds.outWidth, "height" to if (sideways) bounds.outWidth else bounds.outHeight)
+  }
+
+  private fun cropImage(inputUri: String, outputUri: String, rect: FloatArray, rotation: Int, maxSize: Int, quality: Int): String {
+    val context = appContext.reactContext ?: throw IllegalStateException("Contexte indisponible.")
+    val uri = Uri.parse(inputUri)
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, bounds) }
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IllegalArgumentException("Image illisible.")
+    // Décodée directement réduite, tant que la partie gardée reste plus grande que maxSize.
+    val kept = maxOf(bounds.outWidth, bounds.outHeight) * maxOf(rect[2], rect[3])
+    var sample = 1
+    while (kept / (sample * 2) >= maxSize) sample *= 2
+    val decoded = context.contentResolver.openInputStream(uri).use {
+      BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+    } ?: throw IllegalArgumentException("Image illisible.")
+    val turn = (exifDegrees(context, uri) + rotation) % 360
+    val turned = if (turn == 0) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, Matrix().apply { postRotate(turn.toFloat()) }, true)
+    if (turned !== decoded) decoded.recycle()
+    val left = (rect[0] * turned.width).toInt().coerceIn(0, turned.width - 1)
+    val top = (rect[1] * turned.height).toInt().coerceIn(0, turned.height - 1)
+    val width = (rect[2] * turned.width).toInt().coerceIn(1, turned.width - left)
+    val height = (rect[3] * turned.height).toInt().coerceIn(1, turned.height - top)
+    val scale = minOf(1f, maxSize.toFloat() / maxOf(width, height))
+    val output = Bitmap.createBitmap(turned, left, top, width, height, Matrix().apply { postScale(scale, scale) }, true)
+    val file = File(pathOf(outputUri))
+    file.parentFile?.mkdirs()
+    FileOutputStream(file).use { output.compress(Bitmap.CompressFormat.JPEG, quality, it) }
+    if (output !== turned) output.recycle()
+    turned.recycle()
+    return outputUri
+  }
+
+  private fun sha256File(fileUri: String): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    File(pathOf(fileUri)).inputStream().use { input ->
+      val buffer = ByteArray(64 * 1024)
+      while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        digest.update(buffer, 0, read)
+      }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+  }
+
+  private fun installApk(fileUri: String) {
+    val activity = appContext.currentActivity ?: throw IllegalStateException("L'app n'est pas prête.")
+    val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.pearupdate", File(pathOf(fileUri)))
+    val intent = Intent(Intent.ACTION_VIEW)
+      .setDataAndType(uri, APK_MIME)
+      .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+    activity.startActivity(intent)
+  }
+
+  private var pendingShare: Intent? = null
+
+  // Icône ronde d'un contact : sa photo de profil rognée en cercle (le menu Partager y ajoute lui-même la
+  // petite icône de l'app) ; sans photo, son initiale sur un disque gris.
+  private fun contactIcon(photoPath: String?, name: String): IconCompat {
+    val size = 256
+    val out = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(out)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    val photo = try {
+      if (photoPath.isNullOrEmpty()) null else {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(photoPath, bounds)
+        val sample = maxOf(1, minOf(bounds.outWidth, bounds.outHeight) / size)
+        BitmapFactory.decodeFile(photoPath, BitmapFactory.Options().apply { inSampleSize = sample })
+      }
+    } catch (e: Exception) {
+      Log.w("PearNative", "photo du raccourci illisible", e)
+      null
+    }
+    if (photo != null) {
+      canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+      paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+      val side = minOf(photo.width, photo.height)
+      val src = android.graphics.Rect((photo.width - side) / 2, (photo.height - side) / 2, (photo.width + side) / 2, (photo.height + side) / 2)
+      canvas.drawBitmap(photo, src, android.graphics.Rect(0, 0, size, size), paint)
+    } else {
+      paint.color = Color.rgb(142, 142, 147)
+      canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+      paint.color = Color.WHITE
+      paint.textAlign = Paint.Align.CENTER
+      paint.textSize = size * 0.46f
+      val metrics = paint.fontMetrics
+      canvas.drawText(name.trim().take(1).uppercase(), size / 2f, size / 2f - (metrics.ascent + metrics.descent) / 2f, paint)
+    }
+    return IconCompat.createWithBitmap(out)
+  }
+
+  private val SHORTCUT_PREFIX = "contact-"
+  private val SHARE_CATEGORY = "com.louca.nebula.category.SHARE_TARGET"
+
+  private fun isShare(intent: Intent?) = intent?.action == Intent.ACTION_SEND || intent?.action == Intent.ACTION_SEND_MULTIPLE
+
+  @Suppress("DEPRECATION")
+  private fun sharedMedia(intent: Intent): List<Map<String, Any>> {
+    val context = appContext.reactContext ?: return emptyList()
+    val uris: List<Uri> = if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+      intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM) ?: arrayListOf()
+    } else {
+      listOfNotNull(intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
+    }
+    return uris.mapIndexedNotNull { index, uri ->
+      try {
+        val mime = context.contentResolver.getType(uri) ?: intent.type ?: return@mapIndexedNotNull null
+        if (!mime.startsWith("image/") && !mime.startsWith("video/")) return@mapIndexedNotNull null
+        val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: if (mime.startsWith("video/")) "mp4" else "jpg"
+        val target = File(context.cacheDir, "partage-${System.currentTimeMillis()}-$index.$extension")
+        context.contentResolver.openInputStream(uri)?.use { input -> FileOutputStream(target).use { input.copyTo(it) } } ?: return@mapIndexedNotNull null
+        val result = mutableMapOf<String, Any>("uri" to Uri.fromFile(target).toString(), "mime" to mime, "size" to target.length().toDouble())
+        // Partage venu d'un raccourci : la clé publique du contact choisi dans le menu.
+        intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)?.takeIf { it.startsWith(SHORTCUT_PREFIX) }?.let { result["contact"] = it.removePrefix(SHORTCUT_PREFIX) }
+        result
+      } catch (e: Exception) {
+        Log.w("PearNative", "média partagé illisible", e)
+        null
+      }
+    }
+  }
+
+  private fun captureView(tag: Int, outputUri: String, scale: Double): String {
+    val context = appContext.reactContext as? ReactContext ?: throw IllegalStateException("L'app n'est pas prête.")
+    val view = UIManagerHelper.getUIManagerForReactTag(context, tag)?.resolveView(tag)
+      ?: throw IllegalArgumentException("Vue introuvable.")
+    if (view.width <= 0 || view.height <= 0) throw IllegalStateException("Vue pas encore mesurée.")
+    val factor = scale.toFloat().coerceIn(0.5f, 4f)
+    val bitmap = Bitmap.createBitmap((view.width * factor).toInt(), (view.height * factor).toInt(), Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    canvas.scale(factor, factor)
+    view.draw(canvas)
+    val path = Uri.parse(outputUri).path ?: throw IllegalArgumentException("Fichier invalide.")
+    FileOutputStream(path).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    bitmap.recycle()
+    return outputUri
+  }
+
+  private fun editVideo(videoUri: String, edit: VideoEdit, promise: Promise) {
+    val context = appContext.reactContext ?: throw IllegalStateException("L'app n'est pas prête.")
+    val videoPath = Uri.parse(videoUri).path ?: throw IllegalArgumentException("Vidéo introuvable.")
+    val overlayPath = edit.overlayUri?.let { Uri.parse(it).path ?: throw IllegalArgumentException("Calque introuvable.") }
+
+    val effects = mutableListOf<Effect>()
+    // Les couleurs d'abord : le texte et les dessins du calque gardent les leurs.
+    edit.matrix?.let { values ->
+      if (values.size != 16) throw IllegalArgumentException("Matrice de couleur invalide.")
+      val matrix = FloatArray(16) { values[it].toFloat() }
+      effects.add(object : RgbMatrix {
+        override fun getMatrix(presentationTimeUs: Long, useHdr: Boolean) = matrix
+      })
+    }
+    overlayPath?.let { path ->
+      val (width, height) = displayedSize(videoPath)
+      val decoded = BitmapFactory.decodeFile(path) ?: throw IllegalArgumentException("Calque illisible.")
+      val overlay = Bitmap.createScaledBitmap(decoded, width, height, true)
+      effects.add(OverlayEffect(listOf<TextureOverlay>(BitmapOverlay.createStaticBitmapOverlay(overlay))))
+    }
+
+    val clipping = MediaItem.ClippingConfiguration.Builder()
+      .setStartPositionMs(edit.startMs?.toLong() ?: 0L)
+      .setEndPositionMs(edit.endMs?.toLong() ?: C.TIME_END_OF_SOURCE)
+      .build()
+    val item = MediaItem.Builder().setUri(videoUri).setClippingConfiguration(clipping).build()
+    val edited = EditedMediaItem.Builder(item)
+      .setEffects(Effects(emptyList(), effects))
+      .setRemoveAudio(edit.mute)
+    if (edit.speed != 1.0) {
+      val speed = edit.speed.toFloat()
+      edited.setSpeed(object : SpeedProvider {
+        override fun getSpeed(timeUs: Long) = speed
+        override fun getNextSpeedChangeTimeUs(timeUs: Long) = C.TIME_UNSET
+      })
+    }
+
+    val output = File(context.cacheDir, "edited-${System.currentTimeMillis()}.mp4")
+    val encoder = DefaultEncoderFactory.Builder(context)
+      .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(edit.bitrate).build())
+      .build()
+    // Couleurs traitées telles qu'enregistrées (sans passer en lumière linéaire), comme l'aperçu SVG.
+    val frames = DefaultVideoFrameProcessor.Factory.Builder()
+      .setSdrWorkingColorSpace(DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL)
+      .build()
+
+    Transformer.Builder(context)
+      .setVideoMimeType(MimeTypes.VIDEO_H264)
+      .setEncoderFactory(encoder)
+      .setVideoFrameProcessorFactory(frames)
+      .addListener(object : Transformer.Listener {
+        override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+          overlayPath?.let { File(it).delete() }
+          promise.resolve(Uri.fromFile(output).toString())
+        }
+
+        override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
+          overlayPath?.let { File(it).delete() }
+          output.delete()
+          promise.reject("ERR_PEAR_VIDEO", exportException.message ?: "Retouche impossible", exportException)
+        }
+      })
+      .build()
+      .start(edited.build(), output.absolutePath)
+  }
+
+  // La taille telle qu'on la voit : une vidéo filmée en portrait est souvent stockée couchée.
+  private fun displayedSize(path: String): Pair<Int, Int> {
+    val retriever = MediaMetadataRetriever()
+    try {
+      retriever.setDataSource(path)
+      val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull()
+      val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull()
+      val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+      if (width == null || height == null) throw IllegalArgumentException("Vidéo illisible.")
+      return if (rotation % 180 == 0) Pair(width, height) else Pair(height, width)
+    } finally {
+      retriever.release()
+    }
+  }
+}

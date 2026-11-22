@@ -1,0 +1,43 @@
+diff --git a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
+index a676d64..f1c8741 100644
+--- a/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
++++ b/node_modules/expo-camera/android/src/main/java/expo/modules/camera/ExpoCameraView.kt
+@@ -134,8 +134,11 @@ class ExpoCameraView(
+   private var glSurfaceTexture: SurfaceTexture? = null
+   private var isRecording = false
+ 
++  // Pear : TextureView plutôt que SurfaceView, pour que les filtres de vue d'Android (filtres de
++  // couleur en direct, choisis avant la prise) s'appliquent aussi à l'aperçu.
+   private var previewView = PreviewView(context).apply {
+     elevation = 0f
++    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+   }
+   private val scope = CoroutineScope(
+     Dispatchers.Main + SupervisorJob() + CoroutineExceptionHandler { _, throwable ->
+@@ -548,11 +551,25 @@ class ExpoCameraView(
+         }
+       } else {
+         addUseCase(videoCapture)
++        imageCaptureUseCase?.let {
++          addUseCase(it)
++        }
+       }
+     }.build()
+ 
+     cameraProvider.unbindAll()
+-    camera = cameraProvider.bindToLifecycle(currentActivity, cameraSelector, useCases)
++    camera = try {
++      cameraProvider.bindToLifecycle(currentActivity, cameraSelector, useCases)
++    } catch (e: IllegalArgumentException) {
++      if (cameraMode == CameraMode.PICTURE) throw e
++      // This device cannot run photo and video together: keep video working.
++      val videoOnly = UseCaseGroup.Builder().apply {
++        addUseCase(preview)
++        addUseCase(videoCapture)
++      }.build()
++      cameraProvider.unbindAll()
++      cameraProvider.bindToLifecycle(currentActivity, cameraSelector, videoOnly)
++    }
+     camera?.let {
+       observeCameraState(it.cameraInfo)
+     }

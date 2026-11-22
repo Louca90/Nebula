@@ -1,0 +1,197 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Pressable, ScrollView, Text, View } from 'react-native';
+import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { ChevronRight, CircleAlert, CircleCheck, FileText } from 'lucide-react-native';
+
+import { chat } from '../chat/manager';
+import { shareLog } from '../components/ErrorBoundary';
+import { Pear, type PearState } from '../components/Pear';
+import { Header, Screen } from '../components/ui';
+import {
+  collectDiagnostics,
+  Diagnostics,
+  needsManufacturerAdvice,
+  openBatterySettings,
+  openNotificationSettings,
+  openPowerManagerSettings,
+} from '../diagnostics';
+import { t } from '../i18n';
+import { log } from '../log';
+import { createStyles, radius, spacing, useColors } from '../theme';
+
+const FADE_MS = 220;
+
+type Row = { ok: boolean; label: string; detail?: string; onPress?: () => void };
+
+function formatAgo(at: number) {
+  const minutes = Math.round((Date.now() - at) / 60000);
+  if (minutes < 1) return t('diag.aLinstant');
+  if (minutes < 60) return t('diag.ilYaMinutes', { n: minutes });
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? t('diag.ilYaHeures', { n: hours }) : t('diag.ilYaJours', { n: Math.round(hours / 24) });
+}
+
+// Pour comprendre pourquoi une notification n'arrive pas : chaque ligne dit ce qui va, ce qui ne va
+// pas, et ouvre le bon réglage d'Android quand c'est possible.
+export function DiagnosticScreen({ onBack }: { onBack: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const [data, setData] = useState<Diagnostics | null>(null);
+  const opacity = useSharedValue(0);
+  const fade = useAnimatedStyle(() => ({ opacity: opacity.get() }));
+  const [showPear, setShowPear] = useState(false);
+
+  const refresh = useCallback(() => {
+    collectDiagnostics()
+      .then(setData)
+      .catch((e) => log.warn('diagnostic', e));
+  }, []);
+
+  // Au retour des réglages d'Android, les valeurs ont pu changer.
+  useEffect(() => {
+    refresh();
+    const subscription = AppState.addEventListener('change', (state) => state === 'active' && refresh());
+    return () => subscription.remove();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (data) opacity.set(withTiming(1, { duration: FADE_MS, easing: Easing.out(Easing.cubic) }));
+  }, [data, opacity]);
+
+  const rows: Row[] = data
+    ? [
+        { ok: data.notificationsAllowed && !data.channelBlocked, label: t('diag.notifications'), detail: data.notificationsAllowed && !data.channelBlocked ? t('diag.autorisees') : t('diag.bloquees'), onPress: openNotificationSettings },
+        { ok: !data.batteryRestricted, label: t('diag.batterie'), detail: data.batteryRestricted ? t('diag.batterieRestreinte') : t('diag.batterieLibre'), onPress: openBatterySettings },
+        ...(data.powerManager || needsManufacturerAdvice(data.manufacturer)
+          ? [{ ok: false, label: t('diag.constructeur', { marque: data.manufacturer }), detail: t('diag.constructeurAide'), onPress: data.powerManager ? openPowerManagerSettings : openBatterySettings }]
+          : []),
+        { ok: chat.getMyToken() !== null, label: t('diag.tokenFcm'), detail: chat.getMyToken() ? t('diag.present') : t('diag.absent') },
+        { ok: data.inboxRegistered && data.tokenPublished, label: t('diag.tokenPublie'), detail: data.tokenPublished ? t('diag.oui') : t('diag.pasEncore') },
+        { ok: data.lastPush !== null, label: t('diag.dernierPush'), detail: data.lastPush ? `${formatAgo(data.lastPush.at)} · ${data.lastPush.type}` : t('diag.aucun') },
+        { ok: true, label: t('diag.connexions'), detail: t('diag.connexionsDetail', { n: chat.countConnected() }) },
+      ]
+    : [];
+
+  return (
+    <Screen>
+      <Header title={t('diag.titre')} onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <Reanimated.View style={[styles.rows, fade]}>
+          {rows.map((row) => {
+            const Icon = row.ok ? CircleCheck : CircleAlert;
+            const content = (
+              <>
+                <Icon size={20} color={row.ok ? colors.text : colors.danger} strokeWidth={1.75} />
+                <View style={styles.text}>
+                  <Text style={styles.label}>{row.label}</Text>
+                  {row.detail ? <Text style={styles.detail}>{row.detail}</Text> : null}
+                </View>
+                {row.onPress ? <ChevronRight size={20} color={colors.textMuted} strokeWidth={1.75} /> : null}
+              </>
+            );
+            return row.onPress ? (
+              <Pressable key={row.label} onPress={row.onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+                {content}
+              </Pressable>
+            ) : (
+              <View key={row.label} style={styles.row}>
+                {content}
+              </View>
+            );
+          })}
+          <Text style={styles.note}>{t('diag.sansRelais')}</Text>
+          <Pressable onPress={shareLog} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            <FileText size={20} color={colors.text} strokeWidth={1.75} />
+            <View style={styles.text}>
+              <Text style={styles.label}>{t('erreur.exporterJournal')}</Text>
+              <Text style={styles.detail}>{t('diag.journalAide')}</Text>
+            </View>
+          </Pressable>
+          <Pressable onPress={() => setShowPear((v) => !v)} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+            <Text style={styles.label}>{t('diag.poire')}</Text>
+          </Pressable>
+          {showPear ? <PearGallery /> : null}
+        </Reanimated.View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+// Galerie de test de la poire : chaque état, et « + » pour faire avancer `progress`.
+const PEAR_STATES: PearState[] = ['idle', 'bitten', 'ripening', 'searching', 'resting', 'leaf'];
+const PROGRESS_STEPS = [0, 0.34, 0.68, 1];
+
+function PearGallery() {
+  const colors = useColors();
+  const styles = useStyles();
+  const [step, setStep] = useState(0);
+  // Au retour à 0, la poire mordue repasse par `idle` pour montrer la reformation.
+  const progress = PROGRESS_STEPS[step];
+  return (
+    <View style={styles.gallery}>
+      {PEAR_STATES.map((state) => {
+        const driven = state === 'bitten' || state === 'ripening';
+        const shown = driven && step === 0 ? 'idle' : state;
+        return (
+          <Pressable key={state} disabled={!driven} onPress={() => setStep((s) => (s + 1) % PROGRESS_STEPS.length)} style={styles.cell}>
+            <Pear height={64} color={state === 'resting' ? colors.textMuted : colors.text} state={shown} progress={progress} leafColor={colors.signatureStrong} />
+            <Text style={styles.detail}>{driven ? `${state} ${Math.round(progress * 100)} % (+)` : state}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const useStyles = createStyles((colors) => ({
+  gallery: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  cell: {
+    width: '31%',
+    flexGrow: 1,
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  content: {
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  rows: {
+    gap: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: 52,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  text: {
+    flex: 1,
+  },
+  label: {
+    fontSize: 16,
+    color: colors.text,
+  },
+  detail: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  note: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginVertical: spacing.sm,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+}));

@@ -1,0 +1,85 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "signals": {
+      "$room": {
+        ".read": "auth != null && $room.matches(/^[A-Za-z0-9_-]{43}$/)",
+        "$id": {
+          ".write": "auth != null && $room.matches(/^[A-Za-z0-9_-]{43}$/) && (!newData.exists() || !data.exists())",
+          ".validate": "newData.hasChildren(['from', 'data', 'at'])",
+          "from": {
+            ".validate": "newData.isString() && (newData.val() === 'a' || newData.val() === 'b')"
+          },
+          "data": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 16000"
+          },
+          "at": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "rateLimits": {
+      ".read": false,
+      ".write": false
+    },
+    "inboxOwners": {
+      "$inbox": {
+        ".read": "auth != null && data.child('uid').val() === auth.uid",
+        ".write": false
+      }
+    },
+    "requests": {
+      "$inbox": {
+        ".read": "auth != null && root.child('inboxOwners/' + $inbox + '/uid').val() === auth.uid",
+        "$id": {
+          ".write": "auth != null && root.child('inboxOwners/' + $inbox + '/uid').val() === auth.uid && !newData.exists()"
+        }
+      }
+    },
+    "tokens": {
+      "$inbox": {
+        "$tag": {
+          ".read": "auth != null && $tag.matches(/^[A-Za-z0-9_-]{22}$/)",
+          ".write": "auth != null && root.child('inboxOwners/' + $inbox + '/uid').val() === auth.uid && $tag.matches(/^[A-Za-z0-9_-]{22}$/)",
+          ".validate": "newData.hasChildren(['v', 'data', 'at'])",
+          "v": {
+            ".validate": "newData.isNumber()"
+          },
+          "data": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 600"
+          },
+          "at": {
+            ".validate": "newData.isNumber() && newData.val() <= now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "relay": {
+      "$id": {
+        ".read": "auth != null && $id.matches(/^[A-Za-z0-9_-]{22}$/)",
+        ".write": "auth != null && !newData.exists() && $id.matches(/^[A-Za-z0-9_-]{22}$/) && (!data.child('meta/slots').exists() || data.child('chunks/' + data.child('meta/last').val()).exists())",
+        "meta": {
+          ".write": false
+        },
+        "chunks": {
+          "$n": {
+            ".write": "auth != null && data.parent().parent().child('meta/owner').val() === auth.uid && !data.exists() && $n.matches(/^[0-9]{1,2}$/) && (data.parent().parent().child('meta/slots/' + $n).exists() || !data.parent().parent().child('meta/slots').exists())",
+            ".validate": "newData.isString() && newData.val().length <= 700000"
+          }
+        }
+      }
+    },
+    "relayUsage": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
