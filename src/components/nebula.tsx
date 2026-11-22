@@ -28,7 +28,7 @@ export function Backdrop({ kind }: { kind: BackdropKind }) {
 
 // Le grain des fonds, en incrustation sur un bouton (Grain : 0,45 ; Fumé : 0,25).
 function GrainOverlay({ opacity }: { opacity: number }) {
-  return <Image source={GRAIN} resizeMode="repeat" style={[fill, { opacity, mixBlendMode: 'overlay' }]} />;
+  return <Image source={GRAIN} resizeMode="cover" style={[fill, { opacity, mixBlendMode: 'overlay' }]} />;
 }
 
 type GrainButtonProps = {

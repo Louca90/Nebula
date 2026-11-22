@@ -219,3 +219,32 @@ export function CopyIcon({ size = 24, color, strokeWidth = 1.75, play, autoPlay,
     </View>
   );
 }
+
+// Photo (planche « Icônes animées ») : l'objectif se resserre comme un obturateur puis se rouvre, et un
+// éclair lilas part du coin.
+export function CameraIcon({ size = 24, color, strokeWidth = 1.75, play, autoPlay, delay = 0, accent }: AnimatedIconProps) {
+  const colors = useColors();
+  const line = useStroke(color, strokeWidth);
+  const shutter = useSharedValue(0);
+  const flash = useSharedValue(0);
+  useTrigger(play, autoPlay, delay, (wait) => {
+    bounceBack(shutter, 140, 220, wait);
+    flash.set(withDelay(wait + 80, withSequence(timing(1, 120), timing(0, 260))));
+  });
+  const unit = size / 24;
+  const lens = useAnimatedStyle(() => ({ transform: [{ scale: 1 - 0.6 * shutter.get() }], transformOrigin: `${12 * unit}px ${13 * unit}px` }));
+  const glow = useAnimatedStyle(() => ({ opacity: flash.get(), transform: [{ scale: 0.6 + 0.6 * flash.get() }], transformOrigin: `${18 * unit}px ${6 * unit}px` }));
+  return (
+    <View style={{ width: size, height: size }}>
+      <Layer size={size}>
+        <Path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" {...line} />
+      </Layer>
+      <Layer size={size} style={lens}>
+        <Circle cx={12} cy={13} r={3} {...line} />
+      </Layer>
+      <Layer size={size} style={glow}>
+        <Circle cx={18} cy={6} r={1.6} fill={accent ?? colors.signatureStrong} />
+      </Layer>
+    </View>
+  );
+}

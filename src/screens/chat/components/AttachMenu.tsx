@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { Pressable, StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import * as MediaLibrary from 'expo-media-library/legacy';
 import Reanimated, { interpolateColor, ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withTiming, type EntryExitAnimationFunction } from 'react-native-reanimated';
 import { Camera, Eye, FileText, Images, LucideIcon, MapPin, Plus, Sticker } from 'lucide-react-native';
+import { CameraIcon, type AnimatedIconProps } from '../../../components/AnimatedIcons';
 
 import { PickedFile } from '../../../chat/manager';
 import { Thumbnail, toPickedFile } from '../../../components/MediaPicker';
@@ -116,7 +117,8 @@ const fadeIn: EntryExitAnimationFunction = () => {
   return { initialValues: { opacity: 0 }, animations: { opacity: withTiming(1, config(220)) } };
 };
 
-function Tile({ icon: Icon, label, primary, index, onPress }: { icon: LucideIcon; label: string; primary?: boolean; index: number; onPress: () => void }) {
+// animated : une icône animée de la planche, jouée une fois à l'arrivée de la tuile.
+function Tile({ icon: Icon, animated: Animated, label, primary, index, onPress }: { icon: LucideIcon; animated?: ComponentType<AnimatedIconProps>; label: string; primary?: boolean; index: number; onPress: () => void }) {
   const colors = useColors();
   const styles = useStyles();
   const feedback = usePressFeedback();
@@ -125,7 +127,11 @@ function Tile({ icon: Icon, label, primary, index, onPress }: { icon: LucideIcon
       <Pressable onPress={onPress} onPressIn={feedback.onPressIn} onPressOut={feedback.onPressOut} accessibilityRole="button" accessibilityLabel={label}>
         <Reanimated.View style={[styles.tile, feedback.style]}>
           <View style={[styles.bubble, primary && styles.bubblePrimary]}>
-            <Icon size={22} color={primary ? colors.onSignature : colors.text} strokeWidth={1.8} />
+            {Animated ? (
+              <Animated size={22} color={primary ? colors.onSignature : colors.text} strokeWidth={1.8} autoPlay delay={220 + index * 40} />
+            ) : (
+              <Icon size={22} color={primary ? colors.onSignature : colors.text} strokeWidth={1.8} />
+            )}
           </View>
           <Text style={styles.tileLabel} numberOfLines={1}>
             {label}
@@ -208,7 +214,7 @@ export function AttachSheet({ onPhotos, onFile, onLocation, onStickers, onCamera
   };
   const tiles = [
     { icon: Images, label: t('chat.galerie'), primary: true, onPress: onPhotos },
-    ...(onCamera ? [{ icon: Camera, label: t('chat.appareil'), onPress: onCamera }] : []),
+    ...(onCamera ? [{ icon: Camera, animated: CameraIcon, label: t('chat.appareil'), onPress: onCamera }] : []),
     { icon: FileText, label: t('chat.fichier'), onPress: onFile },
     ...(onLocation ? [{ icon: MapPin, label: t('position.court'), onPress: onLocation }] : []),
     ...(onOnce ? [{ icon: Eye, label: t('chat.uneFois'), onPress: onOnce }] : []),

@@ -34,7 +34,10 @@ mkdirSync(out, { recursive: true });
 void background;
 
 // Grain seul, en tuile, posé en incrustation sur les boutons Grain et Fumé (planche « Boutons »).
-const GRAIN = 256;
-const grain = `<svg xmlns="http://www.w3.org/2000/svg" width="${GRAIN}" height="${GRAIN}"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency=".33" numOctaves="3" stitchTiles="stitch"></feTurbulence><feColorMatrix type="saturate" values="0"></feColorMatrix></filter><rect width="100%" height="100%" filter="url(#g)"></rect></svg>`;
+// Une bande plus large que tous les boutons (1080 × 360 px), posée en « cover » : le mode « repeat »
+// d'Android ne remplissait pas toute la largeur (un carré sans grain à droite des gros boutons).
+const GRAIN_W = 1080;
+const GRAIN_H = 360;
+const grain = `<svg xmlns="http://www.w3.org/2000/svg" width="${GRAIN_W}" height="${GRAIN_H}"><filter id="g"><feTurbulence type="fractalNoise" baseFrequency=".33" numOctaves="3" stitchTiles="stitch"></feTurbulence><feColorMatrix type="saturate" values="0"></feColorMatrix></filter><rect width="100%" height="100%" filter="url(#g)"></rect></svg>`;
 await sharp(Buffer.from(grain)).webp({ quality: 80 }).toFile(join(out, 'grain.webp'));
 console.log('grain');
