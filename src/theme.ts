@@ -120,9 +120,12 @@ export const fixed = {
   // Petit paysage qui montre l'effet des filtres, et son fond.
   scene: { sky: '#7FBDF0', sun: '#FFC93C', cloud: '#FFFFFF', hill: '#7CC36A', hillDark: '#2E8B4A', house: '#E5483B' },
   filterStripBackground: '#1C1C1E',
-  // Barre des onglets : voile violacé sur le flou, et son liseré.
-  tabBarTint: 'rgba(60, 40, 110, 0.16)',
+  // Barre des onglets (planche « Nébula · onglets ») : voile sur le flou, filet intérieur, ombre, et la couleur
+  // pleine quand le flou n'est pas possible (Android 11 et moins).
+  tabBarTint: 'rgba(28, 22, 40, 0.38)',
   tabBarEdge: 'rgba(255, 255, 255, 0.08)',
+  tabBarShadow: 'rgba(0, 0, 0, 0.35)',
+  tabBarFallback: 'rgba(20, 16, 28, 0.94)',
   // Planches Elvira : surfaces posées sur les fonds à grain (sombres, un peu transparentes, sans flou).
   card: 'rgba(20, 16, 28, 0.78)',
   tile: 'rgba(34, 28, 46, 0.82)',

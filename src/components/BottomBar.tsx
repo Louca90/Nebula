@@ -1,15 +1,15 @@
-import { useEffect, useState, type ComponentRef, type RefObject } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { useEffect, useState, type RefObject } from 'react';
+import { findNodeHandle, Pressable, StyleSheet, View } from 'react-native';
 import Reanimated, { useAnimatedProps, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 
 import { haptics } from '../haptics';
-import { createStyles, fixed, radius, spacing, useColors } from '../theme';
+import { createStyles, fixed, spacing, useColors } from '../theme';
 import { useNavigationBarHeight } from './ui';
 import { t } from '../i18n';
 import { DURATION, timing } from '../motion';
 import { Lily } from './Lily';
+import { NebulaBlurView } from '../../modules/pear-native/blur';
 
 export type Tab = 'home' | 'map' | 'profile';
 
@@ -23,18 +23,21 @@ const ICON_SIZE = 24;
 const LILY_SIZE = 26;
 const SLIDE_MS = 300;
 const SLIDE_STEP = SLOT_WIDTH + SLOT_GAP;
-// Gros flou façon One UI. Sur Android, expo-blur tire de `intensity` à la fois le rayon (intensité ÷
-// réduction, en pixels) et un voile gris (69 % d'opacité à 100) : à 100, le voile cachait le flou.
-// Intensité basse = voile léger, réduction minuscule = rayon énorme (≈ 160 px). Teinte claire : un voile
-// blanc d'environ 10 %, le verre dépoli lumineux de One UI (la teinte sombre donnait une pastille grise).
-const BLUR_INTENSITY = 24;
-const BLUR_REDUCTION = 0.15;
+// Le verre de la planche : backdrop-filter: blur(60px) saturate(180%), voile rgba(28, 22, 40, .38), filet
+// intérieur de 1 px blanc à 8 %, ombre 0 10 30 noire à 35 %. Flou natif en direct (NebulaBlurView) :
+// expo-blur liait la force du flou à un voile gris et restait parfois coupé (transparent puis gris).
+const BLUR_SIGMA = 60;
+const BLUR_SATURATION = 1.8;
+const EDGE_WIDTH = 1;
+const BAR_RADIUS = 40;
+// La cible du flou peut être montée un peu après la barre : on la cherche quelques images, pas plus.
+const FIND_TARGET_FRAMES = 120;
 
 const AnimatedG = Reanimated.createAnimatedComponent(G);
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
 const AnimatedPath = Reanimated.createAnimatedComponent(Path);
 
-type BlurTarget = RefObject<ComponentRef<typeof View> | null>;
+type BlurTarget = RefObject<unknown>;
 
 // La place que les écrans laissent libre sous leur contenu, pour que la barre flottante ne le cache pas.
 export function useBottomBarSpace() {
@@ -129,31 +132,39 @@ export function BottomBar({ active, onChange, blurTarget }: { active: Tab; onCha
 
   const slide = useAnimatedStyle(() => ({ transform: [{ translateX: position.get() * SLIDE_STEP }] }));
 
-  // expo-blur lit la cible une seule fois, au montage de la vue floue : elle n'est créée qu'une fois la
-  // cible montée (sa référence remplie), sinon le flou reste coupé pour toujours.
-  const [targetReady, setTargetReady] = useState(false);
+  // Le numéro natif de la cible (les pages). La vue floue le résout elle-même à chaque image : même s'il
+  // arrive après elle, le verre apparaît dès qu'il est connu, sans jamais rester bloqué.
+  const [targetId, setTargetId] = useState<number | null>(null);
   useEffect(() => {
-    if (blurTarget?.current) setTargetReady(true);
-    else {
-      const frame = requestAnimationFrame(() => setTargetReady(!!blurTarget?.current));
-      return () => cancelAnimationFrame(frame);
-    }
+    if (!blurTarget) return;
+    let frame = 0;
+    let tries = 0;
+    const find = () => {
+      const id = blurTarget.current ? findNodeHandle(blurTarget.current as never) : null;
+      if (id) setTargetId(id);
+      else if (tries++ < FIND_TARGET_FRAMES) frame = requestAnimationFrame(find);
+    };
+    find();
+    return () => cancelAnimationFrame(frame);
   }, [blurTarget]);
 
   return (
     <View pointerEvents="box-none" style={[styles.wrapper, { bottom: bottom + spacing.md }]}>
       <View style={styles.bar} accessibilityRole="tablist">
-        {blurTarget && targetReady && (
-          <BlurView
-            blurTarget={blurTarget}
-            blurMethod="dimezisBlurViewSdk31Plus"
-            intensity={BLUR_INTENSITY}
-            blurReductionFactor={BLUR_REDUCTION}
-            tint="default"
-            style={StyleSheet.absoluteFill}
-          />
-        )}
-        <View style={styles.tint} />
+        {/* Le verre : flou et saturation en direct, voile, puis le filet par-dessus (il s'adapte à ce qui passe
+            dessous). Sans cible (la copie de la barre sous une page qui arrive), une couleur pleine. */}
+        <NebulaBlurView
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          targetId={blurTarget ? targetId : null}
+          blurRadius={BLUR_SIGMA}
+          saturation={BLUR_SATURATION}
+          tint={fixed.tabBarTint}
+          fallbackColor={fixed.tabBarFallback}
+          edgeColor={fixed.tabBarEdge}
+          edgeWidth={EDGE_WIDTH}
+          cornerRadius={BAR_RADIUS}
+        />
         <Reanimated.View style={[styles.indicator, slide]} />
         {TABS.map(({ tab, label }) => (
           <TabButton key={tab} tab={tab} label={label} active={tab === active} onPress={() => onChange(tab)} />
@@ -170,19 +181,13 @@ const useStyles = createStyles((colors) => ({
     right: 0,
     alignItems: 'center',
   },
+  // L'ombre de la planche porte sur la pilule ; le verre lui-même est découpé par la vue floue.
   bar: {
     flexDirection: 'row',
     gap: SLOT_GAP,
     padding: BAR_PADDING,
-    borderRadius: radius.full,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: fixed.tabBarEdge,
-  },
-  // Voile violacé léger par-dessus le flou, comme la planche (rgba(28, 22, 40, .38)).
-  tint: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: fixed.tabBarTint,
+    borderRadius: BAR_RADIUS,
+    boxShadow: `0px 10px 30px ${fixed.tabBarShadow}`,
   },
   indicator: {
     position: 'absolute',
