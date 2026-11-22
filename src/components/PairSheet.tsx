@@ -13,6 +13,7 @@ import { t } from '../i18n';
 import { EASE } from '../motion';
 import { ScannerPanel } from '../screens/ScannerScreen';
 import { createStyles, fixed, radius, useColors } from '../theme';
+import { GrainButton } from './nebula';
 import { LilyMark } from './Lily';
 import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
@@ -118,23 +119,19 @@ function CodePane({ publicKey }: { publicKey: string }) {
         </View>
       </Reanimated.View>
       <Text style={styles.text}>{t('qr.aide')}</Text>
-      <Pressable onPress={() => Share.share({ message: link })} accessibilityRole="button" style={({ pressed }) => [styles.share, pressed && styles.pressed]}>
-        <Share2 size={18} color={colors.background} strokeWidth={2} />
-        <Text style={styles.shareLabel}>{t('ajout.partager')}</Text>
-      </Pressable>
-      <Pressable
+      {/* Nébula : les boutons Grain et Fumé de la planche « Boutons ». */}
+      <GrainButton label={t('ajout.partager')} icon={<Share2 size={18} color={fixed.onGrainButton} strokeWidth={2} />} onPress={() => Share.share({ message: link })} />
+      <GrainButton
+        variant="smoke"
+        label={copied ? t('ajout.copie') : t('ajout.copier')}
+        icon={<Copy size={18} color={colors.text} strokeWidth={1.9} />}
         onPress={() => {
           Clipboard.setStringAsync(link).catch(() => {});
           haptics.select();
           setCopied(true);
           setTimeout(() => setCopied(false), 1600);
         }}
-        accessibilityRole="button"
-        style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-      >
-        <Copy size={18} color={colors.text} strokeWidth={1.9} />
-        <Text style={styles.secondaryLabel}>{copied ? t('ajout.copie') : t('ajout.copier')}</Text>
-      </Pressable>
+      />
     </Reanimated.View>
   );
 }
