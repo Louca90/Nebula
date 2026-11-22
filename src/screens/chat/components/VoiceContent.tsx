@@ -177,7 +177,7 @@ export function VoiceContent({ message, palette, next }: { message: Message; pal
       </IconButton>
       <View style={styles.voiceBody}>
         {bars ? (
-          <Waveform bars={bars} position={progress ?? position} speed={speed} color={palette.text} restColor={palette.track} label={t('chat.deplacerVocal')} onSeek={seek} />
+          <Waveform bars={bars} position={progress ?? position} speed={speed} color={palette.accent} restColor={palette.track} label={t('chat.deplacerVocal')} onSeek={seek} />
         ) : (
           <SeekBar position={progress ?? position} speed={speed} color={palette.text} trackColor={palette.track} label={t('chat.deplacerVocal')} onSeek={seek} />
         )}

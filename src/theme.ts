@@ -131,6 +131,7 @@ export const fixed = {
   tile: 'rgba(34, 28, 46, 0.82)',
   cardText: '#E5E5E7',
   lilac: '#B9A3E3',
+  lilacDeep: '#5B3FA0',
   // Boutons sur fond à grain (planche « Boutons ») : Grain lilas et Fumé sombre.
   grainButton: '#D9CCF7',
   onGrainButton: '#140B26',
@@ -359,6 +360,9 @@ export type BubblePalette = {
   text: string;
   muted: string;
   track: string;
+  // Nébula : ce qui est déjà écouté d'un vocal (planche « Vocal ») : lilas sur une bulle sombre, violet
+  // profond sur une bulle claire.
+  accent: string;
 };
 
 function luminance(hex: string) {
@@ -398,8 +402,8 @@ export function readableOn(background: string): BubblePalette {
   // La piste (bouton du vocal, barres pas encore écoutées, barre de transfert) est le fond de la bulle
   // tiré vers la couleur du texte : elle se détache toujours, sur une bulle claire comme sur une foncée.
   return whiteWins
-    ? { background, text: light.background, muted: light.onDarkMuted, track: mix(background, fixed.white, 0.26) }
-    : { background, text: light.text, muted: light.textMuted, track: mix(background, fixed.black, 0.16) };
+    ? { background, text: light.background, muted: light.onDarkMuted, track: mix(background, fixed.white, 0.26), accent: fixed.lilac }
+    : { background, text: light.text, muted: light.textMuted, track: mix(background, fixed.black, 0.16), accent: fixed.lilacDeep };
 }
 
 // Mélange deux couleurs « #RRGGBB » : `amount` = part de la seconde, de 0 à 1.
