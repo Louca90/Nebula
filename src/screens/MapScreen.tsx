@@ -290,8 +290,10 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
 
   return (
     <View style={styles.screen}>
+      {/* Nébula : rendu « texture » et non « surface » : une SurfaceView échappe au flou de la barre des
+          onglets, qui laissait voir la carte nette au travers. */}
       {region && start ? (
-        <Map style={StyleSheet.absoluteFill} mapStyle={mapStyleOf(dark)} logo={false} compass={false} attribution touchPitch={false} touchRotate={false}>
+        <Map androidView="texture" style={StyleSheet.absoluteFill} mapStyle={mapStyleOf(dark)} logo={false} compass={false} attribution touchPitch={false} touchRotate={false}>
           <Camera ref={camera} initialViewState={{ center: [start.longitude, start.latitude], zoom: 13.5 }} />
           {me && (
             <Marker id="me" lngLat={[me.longitude, me.latitude]}>

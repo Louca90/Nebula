@@ -10,7 +10,7 @@ import { chat, MAX_PROFILE_NAME_LENGTH } from '../chat/manager';
 import { Header, Screen } from '../components/ui';
 import { deriveSharedSecret, getVerificationCode, Identity } from '../crypto/pairing';
 import { t } from '../i18n';
-import { createStyles, radius, spacing, useColors } from '../theme';
+import { createStyles, radius, spacing, useColors, fixed } from '../theme';
 
 const ENTER_MS = 260;
 const LEAVE_MS = 200;
@@ -252,7 +252,7 @@ const useStyles = createStyles((colors) => ({
     backgroundColor: colors.elevated,
   },
   accept: {
-    backgroundColor: colors.accent,
+    backgroundColor: fixed.grainButton,
   },
   actionLabel: {
     fontSize: 15,
@@ -260,7 +260,7 @@ const useStyles = createStyles((colors) => ({
     color: colors.text,
   },
   acceptLabel: {
-    color: colors.onAccent,
+    color: fixed.onGrainButton,
   },
   danger: {
     color: colors.danger,

@@ -576,6 +576,11 @@ export const fr = {
     revoirPriseEnMain: 'Revoir la prise en main (debug)',
   },
   priseEnMain: {
+    etape: 'Étape {n} sur {total}',
+    profilAide: 'Ton prénom et ta photo, pour que l’autre te reconnaisse.',
+    uneSeule: 'Une seule personne',
+    uneSeuleAide: 'Scanne son code. Une fois liés, Nébula n’accepte plus aucun autre contact.',
+    lier: 'Scanner son code',
     bienvenue: 'Nébula',
     presentation: 'Une app pour deux. Vos messages vont directement d’un téléphone à l’autre, chiffrés de bout en bout.',
     commencer: 'Commencer',
@@ -972,6 +977,8 @@ export const fr = {
     dejaSorties: 'Les nouveautés déjà sorties',
   },
   nous: {
+    dejaLies: 'Vous êtes déjà liés',
+    dejaLiesAide: 'Nébula est réservée à deux : ce téléphone est lié à {nom}.',
     titre: 'Nous',
     enLigneDirect: 'en ligne · connexion directe',
     enLigneRelais: 'en ligne · par relais',

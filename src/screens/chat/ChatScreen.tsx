@@ -24,7 +24,7 @@ import { ContactPickerSheet } from '../../components/ContactPickerSheet';
 import { MediaPicker } from '../../components/MediaPicker';
 import { LilyMark } from '../../components/Lily';
 import { Screen, useInsets } from '../../components/ui';
-import { bubblePalette, createStyles, motion, radius, spacing, useColors } from '../../theme';
+import { bubblePalette, createStyles, fixed, motion, radius, spacing, useColors } from '../../theme';
 
 import { ChatHeader } from './components/ChatHeader';
 import { ChatSearch } from './components/ChatSearch';
@@ -881,13 +881,13 @@ const useLocalStyles = createStyles((colors) => ({
     paddingHorizontal: spacing.lg,
     height: 40,
     borderRadius: radius.full,
-    backgroundColor: colors.accent,
+    backgroundColor: fixed.grainButton,
     justifyContent: 'center',
   },
   unblockLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.onAccent,
+    color: fixed.onGrainButton,
   },
   pressed: {
     opacity: 0.6,

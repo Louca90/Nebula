@@ -325,6 +325,12 @@ function App() {
       showDialog(t('app.codeNonValide'), t('app.codePropre'));
       return;
     }
+    // Nébula : une seule personne. Déjà liés à quelqu'un d'autre, pas de deuxième contact.
+    const partner = contacts.find((contact) => !contact.pending);
+    if (partner && partner.publicKey !== publicKey) {
+      showDialog(t('nous.dejaLies'), t('nous.dejaLiesAide', { nom: partner.name }));
+      return;
+    }
     setRoute({ name: 'contact', publicKey, suggestedName: name });
   };
 

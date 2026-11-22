@@ -7,7 +7,8 @@ import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from
 import { getInsets, subscribeInsets } from '../../modules/pear-native';
 import { DURATION, EASE, timing } from '../motion';
 import { useMediaUri } from '../chat/media';
-import { createStyles, motion, radius, spacing, useColors } from '../theme';
+import { createStyles, fixed, motion, radius, spacing, useColors } from '../theme';
+import { GrainButton } from './nebula';
 import { t } from '../i18n';
 
 // Les barres d'Android (en dp), toujours à jour : remesurées au déverrouillage, au retour dans l'app
@@ -196,19 +197,17 @@ type ButtonProps = {
   variant?: 'primary' | 'secondary';
 };
 
+// Nébula : tous les boutons sont ceux de la planche « Boutons pour les fonds à grain » : Grain (lilas uni,
+// grain en incrustation, filet de lumière) pour l'action principale, Fumé (sombre translucide) à côté.
 export function Button({ label, icon: Icon, onPress, variant = 'primary' }: ButtonProps) {
-  const colors = useColors();
-  const styles = useStyles();
   const primary = variant === 'primary';
-  const foreground = primary ? colors.onSignature : colors.text;
-  const feedback = usePressFeedback();
   return (
-    <Pressable onPress={onPress} onPressIn={feedback.onPressIn} onPressOut={feedback.onPressOut} accessibilityRole="button" accessibilityLabel={label}>
-      <Reanimated.View style={[styles.button, primary ? styles.primary : styles.secondary, feedback.style]}>
-        <Icon size={20} color={foreground} strokeWidth={1.75} />
-        <Text style={[styles.buttonLabel, { color: foreground }]}>{label}</Text>
-      </Reanimated.View>
-    </Pressable>
+    <GrainButton
+      label={label}
+      variant={primary ? 'grain' : 'smoke'}
+      onPress={onPress}
+      icon={<Icon size={20} color={primary ? fixed.onGrainButton : fixed.white} strokeWidth={1.75} />}
+    />
   );
 }
 
@@ -283,24 +282,5 @@ const useStyles = createStyles((colors) => ({
     right: 0,
     bottom: 0,
     backgroundColor: colors.surface,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    height: 52,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.lg,
-  },
-  primary: {
-    backgroundColor: colors.signature,
-  },
-  secondary: {
-    backgroundColor: colors.surface,
-  },
-  buttonLabel: {
-    fontSize: 16,
-    fontWeight: '500',
   },
 }));

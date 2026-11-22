@@ -577,6 +577,11 @@ export const en: Dictionary = {
     revoirPriseEnMain: 'Replay onboarding (debug)',
   },
   priseEnMain: {
+    etape: 'Step {n} of {total}',
+    profilAide: 'Your name and photo, so they recognize you.',
+    uneSeule: 'Just one person',
+    uneSeuleAide: 'Scan their code. Once linked, Nébula accepts no other contact.',
+    lier: 'Scan their code',
     bienvenue: 'Welcome to Nébula',
     presentation: 'A private messenger: your messages are end-to-end encrypted and go straight from your phone to your contacts\' phones.',
     commencer: 'Get started',
@@ -973,6 +978,8 @@ export const en: Dictionary = {
     dejaSorties: 'Features already released',
   },
   nous: {
+    dejaLies: 'You are already linked',
+    dejaLiesAide: 'Nébula is for two: this phone is linked to {nom}.',
     titre: 'Us',
     enLigneDirect: 'online · direct connection',
     enLigneRelais: 'online · via relay',

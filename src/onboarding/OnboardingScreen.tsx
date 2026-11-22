@@ -1,22 +1,19 @@
-import { ComponentRef, useCallback, useEffect, useRef, useState } from 'react';
-import Reanimated, { Easing, interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import { useCallback, useEffect, useState } from 'react';
+import Reanimated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
-import { AppState, BackHandler, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { BatteryCharging, Bell, Camera, ChevronRight, Download, ImageIcon, LucideIcon, MapPin } from 'lucide-react-native';
+import { AppState, BackHandler, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { BatteryCharging, Bell, Camera, Download, ImageIcon, LucideIcon, MapPin } from 'lucide-react-native';
 
 import { chat } from '../chat/manager';
 import { LINK_NAME_LENGTH } from '../crypto/pairing';
 import { collectDiagnostics, needsManufacturerAdvice, openPowerManagerSettings } from '../diagnostics';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { Avatar, Button, IconButton, useInsets, useNavigationBarHeight } from '../components/ui';
+import { Avatar, IconButton, useInsets, useNavigationBarHeight } from '../components/ui';
 import { t } from '../i18n';
 import { log } from '../log';
-import { createStyles, radius, setThemePreference, spacing, ThemePreference, useColors, useThemePreference } from '../theme';
+import { createStyles, fixed, radius, spacing, useColors } from '../theme';
 import { checkPermissions, ONBOARDING_PERMISSIONS, PermissionId, PermissionState, requestPermission } from './permissions';
 import { PermissionCard } from './PermissionCard';
-import { enterUp } from '../motion';
-import { PEAR_RATIO } from '../components/Pear';
-import { LilyMark } from '../components/Lily';
+import { Lily } from '../components/Lily';
 import { Backdrop, GrainButton } from '../components/nebula';
 import { BackupSheet } from '../components/BackupSheet';
 import { MediaPicker } from '../components/MediaPicker';
@@ -25,21 +22,12 @@ import { saveOnboardingStep } from './progress';
 
 export type OnboardingStep = 0 | 1 | 2 | 3;
 
-const MOVE_MS = 560;
-const FADE_MS = 260;
-const INTRO_MS = 700;
-// Hauteur de la poire sur les étapes suivantes (en haut), et à la fin (au centre).
-const SMALL_PEAR = 104;
-const FINAL_PEAR = 220;
-const PEAR_TOP_MARGIN = 12;
-// Démarre vite et se pose doucement, sans dépasser : jamais de rebond.
-const EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
-
-const THEMES: { value: ThemePreference; label: string }[] = [
-  { value: 'auto', label: t('profil.themeAuto') },
-  { value: 'light', label: t('profil.themeClair') },
-  { value: 'dark', label: t('profil.themeSombre') },
-];
+// Planche « Elvira · Bienvenue et liaison », pour Nébula : bienvenue (le lys qui s'ouvre), autorisations,
+// profil, puis « Une seule personne » (le QR code qui se dessine) avant de lier les deux téléphones.
+// Fond Améthyste à grain, points de progression en haut, boutons Grain et Fumé.
+const STEP_MS = 320;
+const EASE = Easing.bezier(0.2, 0.8, 0.2, 1);
+const STEPS: OnboardingStep[] = [0, 1, 2, 3];
 
 const ICONS: Record<PermissionId, LucideIcon> = {
   notifications: Bell,
@@ -50,8 +38,11 @@ const ICONS: Record<PermissionId, LucideIcon> = {
   install: Download,
   fullScreen: Download,
 };
-// Les apps inconnues (mises à jour de Pear) : carte en plus, seulement s'il manque l'autorisation.
+// Les apps inconnues (mises à jour de Nébula) : carte en plus, seulement s'il manque l'autorisation.
 const CHECKED: PermissionId[] = [...ONBOARDING_PERMISSIONS, 'install'];
+
+// Le QR code dessiné de la planche (7 × 7), case par case.
+const QR = '1110111' + '0101011' + '1110101' + '1100000' + '0000101' + '1011101' + '1101011';
 
 type Props = {
   // full : nouveau téléphone ; permissions : utilisateur existant à qui il manque une autorisation.
@@ -60,30 +51,68 @@ type Props = {
   onDone: () => void;
 };
 
-// Prise en main : bienvenue, autorisations, profil, fin. Une seule poire traverse toutes les étapes :
-// grande et rognée en haut à l'accueil, petite en haut ensuite, puis au centre pour ouvrir l'app.
+// Un point de progression : l'étape en cours s'allonge en lilas, les étapes faites restent claires.
+function Dot({ index, step }: { index: number; step: number }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const state = useSharedValue(index === step ? 1 : 0);
+  useEffect(() => {
+    state.set(withTiming(index === step ? 1 : 0, { duration: 260, easing: EASE }));
+  }, [index, step, state]);
+  const style = useAnimatedStyle(() => ({ width: 12 + 16 * state.get() }));
+  const color = index === step ? fixed.lilac : index < step ? colors.text : fixed.thumbTrack;
+  return <Reanimated.View style={[styles.dot, { backgroundColor: color }, style]} />;
+}
+
+// Accueil : le lys arrive en fondu, grandit un peu, puis s'ouvre.
+function WelcomeLily() {
+  const colors = useColors();
+  const open = useSharedValue(0);
+  const appear = useSharedValue(0);
+  useEffect(() => {
+    appear.set(withTiming(1, { duration: 700, easing: EASE }));
+    open.set(withDelay(500, withTiming(1, { duration: 900, easing: EASE })));
+  }, [appear, open]);
+  const style = useAnimatedStyle(() => ({ opacity: appear.get(), transform: [{ scale: 0.9 + 0.1 * appear.get() }] }));
+  return (
+    <Reanimated.View style={style}>
+      <Lily size={150} color={colors.text} open={open} />
+    </Reanimated.View>
+  );
+}
+
+// « Une seule personne » : le QR code se remplit case par case, les coins de visée apparaissent et la
+// ligne de lecture passe et repasse.
+function ScanArt() {
+  const styles = useStyles();
+  const line = useSharedValue(0);
+  useEffect(() => {
+    line.set(withRepeat(withSequence(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.quad) }), withTiming(0, { duration: 1100, easing: Easing.inOut(Easing.quad) })), -1, false));
+  }, [line]);
+  const lineStyle = useAnimatedStyle(() => ({ transform: [{ translateY: 150 * line.get() }] }));
+  return (
+    <View style={styles.qr}>
+      <View style={styles.qrGrid}>
+        {QR.split('').map((cell, index) => (
+          <Reanimated.View key={index} entering={FadeIn.duration(300).delay(index * 12)} style={[styles.qrCell, cell === '1' && styles.qrOn]} />
+        ))}
+      </View>
+      {(['tl', 'tr', 'bl', 'br'] as const).map((corner, index) => (
+        <Reanimated.View key={corner} entering={FadeIn.duration(400).delay(index * 80)} style={[styles.corner, styles[corner]]} />
+      ))}
+      <Reanimated.View style={[styles.scanLine, lineStyle]} />
+    </View>
+  );
+}
+
 export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
   const colors = useColors();
   const styles = useStyles();
-  const { width, height } = useWindowDimensions();
   const { top } = useInsets();
   const bottom = useNavigationBarHeight();
-  const theme = useThemePreference();
   const [step, setStep] = useState<OnboardingStep>(initialStep);
-  const position = useSharedValue<number>(initialStep);
   const content = useSharedValue(0);
   const finishing = useSharedValue(0);
-  // La poire défile avec le contenu : elle ne passe jamais sur le texte.
-  const scrollY = useSharedValue(0);
-  const onScroll = useAnimatedScrollHandler((event) => {
-    scrollY.set(event.contentOffset.y);
-  });
-  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
-  // Entrée de la poire au premier affichage : elle arrive de la gauche en tournant légèrement.
-  const intro = useSharedValue(initialStep === 0 ? 0 : 1);
-  useEffect(() => {
-    intro.set(withTiming(1, { duration: INTRO_MS, easing: EASING }));
-  }, [intro]);
   const [states, setStates] = useState<Partial<Record<PermissionId, PermissionState>> | null>(null);
   // La carte « apps inconnues » reste affichée une fois apparue, même accordée (sa coche se dessine).
   const [showInstall, setShowInstall] = useState(false);
@@ -113,22 +142,18 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
     return () => subscription.remove();
   }, [refresh]);
 
-  // Chaque étape entre en fondu glissé, pendant que la poire rejoint sa place.
+  // Chaque étape glisse depuis la droite en fondu (planche : 320 ms).
   useEffect(() => {
     content.set(0);
-    // Chaque étape repart du haut.
-    scroll.current?.scrollTo({ y: 0, animated: false });
-    scrollY.set(0);
-    position.set(withTiming(step, { duration: MOVE_MS, easing: EASING }));
-    content.set(withDelay(120, withTiming(1, { duration: FADE_MS, easing: EASING })));
+    content.set(withTiming(1, { duration: STEP_MS, easing: EASE }));
     if (mode === 'full') saveOnboardingStep(step);
-  }, [step, mode, position, content, scrollY]);
+  }, [step, mode, content]);
 
   const goTo = useCallback(
     (next: OnboardingStep) => {
       const go = () => setStep(next);
       content.set(
-        withTiming(0, { duration: FADE_MS / 2, easing: Easing.in(Easing.cubic) }, (finished) => {
+        withTiming(0, { duration: STEP_MS / 2, easing: Easing.in(Easing.cubic) }, (finished) => {
           if (finished) scheduleOnRN(go);
         }),
       );
@@ -140,7 +165,7 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
   const first: OnboardingStep = mode === 'full' ? 0 : 1;
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (step <= first || step === 3) return false;
+      if (step <= first) return false;
       goTo((step - 1) as OnboardingStep);
       return true;
     });
@@ -161,11 +186,10 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
     }
   };
 
-  // La galerie de Pear, une seule photo : elle est réduite à l'enregistrement (saveProfile).
+  // La galerie, une seule photo : elle est réduite à l'enregistrement (saveProfile).
   const [galleryOpen, setGalleryOpen] = useState(false);
   // La photo choisie passe d'abord par le recadrage en carré, avant d'être gardée.
   const [cropping, setCropping] = useState<string | null>(null);
-  const pickPhoto = () => setGalleryOpen(true);
 
   const saveProfile = async () => {
     try {
@@ -176,11 +200,10 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
     }
   };
 
-  // La poire grandit au centre, l'écran s'efface, et l'app s'ouvre.
+  // L'écran s'efface et l'app s'ouvre (sans contact, sur la feuille QR code).
   const finish = () => {
-    content.set(withTiming(0, { duration: FADE_MS }));
     finishing.set(
-      withTiming(1, { duration: MOVE_MS, easing: EASING }, (finished) => {
+      withTiming(1, { duration: STEP_MS * 1.5, easing: EASE }, (finished) => {
         if (finished) scheduleOnRN(onDone);
       }),
     );
@@ -188,65 +211,30 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
 
   const afterPermissions = () => (mode === 'full' ? goTo(2) : finish());
 
-  // La poire est dessinée une fois, à sa plus grande taille (l'accueil), puis seulement réduite : le
-  // vectoriel reste net. Accueil : énorme, dans l'angle en haut à gauche, elle déborde et penche.
-  // Ensuite : petite en haut au centre, puis au centre de l'écran pour ouvrir l'app.
-  const pearHeight = height * 0.62;
-  const pearWidth = pearHeight * PEAR_RATIO;
-  const pearLeft = -pearWidth * 0.38;
-  const pearTop = -pearHeight * 0.2;
-  const centerX = pearLeft + pearWidth / 2;
-  const centerY = pearTop + pearHeight / 2;
-  const smallCenterY = top + PEAR_TOP_MARGIN + SMALL_PEAR / 2;
-  // Le texte de l'accueil commence sous la poire (bas du dessin, plus la marge due à l'inclinaison).
-  const welcomeTextTop = pearTop + pearHeight + pearWidth * Math.sin((16 * Math.PI) / 180) + spacing.md;
-  const steps = [0, 1, 2, 3];
-  const xs = [0, width / 2 - centerX, width / 2 - centerX, width / 2 - centerX];
-  const ys = [0, smallCenterY - centerY, smallCenterY - centerY, height / 2 - centerY];
-  const scales = [1, SMALL_PEAR / pearHeight, SMALL_PEAR / pearHeight, FINAL_PEAR / pearHeight];
-  const turns = [-16, 0, -10, 0];
-  const introShift = -width * 0.35;
-  const pearStyle = useAnimatedStyle(() => {
-    const p = position.get();
-    const i = intro.get();
-    return {
-      opacity: i,
-      transform: [
-        { translateY: -scrollY.get() },
-        { translateX: interpolate(p, steps, xs) },
-        { translateX: introShift * (1 - i) },
-        { translateY: interpolate(p, steps, ys) },
-        { scale: interpolate(p, steps, scales) },
-        { scale: 1 + 0.5 * finishing.get() },
-        { rotate: `${interpolate(p, steps, turns)}deg` },
-        { rotate: `${-12 * (1 - i)}deg` },
-      ],
-    };
-  });
-  const screenStyle = useAnimatedStyle(() => ({ opacity: interpolate(finishing.get(), [0, 0.7, 1], [1, 1, 0]) }));
-  const contentStyle = useAnimatedStyle(() => ({ opacity: content.get(), transform: [{ translateY: 16 * (1 - content.get()) }] }));
+  const screenStyle = useAnimatedStyle(() => ({ opacity: 1 - finishing.get() }));
+  const contentStyle = useAnimatedStyle(() => ({ opacity: content.get(), transform: [{ translateX: 24 * (1 - content.get()) }] }));
+  const visible = mode === 'full' ? STEPS : STEPS.slice(1, 2);
 
   return (
     <Reanimated.View style={[styles.screen, screenStyle]}>
-      {/* Nébula : le fond Améthyste à grain de la planche « Bienvenue ». */}
       <Backdrop kind="amethyste" />
-      <Reanimated.View pointerEvents="none" style={[styles.pear, { left: pearLeft, top: pearTop }, pearStyle]}>
-        <LilyMark height={pearHeight} color={colors.text} />
-      </Reanimated.View>
+      <View style={[styles.dots, { marginTop: top + 16 }]} accessibilityLabel={t('priseEnMain.etape', { n: step + 1, total: visible.length })}>
+        {visible.map((index) => (
+          <Dot key={index} index={index} step={step} />
+        ))}
+      </View>
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
-        <Reanimated.ScrollView
-          ref={scroll}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={[styles.content, { paddingTop: step === 0 ? welcomeTextTop : top + PEAR_TOP_MARGIN + SMALL_PEAR + spacing.md, paddingBottom: bottom + spacing.lg }]}
-          keyboardShouldPersistTaps="handled"
-        >
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottom + spacing.lg }]} keyboardShouldPersistTaps="handled">
           <Reanimated.View style={[styles.flex, contentStyle]}>
             {step === 0 && (
               <View style={styles.block}>
-                <Text style={styles.title}>{t('priseEnMain.bienvenue')}</Text>
-                <Text style={styles.text}>{t('priseEnMain.presentation')}</Text>
-                <View style={styles.spacer} />
+                <View style={styles.center}>
+                  <WelcomeLily />
+                  <Reanimated.View entering={FadeIn.duration(400).delay(1200)} style={styles.centerText}>
+                    <Text style={styles.brand}>{t('priseEnMain.bienvenue')}</Text>
+                    <Text style={styles.lead}>{t('priseEnMain.presentation')}</Text>
+                  </Reanimated.View>
+                </View>
                 <GrainButton label={t('priseEnMain.commencer')} onPress={() => goTo(1)} />
                 <GrainButton label={t('sauvegarde.restaurer')} variant="smoke" onPress={() => setRestoring(true)} />
               </View>
@@ -280,27 +268,22 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
                   </Pressable>
                 )}
                 <View style={styles.spacer} />
-                {/* Le libellé change en fondu quand la dernière autorisation est accordée. */}
-                <Reanimated.View key={allGranted ? 'continuer' : 'plusTard'} entering={enterUp(0)}>
-                  <Button
-                    label={allGranted ? t('priseEnMain.continuer') : t('priseEnMain.plusTard')}
-                    icon={ChevronRight}
-                    variant={allGranted ? 'primary' : 'secondary'}
-                    onPress={afterPermissions}
-                  />
+                {/* Le bouton passe de Fumé (« Plus tard ») à Grain quand tout est accordé. */}
+                <Reanimated.View key={allGranted ? 'continuer' : 'plusTard'} entering={FadeIn.duration(220)}>
+                  <GrainButton label={allGranted ? t('priseEnMain.continuer') : t('priseEnMain.plusTard')} variant={allGranted ? 'grain' : 'smoke'} onPress={afterPermissions} />
                 </Reanimated.View>
               </View>
             )}
             {step === 2 && (
               <View style={styles.block}>
                 <Text style={styles.title}>{t('priseEnMain.profil')}</Text>
-                <IconButton onPress={pickPhoto} label={t('profil.choisirPhoto')} hitSlop={0} style={styles.photo}>
+                <Text style={styles.text}>{t('priseEnMain.profilAide')}</Text>
+                <IconButton onPress={() => setGalleryOpen(true)} label={t('profil.choisirPhoto')} hitSlop={0} style={styles.photo}>
                   <Avatar uri={photo} size={104} />
                   <View style={styles.photoBadge}>
-                    <Camera size={18} color={colors.onAccent} strokeWidth={1.75} />
+                    <Camera size={18} color={fixed.onGrainButton} strokeWidth={1.75} />
                   </View>
                 </IconButton>
-                <Text style={styles.label}>{t('profil.votreNom')}</Text>
                 <TextInput
                   style={styles.input}
                   value={name}
@@ -309,24 +292,24 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
                   placeholderTextColor={colors.textMuted}
                   maxLength={LINK_NAME_LENGTH}
                 />
-                <Text style={styles.label}>{t('profil.apparence')}</Text>
-                <SegmentedControl options={THEMES} value={theme} onChange={setThemePreference} />
                 <View style={styles.spacer} />
-                <View style={!name.trim() && styles.disabled} pointerEvents={name.trim() ? 'auto' : 'none'}>
-                  <Button label={t('priseEnMain.suivant')} icon={ChevronRight} onPress={saveProfile} />
-                </View>
+                <GrainButton label={t('priseEnMain.suivant')} disabled={!name.trim()} onPress={saveProfile} />
               </View>
             )}
             {step === 3 && (
               <View style={styles.block}>
-                <Text style={styles.title}>{t('priseEnMain.pret')}</Text>
-                <Text style={styles.text}>{t('priseEnMain.pretAide')}</Text>
-                <View style={styles.spacer} />
-                <Button label={t('priseEnMain.ouvrir')} icon={ChevronRight} onPress={finish} />
+                <View style={styles.center}>
+                  <ScanArt />
+                  <View style={styles.centerText}>
+                    <Text style={styles.title}>{t('priseEnMain.uneSeule')}</Text>
+                    <Text style={styles.lead}>{t('priseEnMain.uneSeuleAide')}</Text>
+                  </View>
+                </View>
+                <GrainButton label={t('priseEnMain.lier')} onPress={finish} />
               </View>
             )}
           </Reanimated.View>
-        </Reanimated.ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
       {restoring && <BackupSheet mode="import" onClose={() => setRestoring(false)} />}
       {galleryOpen && (
@@ -339,75 +322,31 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
           onClose={() => setGalleryOpen(false)}
         />
       )}
-      {cropping && (
-        <ProfilePhotoCropper
-          uri={cropping}
-          onDone={(uri) => {
-            setPhoto(uri);
-          }}
-          onClose={() => setCropping(null)}
-        />
-      )}
+      {cropping && <ProfilePhotoCropper uri={cropping} onDone={(uri) => setPhoto(uri)} onClose={() => setCropping(null)} />}
     </Reanimated.View>
   );
 }
 
+const CORNER = 28;
 const useStyles = createStyles((colors) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-    overflow: 'hidden',
-  },
-  flex: {
-    flex: 1,
-  },
-  pear: {
-    position: 'absolute',
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  block: {
-    flex: 1,
-    gap: spacing.md,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  text: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.textMuted,
-  },
-  spacer: {
-    flex: 1,
-    minHeight: spacing.lg,
-  },
-  rows: {
-    gap: 10,
-  },
-  rowText: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  advice: {
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 2,
-  },
-  adviceTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  photo: {
-    alignSelf: 'center',
-  },
+  screen: { flex: 1, backgroundColor: colors.background, overflow: 'hidden' },
+  flex: { flex: 1 },
+  dots: { flexDirection: 'row', gap: 6, paddingHorizontal: 28 },
+  dot: { height: 4, borderRadius: 2 },
+  content: { flexGrow: 1, paddingHorizontal: 28, paddingTop: 24 },
+  block: { flex: 1, gap: spacing.md },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 28, paddingVertical: 24 },
+  centerText: { alignItems: 'center', gap: 10 },
+  brand: { fontSize: 32, fontWeight: '700', letterSpacing: -1, color: colors.text, textAlign: 'center' },
+  lead: { fontSize: 16, lineHeight: 24, color: fixed.cardTextSoft, textAlign: 'center' },
+  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5, color: colors.text, textAlign: 'center' },
+  text: { fontSize: 15, lineHeight: 23, color: fixed.cardTextSoft },
+  spacer: { flex: 1, minHeight: spacing.lg },
+  rows: { gap: 10 },
+  rowText: { fontSize: 13, color: colors.textMuted },
+  advice: { padding: spacing.md, borderRadius: 16, backgroundColor: fixed.card, gap: 2 },
+  adviceTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
+  photo: { alignSelf: 'center', marginTop: 8 },
   photoBadge: {
     position: 'absolute',
     right: 0,
@@ -415,28 +354,20 @@ const useStyles = createStyles((colors) => ({
     width: 34,
     height: 34,
     borderRadius: radius.full,
-    backgroundColor: colors.accent,
+    backgroundColor: fixed.grainButton,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textMuted,
-  },
-  input: {
-    height: 52,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    fontSize: 16,
-    color: colors.text,
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  pressed: {
-    opacity: 0.6,
-  },
+  input: { height: 52, borderRadius: 16, backgroundColor: fixed.card, paddingHorizontal: spacing.md, fontSize: 16, color: colors.text },
+  pressed: { opacity: 0.6 },
+  qr: { width: 190, height: 190, borderRadius: 28, backgroundColor: fixed.card, overflow: 'hidden' },
+  qrGrid: { position: 'absolute', top: 28, left: 28, right: 28, bottom: 28, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  qrCell: { width: '12.2%', aspectRatio: 1, borderRadius: 3 },
+  qrOn: { backgroundColor: colors.text },
+  corner: { position: 'absolute', width: CORNER, height: CORNER, borderColor: fixed.lilac },
+  tl: { left: 14, top: 14, borderLeftWidth: 3, borderTopWidth: 3, borderTopLeftRadius: 8 },
+  tr: { right: 14, top: 14, borderRightWidth: 3, borderTopWidth: 3, borderTopRightRadius: 8 },
+  bl: { left: 14, bottom: 14, borderLeftWidth: 3, borderBottomWidth: 3, borderBottomLeftRadius: 8 },
+  br: { right: 14, bottom: 14, borderRightWidth: 3, borderBottomWidth: 3, borderBottomRightRadius: 8 },
+  scanLine: { position: 'absolute', left: 20, right: 20, top: 20, height: 2, backgroundColor: fixed.lilac },
 }));

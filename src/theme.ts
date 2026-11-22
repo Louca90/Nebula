@@ -148,6 +148,8 @@ export const fixed = {
   ridgeIdle: 'rgba(255, 255, 255, 0.18)',
   // Appel audio (planche « Appel ») : boutons au repos, translucides sur le fond à grain.
   callButton: 'rgba(255, 255, 255, 0.1)',
+  // Texte secondaire posé sur les fonds à grain (planche « Bienvenue »).
+  cardTextSoft: '#DCD5E8',
 };
 
 // --- Choix du thème : suit le système, ou forcé clair / sombre (réglage du profil) ---

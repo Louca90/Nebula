@@ -492,6 +492,11 @@ export function getContactState(contact: string): 'active' | 'pending' | null {
   return db().getFirstSync<{ state: 'active' | 'pending' }>('SELECT state FROM contacts WHERE public_key = ?', contact)?.state ?? null;
 }
 
+// Nébula : la personne liée (contact actif), s'il y en a une. Les notes à soi ne sont pas des contacts.
+export function getPartnerKey(): string | null {
+  return db().getFirstSync<{ public_key: string }>("SELECT public_key FROM contacts WHERE state = 'active' LIMIT 1")?.public_key ?? null;
+}
+
 // --- Demandes de pairing reçues ---
 
 export type PairingRequest = { id: string; from_key: string; name: string; at: number };

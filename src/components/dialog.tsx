@@ -6,6 +6,7 @@ import { CircleAlert, Info } from 'lucide-react-native';
 import { haptics } from '../haptics';
 import { EASE } from '../motion';
 import { createStyles, radius, spacing, useColors } from '../theme';
+import { GrainButton } from './nebula';
 import { useNavigationBarHeight } from './ui';
 
 export type DialogButton = {
@@ -107,8 +108,6 @@ function DialogBox({ dialog }: { dialog: Dialog }) {
   };
   const fade = useAnimatedStyle(() => ({ opacity: shown.get() }));
 
-  const buttonStyle = (button: DialogButton) => (button.style === 'danger' ? styles.buttonDanger : styles.buttonDefault);
-  const labelColor = (button: DialogButton) => (button.style === 'danger' ? colors.background : colors.background);
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={() => close(cancel?.onPress)} statusBarTranslucent navigationBarTranslucent>
@@ -136,11 +135,16 @@ function DialogBox({ dialog }: { dialog: Dialog }) {
             </View>
           ) : (
             <View style={styles.buttons}>
-              {actions.map((button) => (
-                <Pressable key={button.label} onPress={() => close(button.onPress)} accessibilityRole="button" style={({ pressed }) => [styles.button, buttonStyle(button), pressed && styles.pressed]}>
-                  <Text style={[styles.label, { color: labelColor(button) }]}>{button.label}</Text>
-                </Pressable>
-              ))}
+              {/* Nébula : l'action principale est un bouton Grain ; la destructrice, le « Supprimer » de la planche Mouvement. */}
+              {actions.map((button) =>
+                button.style === 'danger' ? (
+                  <Pressable key={button.label} onPress={() => close(button.onPress)} accessibilityRole="button" style={({ pressed }) => [styles.button, styles.buttonDanger, pressed && styles.pressed]}>
+                    <Text style={[styles.label, { color: colors.danger }]}>{button.label}</Text>
+                  </Pressable>
+                ) : (
+                  <GrainButton key={button.label} label={button.label} onPress={() => close(button.onPress)} />
+                ),
+              )}
             </View>
           )}
           {cancel && (
@@ -227,11 +231,8 @@ const useStyles = createStyles((colors) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonDefault: {
-    backgroundColor: colors.text,
-  },
   buttonDanger: {
-    backgroundColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
   },
   label: {
     fontSize: 15,

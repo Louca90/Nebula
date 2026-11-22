@@ -1,4 +1,4 @@
-import { useEffect, type ComponentRef, type RefObject } from 'react';
+import { useEffect, useState, type ComponentRef, type RefObject } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Reanimated, { useAnimatedProps, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
@@ -128,10 +128,21 @@ export function BottomBar({ active, onChange, blurTarget }: { active: Tab; onCha
 
   const slide = useAnimatedStyle(() => ({ transform: [{ translateX: position.get() * SLIDE_STEP }] }));
 
+  // expo-blur lit la cible une seule fois, au montage de la vue floue : elle n'est créée qu'une fois la
+  // cible montée (sa référence remplie), sinon le flou reste coupé pour toujours.
+  const [targetReady, setTargetReady] = useState(false);
+  useEffect(() => {
+    if (blurTarget?.current) setTargetReady(true);
+    else {
+      const frame = requestAnimationFrame(() => setTargetReady(!!blurTarget?.current));
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [blurTarget]);
+
   return (
     <View pointerEvents="box-none" style={[styles.wrapper, { bottom: bottom + spacing.md }]}>
       <View style={styles.bar} accessibilityRole="tablist">
-        {blurTarget && (
+        {blurTarget && targetReady && (
           <BlurView
             blurTarget={blurTarget}
             blurMethod="dimezisBlurViewSdk31Plus"

@@ -7,7 +7,7 @@ import Reanimated, { interpolate, ReduceMotion, useAnimatedProps, useAnimatedSty
 import { usePressFeedback } from '../components/ui';
 import { t } from '../i18n';
 import { enterUp, timing } from '../motion';
-import { createStyles, radius, readableOn, useColors } from '../theme';
+import { createStyles, radius, readableOn, useColors, fixed } from '../theme';
 import { PermissionState } from './permissions';
 
 const AnimatedPath = Reanimated.createAnimatedComponent(Path);
@@ -156,14 +156,14 @@ const useStyles = createStyles((colors) => ({
     height: 36,
     paddingHorizontal: 12,
     borderRadius: radius.full,
-    backgroundColor: colors.accent,
+    backgroundColor: fixed.grainButton,
     alignItems: 'center',
     justifyContent: 'center',
   },
   allowLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.onAccent,
+    color: fixed.onGrainButton,
   },
   later: {
     marginTop: 6,
