@@ -1,4 +1,4 @@
-// Publication d'une version de Pear. Mode d'emploi complet : RELEASE.md.
+// Publication d'une version de Nébula. Mode d'emploi complet : RELEASE.md.
 //   node scripts/release.mjs bump 1.2.0   version et versionCode suivant dans app.json
 //   node scripts/release.mjs draft        brouillon de CHANGELOG.md depuis les commits du dernier tag
 //   node scripts/release.mjs build        notes embarquées, APK release signé, empreinte SHA-256
@@ -182,13 +182,13 @@ async function publish() {
   const body = `${releaseBody(version)}\n\nversionCode: ${versionCode}\nsha256: ${hash}\nsignature: ${signature}\n`;
 
   // Une publication interrompue (push refusé, réseau) se reprend : le tag déjà créé est gardé.
-  if (!output(`git tag -l ${tag}`)) run(`git tag -a ${tag} -m "Pear ${version}"`);
+  if (!output(`git tag -l ${tag}`)) run(`git tag -a ${tag} -m "Nébula ${version}"`);
   run(`git push origin HEAD ${tag}`);
   const token = githubToken();
   const release = await github(token, `/repos/${REPO}/releases`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tag_name: tag, name: `Pear ${version}`, body, draft: false, prerelease: testRelease, make_latest: testRelease ? 'false' : 'true' }),
+    body: JSON.stringify({ tag_name: tag, name: `Nébula ${version}`, body, draft: false, prerelease: testRelease, make_latest: testRelease ? 'false' : 'true' }),
   });
   const uploadUrl = release.upload_url.replace(/\{.*\}$/, `?name=nebula-${version}.apk`);
   await github(token, uploadUrl, {
