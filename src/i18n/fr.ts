@@ -1073,6 +1073,9 @@ export const fr = {
     soie: 'Soie',
   },
   medias: {
+    photos: 'Photos',
+    videos: 'Vidéos',
+    files: 'Fichiers',
     sousTitre: '{nom} · {n} éléments',
   },
   carte: {

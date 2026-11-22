@@ -1074,6 +1074,9 @@ export const en: Dictionary = {
     soie: 'Silk',
   },
   medias: {
+    photos: 'Photos',
+    videos: 'Videos',
+    files: 'Files',
     sousTitre: '{nom} · {n} items',
   },
   carte: {

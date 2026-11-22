@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, Pressable, Text, View } from 'react-native';
 import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { createStyles, radius } from '../theme';
+import { createStyles, fixed, radius } from '../theme';
 
 const PADDING = 4;
 const SLIDE_MS = 260;
@@ -68,7 +68,8 @@ const useStyles = createStyles((colors) => ({
     bottom: PADDING,
     left: PADDING,
     borderRadius: radius.sm,
-    backgroundColor: colors.accent,
+    // Nébula : la pastille sombre des planches (« Médias », « Réglages »), plus la blanche de Pear.
+    backgroundColor: fixed.segment,
   },
   item: {
     flex: 1,
@@ -77,11 +78,12 @@ const useStyles = createStyles((colors) => ({
     justifyContent: 'center',
   },
   label: {
-    fontSize: 15,
-    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
   },
   labelSelected: {
-    color: colors.onAccent,
+    color: colors.text,
     fontWeight: '600',
   },
 }));

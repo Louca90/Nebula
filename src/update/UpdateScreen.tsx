@@ -7,6 +7,7 @@ import { formatSize } from '../chat/files';
 import { Pear } from '../components/Pear';
 import { Button, Screen, useNavigationBarHeight } from '../components/ui';
 import { createStyles, radius, spacing, useColors } from '../theme';
+import { Backdrop } from '../components/nebula';
 import { Release } from './release';
 import { canSkipUpdate, getInstallPermission, previewUpdateScreen, requestInstallPermission, skipUpdateOnce, startUpdate, useUpdateState } from './updates';
 import { t } from '../i18n';
@@ -49,6 +50,8 @@ export function UpdateScreen({ release }: { release: Release }) {
 
   return (
     <Screen>
+      {/* Nébula : le fond Améthyste à grain de la planche « Nouveautés ». */}
+      <Backdrop kind="amethyste" />
       <View style={[styles.content, { paddingBottom: bottom }]}>
         {/* La poire mûrit avec le téléchargement : pâle au départ, pleine quand tout est arrivé. */}
         <View style={styles.icon} accessible accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}>

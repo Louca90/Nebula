@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Reanimated, { ReduceMotion, withDelay, withTiming, type EntryExitAnimationFunction } from 'react-native-reanimated';
 
 import { Pear } from '../components/Pear';
 import { useNavigationBarHeight } from '../components/ui';
 import { EASE } from '../motion';
-import { createStyles, radius, spacing, useColors } from '../theme';
+import { createStyles, fixed, spacing, useColors } from '../theme';
+import { Backdrop, GrainButton } from '../components/nebula';
 import { fetchSummary, UpdatedInfo } from './updated';
 import { t } from '../i18n';
 
@@ -53,6 +54,8 @@ export function UpdatedPopup({ info, onClose }: { info: UpdatedInfo; onClose: ()
       <Reanimated.View entering={scrimIn} style={[StyleSheet.absoluteFill, styles.scrim]} />
       <View style={[styles.center, { paddingBottom: bottom }]}>
         <Reanimated.View entering={cardIn} style={styles.card} accessibilityViewIsModal>
+          {/* Nébula : le fond Améthyste à grain de la planche « Nouveautés ». */}
+          <Backdrop kind="amethyste" />
           <Pear height={82} color={colors.text} state="ripening" progress={ripe} />
           <Reanimated.Text entering={textIn(160)} style={styles.kicker}>
             {`${t('commun.version')} ${info.version}`.toUpperCase()}
@@ -68,12 +71,8 @@ export function UpdatedPopup({ info, onClose }: { info: UpdatedInfo; onClose: ()
             </Reanimated.View>
           )}
           <View style={styles.buttons}>
-            <Pressable onPress={onClose} accessibilityRole="button" style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
-              <Text style={styles.primaryLabel}>OK</Text>
-            </Pressable>
-            <Pressable onPress={() => Linking.openURL(info.pageUrl)} accessibilityRole="link" style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
-              <Text style={styles.secondaryLabel}>{t('maj.detailGithub')}</Text>
-            </Pressable>
+            <GrainButton label="OK" onPress={onClose} />
+            <GrainButton label={t('maj.detailGithub')} variant="smoke" onPress={() => Linking.openURL(info.pageUrl)} />
           </View>
         </Reanimated.View>
       </View>
@@ -93,17 +92,13 @@ const useStyles = createStyles((colors) => ({
     paddingHorizontal: 22,
     paddingBottom: 14,
     borderRadius: 30,
+    overflow: 'hidden',
     backgroundColor: colors.elevated,
   },
-  kicker: { marginTop: 4, fontSize: 12, fontWeight: '600', letterSpacing: 0.8, color: colors.signatureStrong },
+  kicker: { marginTop: 4, fontSize: 12, fontWeight: '600', letterSpacing: 0.8, color: fixed.cardTextSoft },
   title: { fontSize: 21, fontWeight: '700', textAlign: 'center', color: colors.text },
   summaryBox: { alignSelf: 'stretch' },
   summary: { maxHeight: 180 },
-  summaryText: { fontSize: 14, lineHeight: 21, textAlign: 'center', color: colors.textMuted },
+  summaryText: { fontSize: 14, lineHeight: 21, textAlign: 'center', color: fixed.cardTextSoft },
   buttons: { alignSelf: 'stretch', gap: spacing.sm, marginTop: 12 },
-  primary: { height: 52, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.text },
-  primaryLabel: { fontSize: 15, fontWeight: '700', color: colors.background },
-  secondary: { height: 48, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
-  secondaryLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
 }));

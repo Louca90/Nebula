@@ -26,7 +26,7 @@ const APPEAR_MS = 220;
 const CASCADE = 12;
 const CASCADE_STEP = 25;
 
-type Kind = 'media' | 'files';
+export type Kind = 'media' | 'files';
 
 // Apparition d'une case : fondu et échelle 0,94 → 1, après `delay`.
 function tileIn(delay: number): EntryExitAnimationFunction {
@@ -101,9 +101,12 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 
 // L'onglet « Médias » du profil d'un contact : photos et vidéos envoyées et reçues, puis les fichiers.
 // Les messages sont lus par ContactScreen (le nombre s'affiche dans l'onglet).
-export function ContactMedia({ messages }: { messages: Message[] }) {
+// fixedKind : la sorte imposée de l'extérieur (écran Médias de Nébula, qui a ses propres onglets) ; les
+// pastilles disparaissent alors.
+export function ContactMedia({ messages, fixedKind }: { messages: Message[]; fixedKind?: Kind }) {
   const styles = useStyles();
-  const [kind, setKind] = useState<Kind>('media');
+  const [chosenKind, setKind] = useState<Kind>('media');
+  const kind = fixedKind ?? chosenKind;
   const [viewing, setViewing] = useState<Viewing | null>(null);
   // Les médias déchiffrés pour la grille sont effacés du cache en quittant la fiche (lot 2.3).
   useEffect(() => retainOpenedMedia(), []);
@@ -143,10 +146,10 @@ export function ContactMedia({ messages }: { messages: Message[] }) {
 
   return (
     <View>
-      <View style={styles.kinds}>
+      {!fixedKind && <View style={styles.kinds}>
         <Chip label={t('contact.filtrePhotosVideos')} on={kind === 'media'} onPress={() => setKind('media')} />
         <Chip label={t('contact.filtreFichiers')} on={kind === 'files'} onPress={() => setKind('files')} />
-      </View>
+      </View>}
       <Reanimated.View key={kind} entering={enterUp(10, 240)}>
         {shown.length === 0 ? (
           <EmptyState label={kind === 'media' ? t('contact.aucunMedia') : t('contact.aucunFichier')} />

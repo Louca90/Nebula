@@ -132,6 +132,8 @@ export const fixed = {
   cardText: '#E5E5E7',
   lilac: '#B9A3E3',
   lilacDeep: '#5B3FA0',
+  // Pastille d'un sélecteur à onglets (planches « Médias », « Réglages »).
+  segment: '#2E2E33',
   // Boutons sur fond à grain (planche « Boutons ») : Grain lilas et Fumé sombre.
   grainButton: '#D9CCF7',
   onGrainButton: '#140B26',
