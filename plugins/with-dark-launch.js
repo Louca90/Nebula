@@ -45,7 +45,8 @@ module.exports = (config) => {
     'android',
     (result) => {
       const resDir = path.join(result.modRequest.platformProjectRoot, 'app', 'src', 'main', 'res');
-      writeValues(resDir, 'values', true);
+      // Nébula n'a qu'un thème, sombre : même fenêtre de lancement en mode clair.
+      writeValues(resDir, 'values', false);
       writeValues(resDir, 'values-night', false);
       return result;
     },
