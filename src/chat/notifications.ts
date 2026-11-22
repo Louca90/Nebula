@@ -120,6 +120,23 @@ export function clearPairNotification(contact: string) {
   notifee.cancelNotification(`pair:${contact}`).catch((e) => log.warn('notification', e));
 }
 
+// Nébula : « X pense à toi ». Un appui ouvre l'app sur l'onglet Nous.
+export async function showThoughtNotification(contact: string, name: string) {
+  await ensureChannel();
+  await notifee.displayNotification({
+    id: `thought:${contact}`,
+    title: t('pense.notificationTitre', { nom: name }),
+    body: t('pense.notificationTexte'),
+    data: { contact },
+    android: {
+      channelId: NOTIFICATION_CHANNEL_ID,
+      visibility: AndroidVisibility.PRIVATE,
+      smallIcon: NOTIFICATION_SMALL_ICON,
+      pressAction: { id: 'default' },
+    },
+  });
+}
+
 // « X vous a supprimé » / « X vous a bloqué ».
 export async function showStatusNotification(contact: string, name: string, state: 'removed' | 'blocked') {
   await ensureChannel();

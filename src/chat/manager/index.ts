@@ -33,6 +33,8 @@ import { downloadRelayFile, relayPending } from './relay';
 import { acceptPairing, blockPairing, declinePairing, requestPairing, startPairing, syncPairRequests } from './pairing';
 import { deliverNow, sendStatusNow, settlePushAcks, wakeIfNeeded } from './wake';
 import { notifyMessage } from './notify';
+import { getDates } from '../../couple/dates';
+import { addThought } from '../../couple/thoughts';
 import { acceptCall, callKeepsAwake, declineCall, getCall, hangUp, receiveCallPush, startCall, subscribeCall, switchCamera, toggleCamera, toggleMute, toggleSpeaker, chooseOutput, toggleShare } from './calls';
 
 export type { CallEnd, CallPhase, CallState } from './calls';
@@ -587,6 +589,34 @@ class ChatManager extends ChatCore {
       deleteRelayIncoming(id, contact);
     }
     refuseFile(this, contact, id);
+  }
+
+  // --- Nébula : fonctions de couple ---
+
+  // « Pense à toi » : un geste sans texte, livré comme les autres événements chiffrés (direct, push
+  // ou réveil), et compté des deux côtés.
+  sendThought(contact: string) {
+    const at = Date.now();
+    addThought(true, at);
+    sendEvent(this, contact, { action: 'thought', id: '', at });
+  }
+
+  // « Pouce contre pouce » : seulement en direct (c'est un geste du moment, jamais stocké ni poussé).
+  // Rend false si l'autre téléphone n'est pas joignable en direct.
+  sendThumb(contact: string, down: boolean): boolean {
+    const peer = this.links.get(contact)?.peer;
+    if (!peer?.isOpen()) return false;
+    peer.send({ type: 'thumb', state: down ? 'down' : 'up' });
+    return true;
+  }
+
+  isThumbDown(contact: string) {
+    return (this.thumbUntil.get(contact) ?? 0) > Date.now();
+  }
+
+  // Nos dates modifiées ici : la liste entière part chez l'autre (la plus récente gagne).
+  shareDates(contact: string) {
+    sendEvent(this, contact, { action: 'dates', id: '', dates: getDates() });
   }
 
   // --- Messages éphémères et vue unique (lot 4.7) ---

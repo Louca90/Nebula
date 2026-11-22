@@ -33,7 +33,9 @@ import { CHUNK_BYTES, isValidFileId } from '../files';
 import { encodeMeta, sanitizeMeta } from '../meta';
 
 import { ChatCore } from './core';
-import { showStatusNotification } from '../notifications';
+import { showStatusNotification, showThoughtNotification } from '../notifications';
+import { mergeDates, parseDates } from '../../couple/dates';
+import { addThought } from '../../couple/thoughts';
 import { notifyMessage } from './notify';
 import { addSystemMessage, applyEphemeral, flush } from './outbox';
 import { expiryFor, validEphemeralSetting, validTtl } from '../ephemeral';
@@ -160,6 +162,16 @@ function receiveEvent(core: ChatCore, contact: string, data: Payload) {
       reshareProfile(core, contact);
       core.contactsChanged();
     }
+  } else if (data.action === 'thought') {
+    // Nébula : « pense à toi ». Une seule fois par événement, et une notification si l'app est en fond.
+    const at = isCount(data.at) ? Math.min(data.at, Date.now()) : Date.now();
+    if (addThought(false, at, data.eventId) && AppState.currentState !== 'active') {
+      showThoughtNotification(contact, core.names.get(contact) ?? 'Nébula').catch((e) => log.warn('notification', e));
+    }
+  } else if (data.action === 'dates') {
+    // Nébula : nos dates, modifiées sur l'autre téléphone.
+    const dates = parseDates(data.dates);
+    if (dates) mergeDates(dates);
   } else if (data.action === 'profile') {
     setContactProfileField(contact, 'name', typeof data.name === 'string' ? data.name.slice(0, MAX_PROFILE_NAME_LENGTH) : null);
     if (data.hasPhoto === false) {
@@ -183,6 +195,22 @@ function receiveTyping(core: ChatCore, contact: string, typing: boolean) {
       core.notify();
     }, TYPING_TTL_MS + 50);
   } else core.typingUntil.delete(contact);
+  core.notify();
+}
+
+// Nébula, « pouce contre pouce » : son pouce posé, rafraîchi tant qu'il reste posé. Sans nouvelle au
+// bout de ce délai (connexion coupée, app quittée), il est considéré comme levé.
+export const THUMB_TTL_MS = 3000;
+
+function receiveThumb(core: ChatCore, contact: string, down: boolean) {
+  if (down) {
+    core.thumbUntil.set(contact, Date.now() + THUMB_TTL_MS);
+    setTimeout(() => {
+      if ((core.thumbUntil.get(contact) ?? 0) > Date.now()) return;
+      core.thumbUntil.delete(contact);
+      core.notify();
+    }, THUMB_TTL_MS + 50);
+  } else core.thumbUntil.delete(contact);
   core.notify();
 }
 
@@ -300,6 +328,8 @@ export function receive(core: ChatCore, contact: string, received: unknown) {
     setSetting(`read_cursor_ack.${contact}`, data.id);
   } else if (data.type === 'typing') {
     receiveTyping(core, contact, data.state === 'start');
+  } else if (data.type === 'thumb') {
+    receiveThumb(core, contact, data.state === 'down');
   } else if (data.type === 'token' && typeof data.token === 'string' && data.token.length <= 4096) {
     setContactToken(contact, data.token);
   } else if (data.type === 'repair') {

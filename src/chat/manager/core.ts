@@ -64,6 +64,8 @@ export class ChatCore {
   progress = new Map<string, number>();
   // « écrit… » : jusqu'à quand le contact est considéré en train d'écrire, et notre dernier envoi.
   typingUntil = new Map<string, number>();
+  // Nébula : jusqu'à quand le pouce du contact est posé (« pouce contre pouce »).
+  thumbUntil = new Map<string, number>();
   // Sessions de connexion (regroupement des bulles, lot 8.13).
   sessions = new SessionTracker();
   typingSentAt = new Map<string, number>();

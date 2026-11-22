@@ -123,6 +123,24 @@ export const fixed = {
   // Barre des onglets : voile violacé sur le flou, et son liseré.
   tabBarTint: 'rgba(28, 22, 40, 0.38)',
   tabBarEdge: 'rgba(255, 255, 255, 0.08)',
+  // Planches Elvira : surfaces posées sur les fonds à grain (sombres, un peu transparentes, sans flou).
+  card: 'rgba(20, 16, 28, 0.78)',
+  tile: 'rgba(34, 28, 46, 0.82)',
+  cardText: '#E5E5E7',
+  lilac: '#B9A3E3',
+  // Boutons sur fond à grain (planche « Boutons ») : Grain lilas et Fumé sombre.
+  grainButton: '#D9CCF7',
+  onGrainButton: '#140B26',
+  smokeButton: 'rgba(10, 6, 20, 0.42)',
+  smokeEdge: 'rgba(255, 255, 255, 0.14)',
+  grainHighlight: 'rgba(255, 255, 255, 0.7)',
+  grainShadow: 'rgba(40, 10, 90, 0.45)',
+  // Texte secondaire clair des planches, pistes et pastilles (pouce contre pouce).
+  mutedLight: '#A1A1A6',
+  thumbTrack: '#2A2A2E',
+  thumbFace: '#232327',
+  onSignatureSoft: '#E6DDF5',
+  ringTrack: '#26262A',
 };
 
 // --- Choix du thème : suit le système, ou forcé clair / sombre (réglage du profil) ---

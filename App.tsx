@@ -30,7 +30,9 @@ import { isSelf } from './src/chat/self';
 import { ContactScreen } from './src/screens/ContactScreen';
 import { NotificationSettingsScreen } from './src/screens/NotificationSettingsScreen';
 import { CustomizeScreen } from './src/screens/CustomizeScreen';
-import { HomeScreen } from './src/screens/HomeScreen';
+import { NousScreen } from './src/screens/NousScreen';
+import { PenseScreen } from './src/screens/PenseScreen';
+import { DatesScreen } from './src/screens/DatesScreen';
 import { OnboardingScreen, OnboardingStep } from './src/onboarding/OnboardingScreen';
 import { checkAllPermissions } from './src/onboarding/permissions';
 import { setPermissionsMissing } from './src/onboarding/permissionStatus';
@@ -79,6 +81,9 @@ type Route =
   | { name: 'settingsPage'; page: SettingsPage }
   | { name: 'blocked' }
   | { name: 'requests' }
+  // Nébula : Pense à toi (et pouce contre pouce), puis Nos dates.
+  | { name: 'pense'; publicKey: string }
+  | { name: 'dates' }
   | { name: 'customize'; publicKey: string }
   | { name: 'notifications'; publicKey: string }
   // name : le pseudo lu dans le QR code ou le lien, proposé comme nom du contact.
@@ -703,13 +708,23 @@ function App() {
         />
       );
     }
+    if (current.name === 'pense') {
+      const partner = contacts.find((contact) => contact.publicKey === current.publicKey);
+      if (partner) return <PenseScreen contact={partner} onBack={() => setRoute({ name: 'home' })} />;
+    }
+    if (current.name === 'dates') {
+      return <DatesScreen partner={contacts.find((contact) => !contact.pending) ?? null} onBack={() => setRoute(parentOf(current) ?? { name: 'home' })} />;
+    }
+    // Onglet Nous (planche « Accueil ») : rien que vous deux.
     return (
-      <HomeScreen
+      <NousScreen
         contacts={contacts}
-        onAdd={() => setPairOpen(true)}
-        onQr={() => setPairOpen(true)}
-        onOpen={(contact, jump) => setRoute({ name: 'chat', publicKey: contact.publicKey, jump })}
-        onRequests={() => setRoute({ name: 'requests' })}
+        onPair={() => setPairOpen(true)}
+        onOpenChat={(contact) => setRoute({ name: 'chat', publicKey: contact.publicKey })}
+        onProfile={(contact) => setRoute({ name: 'contact', publicKey: contact.publicKey })}
+        onMedia={(contact) => setRoute({ name: 'contact', publicKey: contact.publicKey, tab: 'media' })}
+        onPense={(contact) => setRoute({ name: 'pense', publicKey: contact.publicKey })}
+        onDates={() => setRoute({ name: 'dates' })}
       />
     );
   };
