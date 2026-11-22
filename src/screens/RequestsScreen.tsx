@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ban, Check, ShieldQuestion, X } from 'lucide-react-native';
@@ -11,6 +11,7 @@ import { Header, Screen } from '../components/ui';
 import { deriveSharedSecret, getVerificationCode, Identity } from '../crypto/pairing';
 import { t } from '../i18n';
 import { createStyles, radius, spacing, useColors, fixed } from '../theme';
+import { Backdrop } from '../components/nebula';
 
 const ENTER_MS = 260;
 const LEAVE_MS = 200;
@@ -136,6 +137,8 @@ export function RequestsScreen({ identity, onBack, onAccept }: Props) {
 
   return (
     <Screen>
+      {/* Nébula : le fond Améthyste à grain de la planche « Bienvenue et liaison ». */}
+      <Backdrop kind="amethyste" />
       <Header title={t('demandes.titre')} onBack={onBack} />
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         {requests.length === 0 ? (
@@ -164,8 +167,8 @@ const useStyles = createStyles((colors) => ({
     marginBottom: spacing.sm,
   },
   codeBox: {
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
+    borderRadius: 16,
+    backgroundColor: fixed.card,
     padding: spacing.md,
     gap: spacing.sm,
     marginBottom: spacing.sm,
@@ -177,6 +180,8 @@ const useStyles = createStyles((colors) => ({
   codeGroup: {
     fontSize: 20,
     fontWeight: '600',
+    letterSpacing: 1.6,
+    fontFamily: 'monospace',
     color: colors.text,
     fontVariant: ['tabular-nums'],
   },
@@ -190,8 +195,8 @@ const useStyles = createStyles((colors) => ({
   },
   card: {
     padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
+    borderRadius: 24,
+    backgroundColor: fixed.card,
   },
   top: {
     flexDirection: 'row',
