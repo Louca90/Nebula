@@ -1,4 +1,4 @@
-import Reanimated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated';
+import Reanimated, { useAnimatedProps, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import Svg, { G, Path } from 'react-native-svg';
 
 // Le lys d'un seul tenant des planches Elvira (même dessin, même boîte « 4 10 92 88 »).
@@ -48,4 +48,10 @@ export function Lily({ size, color, open }: { size: number; color: string; open:
       <Path d={STEM} fill={color} />
     </Svg>
   );
+}
+
+// Le lys ouvert, immobile, à la place de la poire de Pear : `height` comme l'ancienne marque.
+export function LilyMark({ height, color }: { height: number; color: string }) {
+  const open = useSharedValue(1);
+  return <Lily size={(height * 92) / 88} color={color} open={open} />;
 }

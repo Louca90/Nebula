@@ -7,7 +7,7 @@ import { Message } from '../../../chat/database';
 import { chat } from '../../../chat/manager';
 import { parseEphemeralSystem } from '../../../chat/ephemeral';
 import { callRecordText, parseCallRecord } from '../../../chat/callText';
-import { Pear } from '../../../components/Pear';
+import { LilyMark } from '../../../components/Lily';
 import { createStyles, useColors } from '../../../theme';
 
 import { SESSION_BROKEN, SESSION_REPAIRED, UPDATE_REQUIRED } from '../../../chat/protocol';
@@ -44,7 +44,7 @@ export function SystemRow({ message, name, hasWallpaper }: { message: Message; n
     <View style={[styles.systemRow, hasWallpaper && styles.metaPill, ephemeral !== null && styles.withIcon]}>
       {ephemeral !== null && (
         <View>
-          <Pear height={13} color={hasWallpaper ? colors.onMedia : ephemeral ? colors.signatureStrong : colors.textMuted} />
+          <LilyMark height={13} color={hasWallpaper ? colors.onMedia : ephemeral ? colors.signatureStrong : colors.textMuted} />
         </View>
       )}
       <Text style={textStyle}>{ephemeral !== null ? (ephemeral ? t('ephemere.ligne', { duree: ephemeralLabel(ephemeral) }) : t('ephemere.ligneCoupe')) : standalone ? text : `${author} ${text}`}</Text>

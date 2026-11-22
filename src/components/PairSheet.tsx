@@ -13,7 +13,7 @@ import { t } from '../i18n';
 import { EASE } from '../motion';
 import { ScannerPanel } from '../screens/ScannerScreen';
 import { createStyles, fixed, radius, useColors } from '../theme';
-import { Pear } from './Pear';
+import { LilyMark } from './Lily';
 import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
 import { showDialog } from './dialog';
@@ -98,7 +98,7 @@ function CodePane({ publicKey }: { publicKey: string }) {
     <Reanimated.View entering={FadeIn.duration(200)} style={styles.pane}>
       <Reanimated.View entering={codeIn} style={styles.card}>
         <View style={styles.cardHead}>
-          <Pear height={22} color={fixed.black} />
+          <LilyMark height={22} color={fixed.black} />
           {!!profile.name && (
             <Text style={styles.name} numberOfLines={1}>
               {profile.name}

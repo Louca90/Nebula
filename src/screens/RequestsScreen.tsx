@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } fr
 import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ban, Check, ShieldQuestion, X } from 'lucide-react-native';
 
-import { Pear } from '../components/Pear';
+import { LilyMark } from '../components/Lily';
 
 import { getPendingRequests, PairingRequest } from '../chat/database';
 import { chat, MAX_PROFILE_NAME_LENGTH } from '../chat/manager';
@@ -140,7 +140,7 @@ export function RequestsScreen({ identity, onBack, onAccept }: Props) {
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         {requests.length === 0 ? (
           <View style={styles.empty}>
-            <Pear height={56} color={colors.textMuted} state="resting" />
+            <LilyMark height={56} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>{t('demandes.aucune')}</Text>
             <Text style={styles.emptyText}>{t('demandes.aucuneAide')}</Text>
           </View>

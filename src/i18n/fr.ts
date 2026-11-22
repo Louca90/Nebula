@@ -1034,6 +1034,14 @@ export const fr = {
     moisPrecedent: 'Mois précédent',
     moisSuivant: 'Mois suivant',
   },
+  verrou: {
+    titre: 'Nébula est verrouillée',
+    sousTitre: 'Rien que vous deux',
+    bonRetour: 'Bon retour',
+    poser: 'Touche l’empreinte pour déverrouiller',
+    garde: 'Garde le doigt posé…',
+    echec: 'Empreinte non reconnue, réessaie',
+  },
   carte: {
     titre: 'Carte',
     voir: 'Voir sur la carte',

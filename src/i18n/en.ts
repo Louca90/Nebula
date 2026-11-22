@@ -1035,6 +1035,14 @@ export const en: Dictionary = {
     moisPrecedent: 'Previous month',
     moisSuivant: 'Next month',
   },
+  verrou: {
+    titre: 'Nébula is locked',
+    sousTitre: 'Just the two of you',
+    bonRetour: 'Welcome back',
+    poser: 'Touch the fingerprint to unlock',
+    garde: 'Keep your finger down…',
+    echec: 'Fingerprint not recognized, try again',
+  },
   carte: {
     titre: 'Map',
     voir: 'See on the map',

@@ -9,7 +9,7 @@ import { linkPreviewsEnabled, setLinkPreviewsEnabled } from '../../chat/linkPrev
 import { BackupSheet } from '../../components/BackupSheet';
 import { showDialog } from '../../components/dialog';
 import { LanguageSheet } from '../../components/LanguageSheet';
-import { Pear } from '../../components/Pear';
+import { LilyMark } from '../../components/Lily';
 import { LockIcon } from '../../components/AnimatedIcons';
 import { SettingRow, SettingsGroup } from '../../components/SettingsGroup';
 import { Toggle } from '../../components/Toggle';
@@ -361,7 +361,7 @@ export function UpdatesPage({ onBack, onDiscover, onDiagnostic }: { onBack: () =
     <Page title={t('profil.misesAJour')} onBack={onBack}>
       <Block index={0}>
         <View style={styles.hero}>
-          <Pear height={60} color={colors.text} />
+          <LilyMark height={60} color={colors.text} />
           <Text style={styles.versionTitle}>{`Pear ${version}`}</Text>
           <View style={styles.statusRow} accessibilityLiveRegion="polite">
             {checking ? <ActivityIndicator size="small" color={colors.signatureStrong} /> : null}

@@ -4,7 +4,7 @@ import Reanimated from 'react-native-reanimated';
 import { enterUp } from '../motion';
 
 import { createStyles, motion, spacing, useColors } from '../theme';
-import { Pear } from './Pear';
+import { LilyMark } from './Lily';
 
 // Une liste vide : la poire au repos (elle respire à peine) et une phrase, qui arrivent en fondu.
 export function EmptyState({ label }: { label: string }) {
@@ -12,7 +12,7 @@ export function EmptyState({ label }: { label: string }) {
   const styles = useStyles();
   return (
     <Reanimated.View entering={enterUp(8, motion.small)} style={styles.empty}>
-      <Pear height={56} color={colors.textMuted} state="resting" />
+      <LilyMark height={56} color={colors.textMuted} />
       <Text style={styles.label}>{label}</Text>
     </Reanimated.View>
   );

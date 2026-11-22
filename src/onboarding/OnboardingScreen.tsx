@@ -15,7 +15,8 @@ import { createStyles, radius, setThemePreference, spacing, ThemePreference, use
 import { checkPermissions, ONBOARDING_PERMISSIONS, PermissionId, PermissionState, requestPermission } from './permissions';
 import { PermissionCard } from './PermissionCard';
 import { enterUp } from '../motion';
-import { Pear, PEAR_RATIO } from '../components/Pear';
+import { PEAR_RATIO } from '../components/Pear';
+import { LilyMark } from '../components/Lily';
 import { BackupSheet } from '../components/BackupSheet';
 import { MediaPicker } from '../components/MediaPicker';
 import { ProfilePhotoCropper } from '../components/ProfilePhotoCropper';
@@ -227,7 +228,7 @@ export function OnboardingScreen({ mode, initialStep, onDone }: Props) {
   return (
     <Reanimated.View style={[styles.screen, screenStyle]}>
       <Reanimated.View pointerEvents="none" style={[styles.pear, { left: pearLeft, top: pearTop }, pearStyle]}>
-        <Pear height={pearHeight} color={colors.text} />
+        <LilyMark height={pearHeight} color={colors.text} />
       </Reanimated.View>
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         <Reanimated.ScrollView

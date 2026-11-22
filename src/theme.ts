@@ -143,6 +143,9 @@ export const fixed = {
   ringTrack: '#26262A',
   transparent: 'transparent',
   hairline: 'rgba(255, 255, 255, 0.07)',
+  // Verrou : le capteur d'empreinte et ses arcs au repos.
+  sensor: 'rgba(255, 255, 255, 0.07)',
+  ridgeIdle: 'rgba(255, 255, 255, 0.18)',
 };
 
 // --- Choix du thème : suit le système, ou forcé clair / sombre (réglage du profil) ---

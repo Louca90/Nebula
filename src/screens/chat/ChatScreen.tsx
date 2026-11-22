@@ -20,7 +20,7 @@ import { MESSAGE_PAGE_SIZE } from '../../config';
 import { showDialog } from '../../components/dialog';
 import { ContactPickerSheet } from '../../components/ContactPickerSheet';
 import { MediaPicker } from '../../components/MediaPicker';
-import { Pear } from '../../components/Pear';
+import { LilyMark } from '../../components/Lily';
 import { Screen, useInsets } from '../../components/ui';
 import { bubblePalette, createStyles, motion, radius, spacing, useColors } from '../../theme';
 
@@ -636,7 +636,7 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, onCustom
             /> : null}>
           {messages.length === 0 ? (
             <View style={styles.empty}>
-              <Pear height={56} color={colors.textMuted} state="resting" />
+              <LilyMark height={56} color={colors.textMuted} />
               <Text style={styles.emptyText}>{isSelf(contactKey) ? t('notes.vide') : t('chat.vide')}</Text>
             </View>
           ) : (
