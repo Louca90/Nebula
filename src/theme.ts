@@ -121,7 +121,7 @@ export const fixed = {
   scene: { sky: '#7FBDF0', sun: '#FFC93C', cloud: '#FFFFFF', hill: '#7CC36A', hillDark: '#2E8B4A', house: '#E5483B' },
   filterStripBackground: '#1C1C1E',
   // Barre des onglets : voile violacé sur le flou, et son liseré.
-  tabBarTint: 'rgba(28, 22, 40, 0.38)',
+  tabBarTint: 'rgba(28, 22, 40, 0.22)',
   tabBarEdge: 'rgba(255, 255, 255, 0.08)',
   // Planches Elvira : surfaces posées sur les fonds à grain (sombres, un peu transparentes, sans flou).
   card: 'rgba(20, 16, 28, 0.78)',
