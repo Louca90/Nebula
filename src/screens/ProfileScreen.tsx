@@ -1,7 +1,7 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Reanimated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { Bell, Camera, Check, Eye, FileDown, HardDrive, KeyRound, Lock, CalendarHeart, Moon, Pencil, RefreshCw, Settings, ShieldCheck } from 'lucide-react-native';
+import { Bell, Camera, Check, Eye, FileDown, HardDrive, KeyRound, Lock, CalendarHeart, Moon, Pencil, RefreshCw, Settings } from 'lucide-react-native';
 import { usePermissionsMissing } from '../onboarding/permissionStatus';
 
 import { appVersionName, authenticate } from '../../modules/pear-native';
@@ -17,7 +17,7 @@ import type { SettingsPage } from './settings/SettingsPages';
 import { Avatar, Header, Screen, usePressFeedback } from '../components/ui';
 import { haptics } from '../haptics';
 import { DURATION, enterUp, timing } from '../motion';
-import { createStyles, radius, spacing, useColors } from '../theme';
+import { createStyles, fixed, radius, spacing, useColors } from '../theme';
 import { BackdropPicker } from '../components/BackdropPicker';
 import { t } from '../i18n';
 
@@ -25,7 +25,8 @@ const AVATAR = 72;
 // Les blocs de la page arrivent l'un après l'autre à l'ouverture.
 const STEP_MS = 40;
 
-type Props = { onSettings: () => void; onStorage: () => void; onPage: (page: SettingsPage) => void; onDates: () => void };
+// partnerName : la personne liée (planche « Réglages » : « Lié à Elvira · vérifié »). onUnlink : délier ce téléphone.
+type Props = { onSettings: () => void; onStorage: () => void; onPage: (page: SettingsPage) => void; onDates: () => void; partnerName: string | null; partnerVerified: boolean; onUnlink: (() => void) | null };
 
 // Le bouton rond à droite de la carte : un crayon, qui devient une coche pendant qu'on écrit le nom.
 function EditButton({ editing, onPress }: { editing: boolean; onPress: () => void }) {
@@ -54,7 +55,7 @@ function EditButton({ editing, onPress }: { editing: boolean; onPress: () => voi
 
 // L'onglet Profil : ma carte (photo et nom, tels que mes contacts les voient), puis les réglages
 // les plus utiles, rangés par groupes. « Tous les réglages » ouvre le reste.
-export function ProfileScreen({ onSettings, onStorage, onPage, onDates }: Props) {
+export function ProfileScreen({ onSettings, onStorage, onPage, onDates, partnerName, partnerVerified, onUnlink }: Props) {
   const permissionsMissing = usePermissionsMissing();
   const colors = useColors();
   const styles = useStyles();
@@ -148,15 +149,13 @@ export function ProfileScreen({ onSettings, onStorage, onPage, onDates }: Props)
                   {name || t('profil.commentPresenter')}
                 </Text>
               )}
-              <Text style={styles.visible}>{t('profil.visibleContacts')}</Text>
+              <Text style={[styles.visible, partnerName ? styles.linked : null]}>
+                {partnerName ? (partnerVerified ? t('profil.lieVerifie', { nom: partnerName }) : t('profil.lie', { nom: partnerName })) : t('profil.pasLie')}
+              </Text>
             </View>
             <EditButton editing={editingName} onPress={toggleName} />
           </Reanimated.View>
 
-          <Reanimated.View entering={enterUp(10, 260, STEP_MS)} style={styles.secure} accessibilityRole="summary">
-            <ShieldCheck size={22} color={colors.onSignature} strokeWidth={1.8} />
-            <Text style={styles.secureText}>{t('profil.chiffre')}</Text>
-          </Reanimated.View>
 
           {/* Nébula : ce qui est à vous deux. */}
           <Reanimated.View entering={enterUp(10, 260, STEP_MS * 2)}>
@@ -189,6 +188,15 @@ export function ProfileScreen({ onSettings, onStorage, onPage, onDates }: Props)
               <SettingRow icon={Settings} label={t('profil.tousReglages')} onPress={onSettings} />
             </SettingsGroup>
           </Reanimated.View>
+
+          {/* Planche « Réglages » : délier ce téléphone, en bas, en rouge, toujours confirmé. */}
+          {onUnlink && (
+            <Reanimated.View entering={enterUp(10, 260, STEP_MS * 5)}>
+              <Pressable onPress={onUnlink} accessibilityRole="button" style={({ pressed }) => [styles.unlink, pressed && styles.unlinkPressed]}>
+                <Text style={styles.unlinkLabel}>{t('profil.delier')}</Text>
+              </Pressable>
+            </Reanimated.View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
       {galleryOpen && (
@@ -282,19 +290,22 @@ const useStyles = createStyles((colors) => ({
   editOn: {
     backgroundColor: colors.signature,
   },
-  secure: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.md,
-    borderRadius: 18,
-    backgroundColor: colors.signature,
+  linked: {
+    color: fixed.lilac,
   },
-  secureText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 19,
-    color: colors.onSignature,
+  unlink: {
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unlinkPressed: {
+    transform: [{ scale: 0.97 }],
+  },
+  unlinkLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.danger,
   },
 }));

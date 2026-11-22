@@ -578,7 +578,24 @@ function App() {
       );
     }
     if (current.name === 'profile') {
-      return <ProfileScreen onDates={() => setRoute({ name: 'dates' })} onSettings={() => setRoute({ name: 'settings' })} onStorage={() => setRoute({ name: 'storage' })} onPage={(page) => setRoute({ name: 'settingsPage', page })} />;
+      const linked = contacts.find((contact) => !contact.pending) ?? null;
+      const unlink = linked
+        ? () =>
+            showDialog(t('profil.delierQuestion', { nom: linked.name }), t('profil.delierAide'), [
+              {
+                label: t('profil.delier'),
+                style: 'danger',
+                onPress: () => {
+                  chat.notifyRemoved(linked.publicKey);
+                  deleteMessages(linked.publicKey);
+                  updateContacts(contacts.filter((contact) => contact.publicKey !== linked.publicKey));
+                  setRoute({ name: 'home' });
+                },
+              },
+              { label: t('commun.annuler'), style: 'cancel' },
+            ])
+        : null;
+      return <ProfileScreen partnerName={linked?.name ?? null} partnerVerified={!!linked?.verified} onUnlink={unlink} onDates={() => setRoute({ name: 'dates' })} onSettings={() => setRoute({ name: 'settings' })} onStorage={() => setRoute({ name: 'storage' })} onPage={(page) => setRoute({ name: 'settingsPage', page })} />;
     }
     if (current.name === 'settings') {
       return (

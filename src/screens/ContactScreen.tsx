@@ -1,7 +1,7 @@
 import { ComponentType, useEffect, useState, useSyncExternalStore } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import Reanimated, { interpolateColor, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import { Ban, Bell, Check, ChevronRight, MapPin, MessageCircle, Palette, Search, ShieldCheck, Timer, Trash2, Volume2, VolumeX } from 'lucide-react-native';
+import { Bell, Check, ChevronRight, MessageCircle, Search, ShieldCheck, Timer, Trash2, Volume2, VolumeX } from 'lucide-react-native';
 
 import { ContactProfile, deleteMessages, getMediaMessages, getMutedKinds, MessageKind, setMutedKinds } from '../chat/database';
 import { haptics } from '../haptics';
@@ -14,7 +14,8 @@ import { enterUp, popIn, popOut, timing } from '../motion';
 import { ContactMedia } from './contact/ContactMedia';
 import { ROUTE } from './chat/constants';
 import { ephemeralLabel } from './chat/format';
-import { createStyles, radius, spacing, useColors } from '../theme';
+import { createStyles, fixed, radius, spacing, useColors } from '../theme';
+import { Backdrop } from '../components/nebula';
 import { t, TextKey } from '../i18n';
 
 type Props = {
@@ -144,13 +145,6 @@ export function ContactScreen({ initialName, profile, isNew, initialTab = 'profi
   const ephemeral = isNew ? null : chat.getEphemeral(contactKey);
   const renamed = name.trim() !== initialName && name.trim().length > 0;
 
-  const confirmBlock = () => {
-    showDialog(t('statut.bloquerQuestion'), t('statut.bloquerAide'), [
-      { label: t('demandes.bloquer'), style: 'danger', onPress: onToggleBlock },
-      { label: t('commun.annuler'), style: 'cancel' },
-    ]);
-  };
-
   const confirmClear = () => {
     showDialog(t('liste.supprimerQuestion'), t('liste.supprimerAide', { nom: initialName }), [
       {
@@ -161,13 +155,6 @@ export function ContactScreen({ initialName, profile, isNew, initialTab = 'profi
           chat.refresh();
         },
       },
-      { label: t('commun.annuler'), style: 'cancel' },
-    ]);
-  };
-
-  const confirmRemove = () => {
-    showDialog(t('contact.supprimerQuestion'), t('contact.supprimerAide'), [
-      { label: t('commun.supprimer'), style: 'danger', onPress: onRemove },
       { label: t('commun.annuler'), style: 'cancel' },
     ]);
   };
@@ -209,6 +196,8 @@ export function ContactScreen({ initialName, profile, isNew, initialTab = 'profi
 
   return (
     <Screen>
+      {/* Nébula : son profil sur le fond Horizon à grain des planches. */}
+      <Backdrop kind="horizon" />
       <Header title="" onBack={onBack} />
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -226,13 +215,12 @@ export function ContactScreen({ initialName, profile, isNew, initialTab = 'profi
             </Reanimated.Text>
           </View>
 
-          {/* Six actions, en deux rangées de trois ; elles arrivent l'une après l'autre. */}
+          {/* Quatre actions sur une rangée, l'une après l'autre (personnaliser et la position ont leur place
+              dans le Profil et l'onglet Carte). */}
           <View style={styles.actions}>
             {[
               { icon: MessageCircle, label: t('contact.ecrire'), onPress: () => onOpen() },
               { icon: Search, label: t('contact.rechercher'), onPress: () => onOpen('search') },
-              { icon: Palette, label: t('contact.actionPersonnaliser'), onPress: onCustomize },
-              { icon: MapPin, label: t('contact.maPosition'), onPress: () => onOpen('location') },
               { icon: muted ? VolumeX : Volume2, label: muted ? t('contact.silencieux') : t('contact.couperSon'), on: muted, onPress: toggleMute },
               { icon: Timer, label: t('contact.actionEphemeres'), on: !!ephemeral, onPress: () => onOpen('ephemeral') },
             ].map((action, index) => (
@@ -271,35 +259,12 @@ export function ContactScreen({ initialName, profile, isNew, initialTab = 'profi
                   )}
                 </View>
 
-                <BlockButton blocked={blocked} onPress={blocked ? onToggleBlock : confirmBlock} />
-
-                <Pressable onPress={confirmRemove} style={styles.remove} hitSlop={8} accessibilityRole="button">
-                  <Trash2 size={18} color={colors.textMuted} strokeWidth={1.75} />
-                  <Text style={styles.removeLabel}>{t('contact.supprimer')}</Text>
-                </Pressable>
               </>
             )}
           </Reanimated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
-  );
-}
-
-// Bloquer en rouge (danger) ; débloquer, une fois bloqué, en couleur normale.
-function BlockButton({ blocked, onPress }: { blocked: boolean; onPress: () => void }) {
-  const colors = useColors();
-  const styles = useStyles();
-  const feedback = usePressFeedback();
-  const color = blocked ? colors.text : colors.danger;
-  const label = blocked ? t('statut.debloquerContact') : t('statut.bloquerContact');
-  return (
-    <Pressable onPress={onPress} onPressIn={feedback.onPressIn} onPressOut={feedback.onPressOut} accessibilityRole="button" accessibilityLabel={label}>
-      <Reanimated.View style={[styles.block, feedback.style]}>
-        <Ban size={18} color={color} strokeWidth={1.8} />
-        <Text style={[styles.blockLabel, { color }]}>{label}</Text>
-      </Reanimated.View>
-    </Pressable>
   );
 }
 
@@ -344,7 +309,7 @@ const useStyles = createStyles((colors) => ({
   presenceOnline: {
     color: colors.signatureStrong,
   },
-  // Deux rangées de trois.
+  // Une rangée de quatre.
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -352,7 +317,7 @@ const useStyles = createStyles((colors) => ({
     marginTop: 18,
   },
   actionSlot: {
-    flexBasis: '30%',
+    flexBasis: '22%',
     flexGrow: 1,
   },
   actionOn: {
@@ -362,7 +327,7 @@ const useStyles = createStyles((colors) => ({
     height: 64,
     paddingHorizontal: 6,
     borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    backgroundColor: fixed.card,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -399,8 +364,8 @@ const useStyles = createStyles((colors) => ({
     gap: 10,
   },
   card: {
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    borderRadius: 18,
+    backgroundColor: fixed.card,
     overflow: 'hidden',
   },
   row: {

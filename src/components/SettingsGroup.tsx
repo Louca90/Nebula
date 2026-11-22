@@ -1,11 +1,12 @@
 import { Children, Fragment, isValidElement, ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { ChevronRight, LucideIcon } from 'lucide-react-native';
 
-import { createStyles, radius, spacing, useColors } from '../theme';
+import { createStyles, fixed, spacing, useColors } from '../theme';
 
-// Un groupe de réglages : un petit titre en capitales, puis une carte arrondie dont les lignes sont
-// séparées par un filet. Sert au Profil et aux Paramètres.
+// Un groupe de réglages, comme la planche « Réglages » : un petit titre en capitales, puis une carte
+// #161618 aux coins de 18, lignes de 52 points séparées par un filet #222226 sur toute la largeur, icône
+// lilas dans un rond sombre (planche « Nos dates »). Sert au Profil et à toutes les pages de réglages.
 export function SettingsGroup({ title, children, before }: { title: string; children?: ReactNode; before?: ReactNode }) {
   const styles = useStyles();
   const rows = Children.toArray(children).filter(isValidElement);
@@ -49,7 +50,7 @@ export function SettingRow({ icon: Icon, label, detail, value, onPress, chevron 
   const content = (
     <>
       <View style={styles.icon}>
-        <Icon size={18} color={colors.text} strokeWidth={1.8} />
+        <Icon size={18} color={fixed.lilac} strokeWidth={1.8} />
       </View>
       <View style={styles.text}>
         <Text style={styles.label}>{label}</Text>
@@ -73,7 +74,7 @@ const useStyles = createStyles((colors) => ({
     gap: spacing.sm,
   },
   title: {
-    marginHorizontal: 4,
+    marginHorizontal: 16,
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.7,
@@ -86,26 +87,25 @@ const useStyles = createStyles((colors) => ({
     overflow: 'hidden',
   },
   separator: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 14 + 34 + 12,
+    height: 1,
     backgroundColor: colors.border,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    minHeight: 54,
+    minHeight: 52,
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
   },
   pressed: {
     backgroundColor: colors.elevatedActive,
   },
   icon: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.sm,
-    backgroundColor: colors.elevated,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: fixed.thumbFace,
     alignItems: 'center',
     justifyContent: 'center',
   },
