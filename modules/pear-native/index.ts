@@ -11,7 +11,7 @@ export type VideoEdit = { overlayUri?: string; matrix?: number[]; startMs?: numb
 
 export type SharedMedia = { uri: string; mime: string; size: number; contact?: string; name?: string; text?: string };
 
-declare class PearNativeModule extends NativeModule<{ onBack: (event: BackEvent) => void; onDownloadProgress: (event: DownloadProgress) => void; onInsetsChange: (event: Insets) => void; onShare: () => void; onHeadset: (event: { kind: Headset }) => void; onPip: (event: { active: boolean }) => void; onCallHangUp: () => void }> {
+declare class PearNativeModule extends NativeModule<{ onBack: (event: BackEvent) => void; onDownloadProgress: (event: DownloadProgress) => void; onInsetsChange: (event: Insets) => void; onShare: () => void; onHeadset: (event: { kind: Headset }) => void; onPip: (event: { active: boolean }) => void; onCallHangUp: () => void; onScreenCapture: (event: { blocked: boolean }) => void }> {
   takeSharedMedia?(): Promise<SharedMedia[]>;
   setShareShortcuts?(contacts: { key: string; name: string; photo?: string }[]): Promise<void>;
   burnOverlay(videoUri: string, overlayUri: string, bitrate: number): Promise<string>;
@@ -44,6 +44,7 @@ declare class PearNativeModule extends NativeModule<{ onBack: (event: BackEvent)
   imageSize?(uri: string): Promise<{ width: number; height: number }>;
   thumbnail?(id: string, video: boolean, size: number): Promise<string>;
   setSecureWindow?(enabled: boolean): Promise<void>;
+  appStorage?(): Promise<{ app: number; data: number; cache: number } | null>;
   authenticate?(title: string): Promise<'ok' | 'cancelled' | 'unavailable'>;
   setIncognitoKeyboard?(tag: number): Promise<void>;
   cropImage?(inputUri: string, outputUri: string, rect: number[], rotation: number, maxSize: number, quality: number): Promise<string>;
@@ -258,6 +259,16 @@ export function navigationBarHeight() {
 }
 
 // Bloque les captures d'écran et l'aperçu des apps récentes. Sans effet sur un APK plus ancien.
+// Nébula : une capture d'écran vient d'être faite (Android 14+) ; blocked : elle était bloquée.
+export function addScreenCaptureListener(listener: (event: { blocked: boolean }) => void) {
+  return PearNative.addListener('onScreenCapture', listener);
+}
+
+// Nébula : la place totale prise par l'app (app, données, cache), comme dans les réglages d'Android.
+export function appStorage(): Promise<{ app: number; data: number; cache: number } | null> {
+  return PearNative.appStorage?.().catch(() => null) ?? Promise.resolve(null);
+}
+
 export function setSecureWindow(enabled: boolean) {
   return PearNative.setSecureWindow?.(enabled) ?? Promise.resolve();
 }

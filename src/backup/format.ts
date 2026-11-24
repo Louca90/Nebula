@@ -21,7 +21,8 @@ import {
 // Dedans, une archive : pour chaque fichier, son nom, sa taille, puis son contenu.
 
 export const BACKUP_MAGIC = 'PEARBAK1';
-export const BACKUP_EXTENSION = '.pear';
+// Nébula : les fichiers s'appellent Nebula-….nebula (les anciens .pear se chargent toujours : c'est l'en-tête qui compte).
+export const BACKUP_EXTENSION = '.nebula';
 export const CHUNK_SIZE = 1 << 20;
 // Argon2id : environ une seconde sur un téléphone récent, assez pour ralentir fortement les essais.
 export const KDF_OPS = 3;

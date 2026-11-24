@@ -11,6 +11,7 @@ import { formatSize } from '../chat/files';
 import { clearOpenedMedia } from '../chat/media';
 import { chat } from '../chat/manager';
 import { DB_NAME } from '../config';
+import { appStorage } from '../../modules/pear-native';
 import { showDialog } from '../components/dialog';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { Avatar, Header, Screen } from '../components/ui';
@@ -84,11 +85,21 @@ export function StorageScreen({ contacts, onBack }: { contacts: Contact[]; onBac
   const colors = useColors();
   const styles = useStyles();
   const [usage, setUsage] = useState<Usage>(measure);
+  // Nébula : la place totale prise par l'app, mesurée par Android (app, cartes hors ligne, cache…).
+  const [system, setSystem] = useState<number | null>(null);
+  useEffect(() => {
+    appStorage()
+      .then((stats) => setSystem(stats ? stats.app + stats.data + stats.cache : null))
+      .catch((e) => log.warn('stockage', e));
+  }, [usage]);
   const [cleared, setCleared] = useState(false);
   const [cleanup, setCleanup] = useState<CleanupChoice>(() => (getSetting(AUTO_CLEANUP_SETTING) ?? '0') as CleanupChoice);
   const refresh = () => setUsage(measure());
   const nameOf = (key: string) => (isSelf(key) ? t('notes.titre') : contacts.find((contact) => contact.publicKey === key)?.name ?? t('app.contact'));
-  const total = totalOf(usage);
+  const known = totalOf(usage);
+  // Le reste : l'application elle-même, les cartes hors ligne et les fichiers internes.
+  const appBytes = system !== null ? Math.max(0, system - known) : 0;
+  const total = known + appBytes;
   const heaviest = Math.max(1, ...usage.byContact.map((row) => row.bytes));
 
   const parts = [
@@ -98,6 +109,7 @@ export function StorageScreen({ contacts, onBack }: { contacts: Contact[]; onBac
     { key: 'file', label: t('stockage.fichiers'), bytes: usage.byKind.file, color: fixed.storage.file },
     { key: 'messages', label: t('stockage.messages'), bytes: usage.messages, color: colors.textMuted },
     { key: 'cache', label: t('stockage.cache'), bytes: usage.cache, color: colors.border },
+    ...(appBytes > 0 ? [{ key: 'app', label: t('stockage.application'), bytes: appBytes, color: fixed.lilacDeep }] : []),
   ];
 
   const emptyCache = () => {

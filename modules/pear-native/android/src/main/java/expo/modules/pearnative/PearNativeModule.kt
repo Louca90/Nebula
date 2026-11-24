@@ -177,7 +177,7 @@ class PearNativeModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("PearNative")
 
-    Events("onBack", "onDownloadProgress", "onInsetsChange", "onShare", "onHeadset", "onPip", "onCallHangUp")
+    Events("onBack", "onDownloadProgress", "onInsetsChange", "onShare", "onHeadset", "onPip", "onCallHangUp", "onScreenCapture")
 
     OnCreate {
       CallAudio.onHeadsetChange = { kind -> sendEvent("onHeadset", mapOf("kind" to kind)) }
@@ -401,6 +401,7 @@ class PearNativeModule : Module() {
         // Appel reçu app fermée : l'activité n'existait pas quand l'écran de l'appel l'a demandé.
         appContext.currentActivity?.let { CallAudio.showOverLock(it, CallAudio.overLockWanted) }
         applySecure()
+        watchScreenCapture()
         watchInsets()
         emitInsets()
       }
@@ -468,6 +469,21 @@ class PearNativeModule : Module() {
     // la position : lastKnownLocation rend null). Réseau et GPS en même temps, la première réponse gagne ;
     // null au bout de timeoutMs, sans autorisation ou localisation coupée. Lue sur l'appareil, jamais envoyée.
     AsyncFunction("currentLocation") { timeoutMs: Int, promise: Promise -> currentLocation(timeoutMs, promise) }.runOnQueue(Queues.MAIN)
+
+    // Nébula : la place totale prise par l'app, comme dans les réglages d'Android (l'app elle-même, ses
+    // données, cartes hors ligne comprises, et son cache). Pour sa propre app, aucune autorisation.
+    AsyncFunction("appStorage") {
+      val context = appContext.reactContext ?: return@AsyncFunction null
+      if (Build.VERSION.SDK_INT < 26) return@AsyncFunction null
+      try {
+        val stats = context.getSystemService(android.content.Context.STORAGE_STATS_SERVICE) as android.app.usage.StorageStatsManager
+        val result = stats.queryStatsForUid(android.os.storage.StorageManager.UUID_DEFAULT, android.os.Process.myUid())
+        mapOf("app" to result.appBytes.toDouble(), "data" to result.dataBytes.toDouble(), "cache" to result.cacheBytes.toDouble())
+      } catch (e: Exception) {
+        Log.w("PearNative", "taille de l'app illisible", e)
+        null
+      }
+    }
 
     // Batterie « sans restriction » : sinon Android retarde les pushs quand le téléphone dort.
     Function("isIgnoringBatteryOptimizations") {
@@ -550,6 +566,26 @@ class PearNativeModule : Module() {
   }
 
   private var secureWindow = true
+
+  // Nébula : Android 14+ prévient quand une capture d'écran est faite pendant que l'app est affichée.
+  // L'app s'en sert pour proposer de réactiver les captures quand elles sont bloquées. Rien n'est lu de
+  // la capture elle-même. Une seule inscription par activité.
+  private var captureActivity: android.app.Activity? = null
+  private var captureCallback: Any? = null
+
+  private fun watchScreenCapture() {
+    if (Build.VERSION.SDK_INT < 34) return
+    val activity = appContext.currentActivity ?: return
+    if (captureActivity === activity && captureCallback != null) return
+    try {
+      val callback = android.app.Activity.ScreenCaptureCallback { sendEvent("onScreenCapture", mapOf("blocked" to secureWindow)) }
+      activity.registerScreenCaptureCallback(activity.mainExecutor, callback)
+      captureActivity = activity
+      captureCallback = callback
+    } catch (e: Exception) {
+      Log.w("PearNative", "détection des captures indisponible", e)
+    }
+  }
 
   private fun applySecure() {
     val window = appContext.currentActivity?.window ?: return

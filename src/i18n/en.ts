@@ -366,7 +366,7 @@ export const en: Dictionary = {
     prete: 'Backup ready. Keep it somewhere safe (Drive, computer…).',
     partager: 'Share the file',
     profilCharge: 'Profile loaded.',
-    choisirAide: 'Choose a Nébula backup file (.pear).',
+    choisirAide: 'Choose a Nébula backup file (.nebula).',
     choisirFichier: 'Choose a file',
     remplacerTitre: 'Replace everything?',
     remplacerAide: 'This backup replaces your identity, your contacts and all the conversations on this phone. Anything not in the backup will be lost.',
@@ -711,6 +711,7 @@ export const en: Dictionary = {
     mention: 'Forwarded',
   },
   stockage: {
+    application: 'App and maps',
     photos: 'Photos',
     videos: 'Videos',
     vocaux: 'Voice',
@@ -1300,5 +1301,13 @@ export const en: Dictionary = {
   distance: {
     titre: 'Distance',
     entreVous: 'between you two',
+  },
+  captures: {
+    groupe: 'Screen',
+    titre: 'Allow screenshots',
+    aide: 'Blocked by default. View-once photos and videos always stay protected.',
+    bloqueeTitre: 'Screenshot blocked',
+    bloqueeTexte: 'Nébula blocks screenshots. Allow them? You can take your screenshot again right away.',
+    autoriser: 'Allow screenshots',
   },
 };

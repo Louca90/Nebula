@@ -22,6 +22,7 @@ import { VIEWER_CANCEL_MS, VIEWER_CLOSE_DISTANCE, VIEWER_CLOSE_MS, VIEWER_CLOSE_
 import { useChatStyles } from '../styles';
 import { Rect } from '../types';
 import { t } from '../../../i18n';
+import { holdSecureScreen } from '../../../secureScreen';
 
 // Plein écran. Toucher la vidéo affiche ou masque les commandes (elles se masquent seules après 2,5 s de
 // lecture) ; double-toucher à gauche ou à droite recule ou avance de 10 s, avec une onde à l'endroit
@@ -215,6 +216,9 @@ export function MediaViewer({ viewing: { message, rect, poster, size, round, tit
   // Nébula : le haut (croix, nom) s'efface en glissant et ne revient plus pendant la fermeture (la photo
   // repart vers l'avatar et le glissé retombe à 0 : avant, la croix et le nom réapparaissaient).
   const topFade = useSharedValue(1);
+  // Nébula : un média à vue unique garde les captures bloquées tant qu'il est affiché, même si elles sont
+  // autorisées dans les réglages.
+  useEffect(() => (message.view_once ? holdSecureScreen() : undefined), [message.view_once]);
   const closingRef = useRef(false);
   const [opened, setOpened] = useState(false);
   const [closing, setClosing] = useState(false);

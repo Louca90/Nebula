@@ -365,7 +365,7 @@ export const fr = {
     prete: 'Sauvegarde prête. Range-la dans un endroit sûr (Drive, ordinateur…).',
     partager: 'Partager le fichier',
     profilCharge: 'Profil chargé.',
-    choisirAide: 'Choisis un fichier de sauvegarde Nébula (.pear).',
+    choisirAide: 'Choisis un fichier de sauvegarde Nébula (.nebula).',
     choisirFichier: 'Choisir un fichier',
     remplacerTitre: 'Remplacer tout ?',
     remplacerAide: 'Cette sauvegarde remplace ton identité, tes contacts et toutes les conversations de ce téléphone. Ce qui n’est pas dans la sauvegarde sera perdu.',
@@ -710,6 +710,7 @@ export const fr = {
     mention: 'Transféré',
   },
   stockage: {
+    application: 'Application et cartes',
     photos: 'Photos',
     videos: 'Vidéos',
     vocaux: 'Vocaux',
@@ -1299,5 +1300,13 @@ export const fr = {
   distance: {
     titre: 'Distance',
     entreVous: 'entre vous deux',
+  },
+  captures: {
+    groupe: 'Écran',
+    titre: 'Autoriser les captures d’écran',
+    aide: 'Bloquées par défaut. Les photos et vidéos à vue unique restent toujours protégées.',
+    bloqueeTitre: 'Capture bloquée',
+    bloqueeTexte: 'Nébula bloque les captures d’écran. Les autoriser ? Tu pourras refaire ta capture tout de suite.',
+    autoriser: 'Autoriser les captures',
   },
 };
