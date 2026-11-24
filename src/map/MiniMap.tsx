@@ -6,10 +6,12 @@ import { StaticMapImageManager } from '@maplibre/maplibre-react-native';
 import { log } from '../log';
 import { timing } from '../motion';
 import { createStyles, radius, useIsDark } from '../theme';
-import { keepMapOffline } from './offlineMap';
+import { hasDetailAt, keepMapOffline } from './offlineMap';
 import { mapStyleOf } from './pearStyle';
 
+// Nébula : zoom 14 dans une zone détaillée, 11 ailleurs (la France n'est gardée que jusqu'au zoom 11).
 const ZOOM = 14;
+const ZOOM_FRANCE = 11;
 // Une nouvelle image seulement si la position a bougé d'environ 20 m : sinon celle en cache resservira.
 const ROUND = 4;
 const cache = new Map<string, string>();
@@ -20,11 +22,12 @@ type Props = { latitude: number; longitude: number; width: number; height: numbe
 // avec un point au centre qui pulse tant que le partage est en direct. Une image plutôt qu'une carte
 // interactive : elle tient dans une bulle de la conversation (liste inversée) sans rien coûter au défilement.
 export function MiniMap({ latitude, longitude, width, height, live }: Props) {
+  const zoom = hasDetailAt({ latitude, longitude }) ? ZOOM : ZOOM_FRANCE;
   const styles = useStyles();
   const reduced = useReducedMotion();
   // Claire ou sombre comme le thème : une image par version.
   const dark = useIsDark();
-  const key = `pear-${dark ? 'sombre' : 'clair'},${latitude.toFixed(ROUND)},${longitude.toFixed(ROUND)},${width}x${height}`;
+  const key = `pear-${dark ? 'sombre' : 'clair'},z${zoom},${latitude.toFixed(ROUND)},${longitude.toFixed(ROUND)},${width}x${height}`;
   const [uri, setUri] = useState(() => cache.get(key) ?? null);
   const shown = useSharedValue(cache.has(key) ? 1 : 0);
   const pulse = useSharedValue(0);
@@ -40,7 +43,7 @@ export function MiniMap({ latitude, longitude, width, height, live }: Props) {
     StaticMapImageManager.createImage({
       mapStyle: mapStyleOf(dark),
       center: [longitude, latitude],
-      zoom: ZOOM,
+      zoom,
       width: PixelRatio.getPixelSizeForLayoutSize(width),
       height: PixelRatio.getPixelSizeForLayoutSize(height),
       output: 'file',

@@ -9,7 +9,7 @@ export type Insets = { top: number; bottom: number };
 // Les retouches d'une vidéo (lot 10). matrix : 4 × 4 par colonnes, appliquée à (R, G, B, 1).
 export type VideoEdit = { overlayUri?: string; matrix?: number[]; startMs?: number; endMs?: number; mute?: boolean; speed?: number; bitrate: number };
 
-export type SharedMedia = { uri: string; mime: string; size: number; contact?: string; name?: string };
+export type SharedMedia = { uri: string; mime: string; size: number; contact?: string; name?: string; text?: string };
 
 declare class PearNativeModule extends NativeModule<{ onBack: (event: BackEvent) => void; onDownloadProgress: (event: DownloadProgress) => void; onInsetsChange: (event: Insets) => void; onShare: () => void; onHeadset: (event: { kind: Headset }) => void; onPip: (event: { active: boolean }) => void; onCallHangUp: () => void }> {
   takeSharedMedia?(): Promise<SharedMedia[]>;

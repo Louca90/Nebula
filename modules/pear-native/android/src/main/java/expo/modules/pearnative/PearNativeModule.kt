@@ -927,6 +927,13 @@ class PearNativeModule : Module() {
     } else {
       listOfNotNull(intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
     }
+    // Nébula : un texte ou un lien partagé (sans fichier) part comme un message.
+    if (uris.isEmpty()) {
+      val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: return emptyList()
+      val item = mutableMapOf<String, Any>("uri" to "", "mime" to "text/plain", "size" to 0.0, "text" to text.take(4000))
+      intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)?.takeIf { it.startsWith(SHORTCUT_PREFIX) }?.let { item["contact"] = it.removePrefix(SHORTCUT_PREFIX) }
+      return listOf(item)
+    }
     return uris.mapIndexedNotNull { index, uri ->
       try {
         // Nébula : tous les fichiers (photos, vidéos, documents…). Le type « */* » d'un partage groupé est
