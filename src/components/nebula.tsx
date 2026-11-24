@@ -20,15 +20,27 @@ const GRAIN = require('../../assets/backgrounds/grain.webp');
 
 // Une image locale garde sinon sa taille d'origine en points (1080 × 2337 pour un fond, 256 pour le grain),
 // qui l'emporte sur absoluteFill : le fond était 2,6 fois trop grand (zoomé) et le grain s'arrêtait en carré.
-const fill = [StyleSheet.absoluteFill, { width: '100%', height: '100%' }] as const;
+// Nébula : l'image est posée dans un calque qui couvre tout le parent (bords à 0), puis remplit ce calque.
+// Un « 100 % » posé directement sur l'image se calculait sans les marges intérieures du parent : sur un
+// bouton, une bande sans grain restait à droite ; sur une page avec marges, le fond était trop court et
+// remontait vers le haut.
+const fill = { width: '100%', height: '100%' } as const;
 
 export function Backdrop({ kind }: { kind: BackdropKind }) {
-  return <Image source={BACKDROPS[kind]} style={fill} resizeMode="cover" />;
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Image source={BACKDROPS[kind]} style={fill} resizeMode="cover" />
+    </View>
+  );
 }
 
 // Le grain des fonds, en incrustation sur un bouton (Grain : 0,45 ; Fumé : 0,25).
 function GrainOverlay({ opacity }: { opacity: number }) {
-  return <Image source={GRAIN} resizeMode="cover" style={[fill, { opacity, mixBlendMode: 'overlay' }]} />;
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Image source={GRAIN} resizeMode="cover" style={[fill, { opacity, mixBlendMode: 'overlay' }]} />
+    </View>
+  );
 }
 
 type GrainButtonProps = {

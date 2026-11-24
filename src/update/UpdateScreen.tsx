@@ -4,9 +4,9 @@ import { AppState, BackHandler, Linking, Pressable, ScrollView, Text, View } fro
 import { ArrowRight, Download, ExternalLink, LogOut, RotateCw, Settings } from 'lucide-react-native';
 
 import { formatSize } from '../chat/files';
-import { Pear } from '../components/Pear';
+import { LilyFill } from '../components/Lily';
 import { Button, Screen, useNavigationBarHeight } from '../components/ui';
-import { createStyles, radius, spacing, useColors } from '../theme';
+import { createStyles, fixed, radius, spacing, useColors } from '../theme';
 import { Backdrop } from '../components/nebula';
 import { Release } from './release';
 import { canSkipUpdate, getInstallPermission, previewUpdateScreen, requestInstallPermission, skipUpdateOnce, startUpdate, useUpdateState } from './updates';
@@ -53,9 +53,9 @@ export function UpdateScreen({ release }: { release: Release }) {
       {/* Nébula : le fond Améthyste à grain de la planche « Nouveautés ». */}
       <Backdrop kind="amethyste" />
       <View style={[styles.content, { paddingBottom: bottom }]}>
-        {/* La poire mûrit avec le téléchargement : pâle au départ, pleine quand tout est arrivé. */}
+        {/* Nébula : le lys se remplit avec le téléchargement, pâle au départ, plein quand tout est arrivé. */}
         <View style={styles.icon} accessible accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}>
-          <Pear height={72} color={colors.text} state={busy || phase === 'installing' ? 'ripening' : 'idle'} progress={phase === 'downloading' ? progress : 1} />
+          <LilyFill size={76} color={colors.text} trackColor={fixed.thumbTrack} progress={phase === 'downloading' ? progress : 1} />
         </View>
         <Text style={styles.title}>{t('maj.disponible')}</Text>
         <Text style={styles.version}>{t('commun.version')} {release.version} · {formatSize(release.apkSize)}</Text>
