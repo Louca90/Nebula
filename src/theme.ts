@@ -156,6 +156,15 @@ export const fixed = {
   callButton: 'rgba(255, 255, 255, 0.1)',
   // Texte secondaire posé sur les fonds à grain (planche « Bienvenue »).
   cardTextSoft: '#DCD5E8',
+  // Nébula, suivi du cycle : un rose poudré (plus doux que le cœur des réactions) pour les règles, le
+  // lilas des planches pour la fertilité. Texte sombre lisible sur le rose plein.
+  cycle: {
+    period: '#E8A3B5',
+    periodSoft: 'rgba(232, 163, 181, 0.16)',
+    onPeriod: '#1A0F14',
+    fertile: 'rgba(185, 163, 227, 0.2)',
+    ovulation: '#B9A3E3',
+  },
 };
 
 // --- Choix du thème : suit le système, ou forcé clair / sombre (réglage du profil) ---

@@ -4,7 +4,9 @@ import { readJson, useCoupleVersion, writeJson } from './store';
 export type Thought = { mine: boolean; at: number; id?: string };
 
 const KEY = 'couple.thoughts';
-const KEEP = 200;
+// Nébula : plus de plafond (il était de 200, et le compteur du jour s'arrêtait là). On garde toutes les
+// pensées des deux derniers jours, sans limite de nombre : c'est tout ce que les écrans affichent.
+const KEEP_MS = 2 * 24 * 3600 * 1000;
 
 export function getThoughts(): Thought[] {
   return readJson<Thought[]>(KEY, []);
@@ -14,8 +16,16 @@ export function addThought(mine: boolean, at: number, id?: string): boolean {
   const all = getThoughts();
   // Un événement renvoyé après un accusé perdu ne compte qu'une fois.
   if (id && all.some((thought) => thought.id === id)) return false;
-  writeJson(KEY, [...all, { mine, at, ...(id ? { id } : {}) }].slice(-KEEP));
+  const since = startOfToday() - KEEP_MS;
+  writeJson(KEY, [...all.filter((thought) => thought.at >= since), { mine, at, ...(id ? { id } : {}) }]);
   return true;
+}
+
+// Ses pensées reçues aujourd'hui et l'heure de la dernière (pour la notification).
+export function theirThoughtsToday(): { count: number; last: number | null } {
+  const since = startOfToday();
+  const theirs = getThoughts().filter((thought) => !thought.mine && thought.at >= since);
+  return { count: theirs.length, last: theirs.length ? Math.max(...theirs.map((thought) => thought.at)) : null };
 }
 
 function startOfToday() {

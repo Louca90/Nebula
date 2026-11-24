@@ -29,11 +29,14 @@ import { AFTER_SEND_MS, PickedFile, WAKE_CHECK_MS } from './types';
 import { contactForTag, receivePush } from './incoming';
 import { resumeRelayTexts } from './messageIO';
 import { reconcile } from './strategy';
-import { downloadRelayFile, relayPending } from './relay';
+import { downloadRelayFile, relayPending, resumeRelayDownloads } from './relay';
 import { acceptPairing, blockPairing, declinePairing, requestPairing, startPairing, syncPairRequests } from './pairing';
 import { deliverNow, sendStatusNow, settlePushAcks, wakeIfNeeded } from './wake';
 import { notifyMessage } from './notify';
 import { getDates } from '../../couple/dates';
+import { cycleForPartner, getCycle } from '../../couple/cycle';
+import { rescheduleCycleNotifications } from '../../couple/cycleNotifications';
+import { MoodId, setMyMood } from '../../couple/mood';
 import { addThought } from '../../couple/thoughts';
 import { acceptCall, callKeepsAwake, declineCall, getCall, hangUp, receiveCallPush, startCall, subscribeCall, switchCamera, toggleCamera, toggleMute, toggleSpeaker, chooseOutput, toggleShare } from './calls';
 
@@ -107,6 +110,7 @@ class ChatManager extends ChatCore {
         tickLocations(this);
         reconcile(this);
         resumeRelayTexts(this);
+        if (AppState.currentState === 'active') resumeRelayDownloads(this);
         this.names.forEach((_, contact) => {
           wakeIfNeeded(this, contact);
           relayPending(this, contact);
@@ -617,6 +621,19 @@ class ChatManager extends ChatCore {
   // Nos dates modifiées ici : la liste entière part chez l'autre (la plus récente gagne).
   shareDates(contact: string) {
     sendEvent(this, contact, { action: 'dates', id: '', dates: getDates() });
+  }
+
+  // Suivi du cycle modifié ici : la copie entière part chez l'autre (la plus récente gagne), et les
+  // rappels sont reprogrammés.
+  shareCycle(contact: string) {
+    sendEvent(this, contact, { action: 'cycle', id: '', cycle: cycleForPartner(getCycle()) });
+    rescheduleCycleNotifications(this.names.get(contact) ?? 'Nébula').catch((e) => log.warn('rappels du cycle', e));
+  }
+
+  // Mon humeur, choisie sur la carte Humeur.
+  sendMood(contact: string, mood: MoodId) {
+    const value = setMyMood(mood);
+    sendEvent(this, contact, { action: 'mood', id: '', mood: value.mood, at: value.at });
   }
 
   // --- Messages éphémères et vue unique (lot 4.7) ---

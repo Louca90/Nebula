@@ -81,13 +81,15 @@ export function ShareReceiver({ contacts, ready, onSent }: { contacts: Contact[]
       for (const [index, key] of keys.entries()) {
         for (const item of items) {
           // L'envoi déplace le fichier du cache : chaque contact sauf le dernier reçoit une copie.
+          // Nébula : photo, vidéo, ou n'importe quel autre fichier (envoyé comme document, avec son nom).
           const video = item.mime.startsWith('video/');
+          const image = item.mime.startsWith('image/') && item.mime !== 'image/svg+xml';
           await chat.sendFile(key, {
             uri: item.uri,
-            name: video ? 'video.mp4' : 'photo.jpg',
+            name: video ? 'video.mp4' : image ? 'photo.jpg' : (item.name ?? t('partage.fichier')),
             size: item.size,
             mime: item.mime,
-            kind: video ? 'video' : 'image',
+            kind: video ? 'video' : image ? 'image' : 'file',
             keepSource: index < keys.length - 1,
           });
         }

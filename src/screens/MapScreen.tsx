@@ -15,7 +15,7 @@ import { useInsets, useNavigationBarHeight, usePressFeedback } from '../componen
 import { haptics } from '../haptics';
 import { t } from '../i18n';
 import { log } from '../log';
-import { downloadRegion, keepMapOffline, MapRegion, REGION_RADIUS_KM, savedRegion } from '../map/offlineMap';
+import { downloadFrance, downloadRegion, downloadZoneAround, FRANCE_BOUNDS, hasDetailAt, keepMapOffline, MapPack, MapRegion, REGION_RADIUS_KM, savedFrance, savedRegion } from '../map/offlineMap';
 import { MapColors, mapColorsOf, mapStyleOf } from '../map/pearStyle';
 import { EASE, enterUp, timing } from '../motion';
 import { Contact } from '../storage';
@@ -210,6 +210,13 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
   }, []);
   const [region, setRegion] = useState<MapRegion | null>(savedRegion);
   const [progress, setProgress] = useState<number | null>(null);
+  // Nébula : la France entière (zoom 11), en plus de la zone détaillée autour de moi.
+  const [france, setFrance] = useState<MapPack | null>(savedFrance);
+  const [franceProgress, setFranceProgress] = useState<number | null>(null);
+  // Le détail rue par rue en cours d'ajout autour de sa position (son nom), et la carte à redessiner après.
+  const [zoneFor, setZoneFor] = useState<string | null>(null);
+  const [mapKey, setMapKey] = useState(0);
+  const triedZones = useRef(new Set<string>());
   const [me, setMe] = useState<{ latitude: number; longitude: number } | null>(null);
   useEffect(() => {
     PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION)
@@ -224,7 +231,44 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
   const hidden = sharingWith.length === 0;
   const camera = useRef<CameraRef>(null);
 
-  const start = chosen?.location ?? me ?? (region ? { longitude: (region.bounds[0] + region.bounds[2]) / 2, latitude: (region.bounds[1] + region.bounds[3]) / 2 } : null);
+  const box = region?.bounds ?? (france ? FRANCE_BOUNDS : null);
+  const start = chosen?.location ?? me ?? (box ? { longitude: (box[0] + box[2]) / 2, latitude: (box[1] + box[3]) / 2 } : null);
+  const hasMap = !!region || !!france;
+
+  // La France entière : environ 10 000 tuiles, téléchargées une fois.
+  const getFrance = async () => {
+    if (franceProgress !== null) return;
+    setFranceProgress(0);
+    try {
+      setFrance(await downloadFrance(setFranceProgress));
+      setMapKey((key) => key + 1);
+      haptics.success();
+    } catch (e) {
+      log.warn('carte', e);
+      showDialog(t('carte.echec'), t('carte.echecAide'));
+    } finally {
+      setFranceProgress(null);
+    }
+  };
+
+  // Sa position tombe hors de mes zones détaillées : le détail rue par rue autour d'elle est ajouté tout
+  // seul (une fois par endroit), pour bien voir où elle est.
+  const chosenLat = chosen?.location.latitude;
+  const chosenLon = chosen?.location.longitude;
+  const chosenName = chosen?.contact.name ?? null;
+  useEffect(() => {
+    if (chosenLat === undefined || chosenLon === undefined || !hasMap || zoneFor || progress !== null) return;
+    const point = { latitude: chosenLat, longitude: chosenLon };
+    if (hasDetailAt(point)) return;
+    const place = `${chosenLat.toFixed(1)},${chosenLon.toFixed(1)}`;
+    if (triedZones.current.has(place)) return;
+    triedZones.current.add(place);
+    setZoneFor(chosenName ?? '');
+    downloadZoneAround(point, () => {})
+      .then(() => setMapKey((key) => key + 1))
+      .catch((e) => log.warn('carte', e))
+      .finally(() => setZoneFor(null));
+  }, [chosenLat, chosenLon, chosenName, hasMap, zoneFor, progress]);
 
   const choose = (pin: Pin) => {
     if (pin.contact.publicKey === selected) return;
@@ -269,15 +313,19 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
       return;
     }
     setMe(center);
+    let done = false;
     try {
       setRegion(await downloadRegion(center, setProgress));
       haptics.success();
+      done = true;
     } catch (e) {
       log.warn('carte', e);
       showDialog(t('carte.echec'), t('carte.echecAide'));
     } finally {
       setProgress(null);
     }
+    // Puis la France entière, pendant qu'on regarde déjà sa zone.
+    if (done && !france) void getFrance();
   };
 
   const detail = (pin: Pin) => {
@@ -292,9 +340,9 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
     <View style={styles.screen}>
       {/* Nébula : rendu « texture » et non « surface » : une SurfaceView échappe au flou de la barre des
           onglets, qui laissait voir la carte nette au travers. */}
-      {region && start ? (
-        <Map androidView="texture" style={StyleSheet.absoluteFill} mapStyle={mapStyleOf(dark)} logo={false} compass={false} attribution touchPitch={false} touchRotate={false}>
-          <Camera ref={camera} initialViewState={{ center: [start.longitude, start.latitude], zoom: 13.5 }} />
+      {hasMap && start ? (
+        <Map key={mapKey} androidView="texture" style={StyleSheet.absoluteFill} mapStyle={mapStyleOf(dark)} logo={false} compass={false} attribution touchPitch={false} touchRotate={false}>
+          <Camera ref={camera} initialViewState={{ center: [start.longitude, start.latitude], zoom: region || chosen ? 13.5 : 5 }} />
           {me && (
             <Marker id="me" lngLat={[me.longitude, me.latitude]}>
               <MeDot hidden={hidden} />
@@ -320,10 +368,10 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
       </Reanimated.View>
 
       <Reanimated.View entering={cardIn} style={[styles.sheet, { bottom: bottom + 26 }]}>
-        {!region ? (
+        {!hasMap ? (
           <View style={styles.download}>
             <Text style={styles.cardTitle}>{t('carte.telechargerTitre')}</Text>
-            <Text style={styles.cardText}>{t('carte.telechargerAide', { km: REGION_RADIUS_KM })}</Text>
+            <Text style={styles.cardText}>{t('carte.telechargerAideFrance', { km: REGION_RADIUS_KM })}</Text>
             {progress === null ? (
               <Pressable onPress={download} accessibilityRole="button" style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
                 <Download size={18} color={ink.map.background} strokeWidth={1.9} />
@@ -355,6 +403,26 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
         ) : (
           <Text style={styles.cardText}>{t('carte.personne')}</Text>
         )}
+        {hasMap && (!france || franceProgress !== null) && (
+          <View style={styles.france}>
+            <View style={styles.flex}>
+              <Text style={styles.franceTitle}>{t('carte.franceTitre')}</Text>
+              {franceProgress === null ? (
+                <Text style={styles.cardText}>{t('carte.franceAide')}</Text>
+              ) : (
+                <View style={[styles.progress, styles.franceBar]} accessibilityLiveRegion="polite" accessibilityLabel={`${Math.round(franceProgress * 100)} %`}>
+                  <View style={[styles.progressFill, { width: `${Math.round(franceProgress * 100)}%` }]} />
+                </View>
+              )}
+            </View>
+            {franceProgress === null && (
+              <Pressable onPress={getFrance} accessibilityRole="button" accessibilityLabel={t('carte.franceTitre')} style={({ pressed }) => [styles.write, pressed && styles.pressed]}>
+                <Download size={18} color={ink.map.background} strokeWidth={1.9} />
+              </Pressable>
+            )}
+          </View>
+        )}
+        {zoneFor !== null && <Text style={styles.cardText}>{t('carte.detailAutour', { nom: zoneFor })}</Text>}
         <View style={styles.footer}>
           <Lock size={14} color={ink.signature} strokeWidth={2} />
           <Text style={styles.footerText}>{hidden ? t('carte.footerDiscret') : t('carte.footer', { n: sharingWith.length })}</Text>
@@ -386,6 +454,9 @@ const useStyles = createStyles((colors) => {
   primaryLabel: { fontSize: 15, fontWeight: '600', color: p.map.background },
   progress: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: p.line },
   progressFill: { height: '100%', borderRadius: 3, backgroundColor: p.signature },
+  france: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: p.line },
+  franceTitle: { fontSize: 14, fontWeight: '600', color: p.ink },
+  franceBar: { marginTop: 8 },
   footer: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: p.line },
   footerText: { flex: 1, fontSize: 12, color: p.muted },
   pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },

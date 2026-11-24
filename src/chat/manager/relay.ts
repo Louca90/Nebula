@@ -12,6 +12,7 @@ import {
   getMessage,
   getPendingIncomingBytes,
   getRelayIncoming,
+  getStalledRelayDownloads,
   getUndelivered,
   getUpload,
   Message,
@@ -195,7 +196,9 @@ export function receiveRelayOffer(core: ChatCore, contact: string, data: Payload
 
   const decision = decideOffer(kind, size, getPendingIncomingBytes(contact));
   if (decision === 'refuse') return;
-  const auto = decision === 'accept' && kind === 'image' && size <= AUTO_DOWNLOAD_BYTES;
+  // Nébula : un vocal arrive tout seul lui aussi. Resté « proposé », il s'affichait comme un lecteur
+  // sans fichier : impossible à écouter (vocal envoyé pendant qu'on n'était pas sur l'app).
+  const auto = decision === 'accept' && (kind === 'image' || kind === 'audio') && size <= AUTO_DOWNLOAD_BYTES;
   addMessage({
     id,
     contact,
@@ -221,6 +224,18 @@ export function receiveRelayOffer(core: ChatCore, contact: string, data: Payload
   // Un fichier proposé ne compte pas comme « non lu » : sans sa date, la notification ne partait pas.
   else if (AppState.currentState !== 'active') notifyMessage(core, contact, getMessage(id, contact)?.created_at);
   core.notify();
+}
+
+// Nébula : reprend les téléchargements du relais coupés en route (app fermée pendant la réception).
+// Une seule tentative par fichier et par lancement : un fichier expiré du relais ne boucle pas.
+const resumed = new Set<string>();
+export function resumeRelayDownloads(core: ChatCore) {
+  if (!core.online) return;
+  for (const { contact, message_id: id } of getStalledRelayDownloads()) {
+    if (core.relaying.has(id) || resumed.has(id)) continue;
+    resumed.add(id);
+    downloadRelayFile(core, contact, id).catch((e) => log.warn('réception par le relais', e));
+  }
 }
 
 // Télécharge, déchiffre et écrit le fichier, puis le supprime du relais et confirme la réception.

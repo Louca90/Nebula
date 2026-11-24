@@ -33,9 +33,13 @@ import { CHUNK_BYTES, isValidFileId } from '../files';
 import { encodeMeta, sanitizeMeta } from '../meta';
 
 import { ChatCore } from './core';
-import { showStatusNotification, showThoughtNotification } from '../notifications';
+import { showCoupleNotification, showStatusNotification, showThoughtNotification } from '../notifications';
+import { t } from '../../i18n';
 import { mergeDates, parseDates } from '../../couple/dates';
-import { addThought } from '../../couple/thoughts';
+import { mergeCycle, parseCycle } from '../../couple/cycle';
+import { notifyCycleChange, rescheduleCycleNotifications } from '../../couple/cycleNotifications';
+import { isMood, receiveMood } from '../../couple/mood';
+import { addThought, theirThoughtsToday } from '../../couple/thoughts';
 import { notifyMessage } from './notify';
 import { addSystemMessage, applyEphemeral, flush } from './outbox';
 import { expiryFor, validEphemeralSetting, validTtl } from '../ephemeral';
@@ -166,12 +170,29 @@ function receiveEvent(core: ChatCore, contact: string, data: Payload) {
     // Nébula : « pense à toi ». Une seule fois par événement, et une notification si l'app est en fond.
     const at = isCount(data.at) ? Math.min(data.at, Date.now()) : Date.now();
     if (addThought(false, at, data.eventId) && AppState.currentState !== 'active') {
-      showThoughtNotification(contact, core.names.get(contact) ?? 'Nébula').catch((e) => log.warn('notification', e));
+      const today = theirThoughtsToday();
+      showThoughtNotification(contact, core.names.get(contact) ?? 'Nébula', today.count, today.last ?? at).catch((e) => log.warn('notification', e));
     }
   } else if (data.action === 'dates') {
     // Nébula : nos dates, modifiées sur l'autre téléphone.
     const dates = parseDates(data.dates);
     if (dates) mergeDates(dates);
+  } else if (data.action === 'cycle') {
+    // Nébula : le suivi du cycle, modifié sur l'autre téléphone. Ses règles qui commencent ou sa douleur
+    // font une notification ; les rappels sont reprogrammés.
+    const cycle = parseCycle(data.cycle);
+    const before = cycle ? mergeCycle(cycle) : null;
+    if (cycle && before) {
+      const name = core.names.get(contact) ?? 'Nébula';
+      if (AppState.currentState !== 'active') notifyCycleChange(name, before, cycle);
+      rescheduleCycleNotifications(name, cycle).catch((e) => log.warn('rappels du cycle', e));
+    }
+  } else if (data.action === 'mood') {
+    // Nébula : son humeur, choisie sur l'autre téléphone.
+    if (isMood(data.mood) && isCount(data.at) && receiveMood(data.mood, Math.min(data.at, Date.now())) && AppState.currentState !== 'active') {
+      const name = core.names.get(contact) ?? 'Nébula';
+      showCoupleNotification('mood', t('humeur.notifTitre', { nom: name }), t('humeur.notifTexte', { humeur: t(`humeur.${data.mood}`) }), { mood: contact }).catch((e) => log.warn('notification', e));
+    }
   } else if (data.action === 'profile') {
     setContactProfileField(contact, 'name', typeof data.name === 'string' ? data.name.slice(0, MAX_PROFILE_NAME_LENGTH) : null);
     if (data.hasPhoto === false) {
