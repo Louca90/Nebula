@@ -101,6 +101,16 @@ export function lastKnownLocation(): { latitude: number; longitude: number } | n
 
 // La dernière position connue, sinon une position fraîche demandée au téléphone (au plus timeoutMs).
 // Sur un téléphone où rien n'a encore demandé la position, Android n'en a aucune en mémoire.
+// Nébula : une nouvelle mesure, même quand Android a déjà une position en mémoire (sinon elle peut rester
+// figée tant qu'aucune autre app ne demande la position). null si rien n'arrive à temps.
+export async function measureLocation(timeoutMs = 10000): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    return (await PearNative.currentLocation?.(timeoutMs)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function freshLocation(timeoutMs = 15000): Promise<{ latitude: number; longitude: number } | null> {
   const known = lastKnownLocation();
   if (known) return known;

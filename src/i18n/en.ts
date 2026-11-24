@@ -895,7 +895,7 @@ export const en: Dictionary = {
     sArrete: 'Stops on its own',
     uneJournee: 'For a day',
     tantQueOuverte: 'While the app is open',
-    tantQueOuverteAide: 'Stops as soon as you leave Nébula',
+    tantQueOuverteAide: 'Stops if you leave Nébula for more than 2 minutes',
     partagerDirect: 'Share live',
     seulVoit: 'Encrypted · only {nom} sees your location',
     titre: 'Live location',
