@@ -46,11 +46,13 @@ jobs:
           TOKEN: ${{ github.token }}
         run: |
           APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
-          mkdir -p /tmp/out && cp "$APK" /tmp/out/nebula-unsigned.apk
-          cd /tmp/out
+          mkdir -p /tmp/out && cd /tmp/out
+          # Un fichier sur GitHub ne dépasse pas 100 Mo : l'APK part en morceaux de 45 Mo, recollés avec cat.
+          split -b 45m -d -a 2 "$GITHUB_WORKSPACE/$APK" nebula-unsigned.apk.part
+          sha256sum "$GITHUB_WORKSPACE/$APK" | cut -d' ' -f1 > nebula-unsigned.apk.sha256
           git init -q -b apk-build
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add nebula-unsigned.apk
+          git add .
           git commit -q -m "APK non signé (${GITHUB_SHA::7})"
           git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" apk-build
