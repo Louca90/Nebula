@@ -931,6 +931,8 @@ export const fr = {
     cap_no: 'au nord-ouest',
   },
   stickers: {
+    enCours: 'Création…',
+    creerCourt: 'Créer',
     titre: 'Stickers',
     nouveau: 'Créer un sticker',
     envoyer: 'Envoyer ce sticker',

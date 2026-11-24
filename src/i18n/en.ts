@@ -932,6 +932,8 @@ export const en: Dictionary = {
     cap_no: 'to the north-west',
   },
   stickers: {
+    enCours: 'Creating…',
+    creerCourt: 'Create',
     titre: 'Stickers',
     nouveau: 'Create a sticker',
     envoyer: 'Send this sticker',
