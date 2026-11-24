@@ -1,6 +1,7 @@
 import { AppState } from 'react-native';
 
 import {
+  describeMessage,
   setMessagePinned,
   activateContact,
   addMessage,
@@ -130,6 +131,18 @@ function receiveEvent(core: ChatCore, contact: string, data: Payload) {
     editMessage(data.id, contact, 0, data.text.slice(0, MAX_TEXT_LENGTH));
   } else if (data.action === 'react' && (data.emoji === null || (typeof data.emoji === 'string' && data.emoji.length <= MAX_REACTION_LENGTH))) {
     setReaction(data.id, contact, 'their_reaction', data.emoji);
+    // Nébula : une réaction à un de mes messages fait une notification, comme un « j'aime ».
+    const liked = data.emoji ? getMessage(data.id, contact) : null;
+    if (liked?.mine === 1 && AppState.currentState !== 'active') {
+      const name = core.names.get(contact) ?? 'Nébula';
+      const preview = liked.kind === 'text' ? liked.text.slice(0, 80) : describeMessage(liked);
+      showCoupleNotification(
+        `like:${contact}`,
+        data.emoji === '❤️' ? t('reactions.notifAime', { nom: name }) : t('reactions.notifReaction', { nom: name, emoji: data.emoji as string }),
+        preview,
+        { contact },
+      ).catch((e) => log.warn('notification', e));
+    }
   } else if (data.action === 'delete' && getMessage(data.id, contact)?.mine === 0) {
     dropIncomingFile(core, contact, data.id);
     deleteMessage(data.id, contact, 0);

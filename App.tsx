@@ -34,6 +34,7 @@ import { NousScreen } from './src/screens/NousScreen';
 import { PenseScreen } from './src/screens/PenseScreen';
 import { CycleScreen } from './src/screens/CycleScreen';
 import { rescheduleCycleNotifications } from './src/couple/cycleNotifications';
+import { resumeMapDownloads } from './src/map/offlineMap';
 import { DatesScreen } from './src/screens/DatesScreen';
 import { MediaScreen } from './src/screens/MediaScreen';
 import { OnboardingScreen, OnboardingStep } from './src/onboarding/OnboardingScreen';
@@ -346,7 +347,11 @@ function App() {
   // Au premier plan, l'app garde les connexions ouvertes. En arrière-plan, seul un push la réveille.
   useEffect(() => {
     if (!identity) return;
-    if (active) chat.sync(identity, contacts);
+    if (active) {
+      chat.sync(identity, contacts);
+      // Nébula : un téléchargement de carte coupé (app fermée) reprend tout seul.
+      resumeMapDownloads();
+    }
     else chat.stopAll();
   }, [identity, contacts, active]);
 

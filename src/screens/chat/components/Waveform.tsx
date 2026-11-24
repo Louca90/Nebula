@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
+import Reanimated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import { useSmoothProgress } from '../hooks/useSmoothProgress';
-import { ViewRef } from '../types';
+import { useVoiceSeek } from '../voiceSeek';
 
 const BAR_GAP = 2;
 const MIN_BAR_WIDTH = 2;
@@ -12,7 +12,8 @@ const HEIGHT = 30;
 const MIN_BAR = 3;
 const MAX_BAR = 28;
 // La zone de toucher déborde au-dessus et au-dessous des barres (44 points en tout).
-const TOUCH_SLOP = { top: 7, bottom: 7, left: 0, right: 0 };
+// Nébula : une zone tactile d'au moins 44 points de haut, et un peu de marge sur les côtés.
+const TOUCH_SLOP = { top: 10, bottom: 10, left: 8, right: 8 };
 
 type Props = {
   // Hauteur de chaque barre, de 0 à 1.
@@ -43,42 +44,20 @@ function Bars({ bars, color, barWidth }: { bars: number[]; color: string; barWid
 // déplace la lecture, comme sur la barre simple (SeekBar).
 // Refonte (lot 4 de la section 3) : les barres occupent toute la largeur donnée par la bulle.
 export function Waveform({ bars, position, speed = 0, color, restColor, label, onSeek }: Props) {
-  const area = useRef<ViewRef>(null);
-  const origin = useRef(0);
-  const [dragging, setDragging] = useState<number | null>(null);
   const [available, setAvailable] = useState(0);
   const count = Math.max(1, bars.length);
   const natural = count * (MAX_BAR_WIDTH + BAR_GAP) - BAR_GAP;
   const barWidth = available > 0 ? Math.max(MIN_BAR_WIDTH, Math.min(MAX_BAR_WIDTH, (available - BAR_GAP * (count - 1)) / count)) : 3;
   const width = count * (barWidth + BAR_GAP) - BAR_GAP;
-  const shown = useSmoothProgress(position, dragging === null ? speed : 0, dragging);
-  const played = useAnimatedStyle(() => ({ width: shown.get() * width }));
-
-  const seekTo = (pageX: number) => {
-    const ratio = Math.max(0, Math.min(1, (pageX - origin.current) / width));
-    setDragging(ratio);
-    onSeek(ratio);
-  };
+  // Nébula : pendant le glisser, l'affichage suit drag (fil natif), sans rendu React à chaque mouvement.
+  const drag = useSharedValue(-1);
+  const shown = useSmoothProgress(position, speed, null);
+  const played = useAnimatedStyle(() => ({ width: (drag.get() >= 0 ? drag.get() : shown.get()) * width }));
+  const handlers = useVoiceSeek({ measure: () => ({ width, inset: 0 }), shown, drag, onSeek });
 
   return (
     <View style={styles.frame} onLayout={(event) => setAvailable(Math.min(natural, event.nativeEvent.layout.width))}>
-      <View
-        ref={area}
-        collapsable={false}
-        hitSlop={TOUCH_SLOP}
-        style={[styles.area, { width }]}
-        onStartShouldSetResponder={() => true}
-        onResponderTerminationRequest={() => false}
-        onResponderGrant={(event) => {
-          const { pageX, locationX } = event.nativeEvent;
-          origin.current = pageX - locationX;
-          seekTo(pageX);
-        }}
-        onResponderMove={(event) => seekTo(event.nativeEvent.pageX)}
-        onResponderRelease={() => setDragging(null)}
-        onResponderTerminate={() => setDragging(null)}
-        accessibilityLabel={label}
-      >
+      <View collapsable={false} hitSlop={TOUCH_SLOP} style={[styles.area, { width }]} {...handlers} accessibilityLabel={label}>
         <View pointerEvents="none" style={styles.row}>
           <Bars bars={bars} color={restColor} barWidth={barWidth} />
         </View>

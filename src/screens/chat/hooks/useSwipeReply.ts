@@ -7,6 +7,7 @@ import { Message } from '../../../chat/database';
 import { haptics } from '../../../haptics';
 
 import { SWIPE_MAX, SWIPE_REPLY, SWIPE_START } from '../constants';
+import { voiceSeeking } from '../voiceSeek';
 
 const BACK = { duration: 220, easing: Easing.bezier(0.2, 0.8, 0.2, 1), reduceMotion: ReduceMotion.System };
 // Hors d'atteinte : le geste ne démarre jamais dans ce sens.
@@ -31,6 +32,12 @@ export function useSwipeReply(message: Message, mine: boolean, onReply?: (messag
     failOffsetY: [-SWIPE_START, SWIPE_START],
     onUpdate: (event) => {
       'worklet';
+      // Nébula : un glisser de lecture de vocal en cours garde la main (voir voiceSeek.ts).
+      if (voiceSeeking.get()) {
+        swipe.set(0);
+        armed.set(false);
+        return;
+      }
       // Libre jusqu'au seuil, puis freiné : la bulle résiste de plus en plus jusqu'au maximum.
       const raw = Math.max(0, event.translationX * direction);
       const distance = raw <= SWIPE_REPLY ? raw : Math.min(SWIPE_MAX, SWIPE_REPLY + (raw - SWIPE_REPLY) * 0.35);
@@ -44,7 +51,7 @@ export function useSwipeReply(message: Message, mine: boolean, onReply?: (messag
     onDeactivate: (event) => {
       'worklet';
       // Geste repris par le défilement ou interrompu : pas de réponse.
-      if (armed.get() && !event.canceled) scheduleOnRN(reply);
+      if (armed.get() && !event.canceled && !voiceSeeking.get()) scheduleOnRN(reply);
     },
     onFinalize: () => {
       'worklet';

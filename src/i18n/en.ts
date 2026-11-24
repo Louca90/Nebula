@@ -743,6 +743,8 @@ export const en: Dictionary = {
     mediaSupprime: 'Media deleted',
   },
   reactions: {
+    notifAime: '{nom} liked your message',
+    notifReaction: '{nom} reacted {emoji} to your message',
     titre: 'Reactions',
     retirer: 'Tap to remove',
   },
@@ -1087,6 +1089,7 @@ export const en: Dictionary = {
     sousTitre: '{nom} · {n} items',
   },
   carte: {
+    notifTelechargement: 'Downloading the map',
     derniere: 'Last position {quand}',
     telechargerAideFrance: 'Nébula downloads street-level detail {km} km around you, then all of France (cities, villages, roads). After that the map works offline: nothing leaves your phone while you look at it.',
     franceTitre: 'All of France',

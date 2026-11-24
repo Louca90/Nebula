@@ -742,6 +742,8 @@ export const fr = {
     mediaSupprime: 'Média supprimé',
   },
   reactions: {
+    notifAime: '{nom} a aimé ton message',
+    notifReaction: '{nom} a réagi {emoji} à ton message',
     titre: 'Réactions',
     retirer: 'Appuyez pour retirer',
   },
@@ -1086,6 +1088,7 @@ export const fr = {
     sousTitre: '{nom} · {n} éléments',
   },
   carte: {
+    notifTelechargement: 'Téléchargement de la carte',
     derniere: 'Dernière position {quand}',
     telechargerAideFrance: 'Nébula télécharge le détail rue par rue à {km} km autour de toi, puis toute la France (villes, villages, routes). Ensuite la carte marche hors ligne : rien ne sort de ton téléphone quand tu la regardes.',
     franceTitre: 'Toute la France',

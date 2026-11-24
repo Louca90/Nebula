@@ -15,7 +15,7 @@ import { useInsets, useNavigationBarHeight, usePressFeedback } from '../componen
 import { haptics } from '../haptics';
 import { t } from '../i18n';
 import { log } from '../log';
-import { downloadFrance, downloadRegion, downloadZoneAround, FRANCE_BOUNDS, hasDetailAt, keepMapOffline, MapPack, MapRegion, REGION_RADIUS_KM, savedFrance, savedRegion } from '../map/offlineMap';
+import { FRANCE_BOUNDS, getMapDownloads, hasDetailAt, keepMapOffline, MapPack, MapRegion, REGION_RADIUS_KM, resumeMapDownloads, savedFrance, savedRegion, startFranceDownload, startRegionDownload, startZoneDownload, subscribeMapDownloads } from '../map/offlineMap';
 import { MapColors, mapColorsOf, mapStyleOf } from '../map/pearStyle';
 import { EASE, enterUp, timing } from '../motion';
 import { Contact } from '../storage';
@@ -210,12 +210,15 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
     return () => clearInterval(timer);
   }, []);
   const [region, setRegion] = useState<MapRegion | null>(savedRegion);
-  const [progress, setProgress] = useState<number | null>(null);
+  // Nébula : les téléchargements sont suivis par toute l'app (ils continuent hors de cet écran).
+  const downloads = useSyncExternalStore(subscribeMapDownloads, getMapDownloads);
+  const [locating, setLocating] = useState(false);
+  const progress = downloads.region ?? (locating ? 0 : null);
   // Nébula : la France entière (zoom 11), en plus de la zone détaillée autour de moi.
   const [france, setFrance] = useState<MapPack | null>(savedFrance);
-  const [franceProgress, setFranceProgress] = useState<number | null>(null);
+  const franceProgress = downloads.france;
   // Le détail rue par rue en cours d'ajout autour de sa position (son nom), et la carte à redessiner après.
-  const [zoneFor, setZoneFor] = useState<string | null>(null);
+  const zoneFor = downloads.zone?.name ?? null;
   const [mapKey, setMapKey] = useState(0);
   const triedZones = useRef(new Set<string>());
   const [me, setMe] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -238,19 +241,31 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
 
   // La France entière : environ 10 000 tuiles, téléchargées une fois.
   const getFrance = async () => {
-    if (franceProgress !== null) return;
-    setFranceProgress(0);
     try {
-      setFrance(await downloadFrance(setFranceProgress));
+      setFrance(await startFranceDownload());
       setMapKey((key) => key + 1);
       haptics.success();
     } catch (e) {
       log.warn('carte', e);
       showDialog(t('carte.echec'), t('carte.echecAide'));
-    } finally {
-      setFranceProgress(null);
     }
   };
+
+  // Un téléchargement coupé (app fermée) reprend ; fini pendant qu'on était ailleurs, la carte se redessine.
+  useEffect(() => {
+    resumeMapDownloads();
+  }, []);
+  const finished = downloads.region === null && downloads.france === null && downloads.zone === null;
+  useEffect(() => {
+    if (!finished) return;
+    const nextRegion = savedRegion();
+    const nextFrance = savedFrance();
+    if ((nextRegion?.at ?? 0) !== (region?.at ?? 0) || (nextFrance?.at ?? 0) !== (france?.at ?? 0)) {
+      setRegion(nextRegion);
+      setFrance(nextFrance);
+      setMapKey((key) => key + 1);
+    }
+  }, [finished, region, france]);
 
   // Sa position tombe hors de mes zones détaillées : le détail rue par rue autour d'elle est ajouté tout
   // seul (une fois par endroit), pour bien voir où elle est.
@@ -264,11 +279,9 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
     const place = `${chosenLat.toFixed(1)},${chosenLon.toFixed(1)}`;
     if (triedZones.current.has(place)) return;
     triedZones.current.add(place);
-    setZoneFor(chosenName ?? '');
-    downloadZoneAround(point, () => {})
+    startZoneDownload(point, chosenName ?? '')
       .then(() => setMapKey((key) => key + 1))
-      .catch((e) => log.warn('carte', e))
-      .finally(() => setZoneFor(null));
+      .catch((e) => log.warn('carte', e));
   }, [chosenLat, chosenLon, chosenName, hasMap, zoneFor, progress]);
 
   const choose = (pin: Pin) => {
@@ -306,24 +319,22 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
       return;
     }
     // Le bouton montre déjà le téléchargement pendant qu'on cherche la position.
-    setProgress(0);
+    setLocating(true);
     const center = await freshLocation();
+    setLocating(false);
     if (!center) {
-      setProgress(null);
       showDialog(t('carte.sansPosition'), t('carte.sansPositionAide'));
       return;
     }
     setMe(center);
     let done = false;
     try {
-      setRegion(await downloadRegion(center, setProgress));
+      setRegion(await startRegionDownload(center));
       haptics.success();
       done = true;
     } catch (e) {
       log.warn('carte', e);
       showDialog(t('carte.echec'), t('carte.echecAide'));
-    } finally {
-      setProgress(null);
     }
     // Puis la France entière, pendant qu'on regarde déjà sa zone.
     if (done && !france) void getFrance();

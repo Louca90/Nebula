@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+import { useSheetDrag } from '../sheetDrag';
 import { haptics } from '../../haptics';
 
 import { t, TextKey } from '../../i18n';
@@ -57,7 +58,9 @@ export function StickerPicker({ bottom, onPick, onClose }: Props) {
   };
 
   const sheetHeight = height * 0.5;
-  const sheetIn = useAnimatedStyle(() => ({ transform: [{ translateY: (sheetHeight + bottom) * (1 - progress.get()) }] }));
+  // Nébula : la poignée se tire vers le bas pour fermer (voir sheetDrag.ts).
+  const { drag, handlers } = useSheetDrag(() => close());
+  const sheetIn = useAnimatedStyle(() => ({ transform: [{ translateY: (sheetHeight + bottom) * (1 - progress.get()) + drag.get() }] }));
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -65,7 +68,9 @@ export function StickerPicker({ bottom, onPick, onClose }: Props) {
         <Pressable style={StyleSheet.absoluteFill} onPress={() => close()} accessibilityLabel={t('commun.fermer')} />
       </Reanimated.View>
       <Reanimated.View style={[styles.sheet, { height: sheetHeight + bottom, paddingBottom: bottom }, sheetIn]}>
-        <View style={styles.handle} />
+        <View {...handlers} style={styles.grip}>
+          <View style={styles.handle} />
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs} style={styles.tabsScroll}>
           {CATEGORIES.map(({ label, emojis }, index) => (
             <Pressable
@@ -105,6 +110,7 @@ const useStyles = createMediaStyles((colors) => ({
     borderTopRightRadius: 24,
     backgroundColor: 'rgba(24, 24, 26, 0.96)',
   },
+  grip: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 10, marginVertical: -6 },
   handle: {
     alignSelf: 'center',
     width: 36,

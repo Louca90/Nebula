@@ -1,6 +1,7 @@
 import { NetworkManager, OfflineManager } from '@maplibre/maplibre-react-native';
 
 import { getSetting, setSetting } from '../chat/database';
+import { clearMapDownload, showMapDownload } from '../chat/notifications';
 import { log } from '../log';
 import { insideRegion, regionBounds, RegionBounds } from './region';
 
@@ -185,11 +186,13 @@ function downloadPack(mapStyle: string, bounds: RegionBounds, onProgress: (fract
         settled = true;
         reject(new Error(error.message));
       },
-    ).catch((e) => {
-      if (settled) return;
-      settled = true;
-      reject(e);
-    });
+    )
+      .then((pack) => notePack(pack.id))
+      .catch((e) => {
+        if (settled) return;
+        settled = true;
+        reject(e);
+      });
   });
 }
 export async function deleteRegion() {
@@ -201,4 +204,117 @@ export async function deleteRegion() {
   setSetting(ZONES_KEY, null);
   const ids = [...(region?.packIds ?? []), ...(france?.packIds ?? []), ...zones.flatMap((zone) => zone.packIds)];
   for (const id of ids) await OfflineManager.deletePack(id).catch((e) => log.warn('carte', e));
+}
+
+// --- Nébula : téléchargements suivis par toute l'app ---
+// Un téléchargement ne dépend plus de l'écran Carte : il continue quand on change d'onglet ou qu'on quitte
+// l'app (une notification de premier plan garde le processus en vie), et l'écran retrouve sa barre en
+// revenant. Coupé (app tuée, réseau perdu), il est relancé au retour : les tuiles déjà reçues sont
+// gardées par MapLibre et ne sont pas redemandées. Les morceaux de packs interrompus sont effacés à la fin.
+
+type Point = { latitude: number; longitude: number };
+export type MapDownloads = { region: number | null; france: number | null; zone: { name: string; progress: number } | null };
+type Pending = { region?: { center: Point }; france?: true; zone?: { center: Point; name: string }; stale?: string[] };
+
+const PENDING_KEY = 'map_pending';
+let downloads: MapDownloads = { region: null, france: null, zone: null };
+const downloadListeners = new Set<() => void>();
+const running = new Map<keyof MapDownloads, Promise<unknown>>();
+
+function setDownloads(change: Partial<MapDownloads>) {
+  downloads = { ...downloads, ...change };
+  downloadListeners.forEach((listener) => listener());
+  const active = [downloads.region, downloads.france, downloads.zone?.progress].filter((value): value is number => value !== null && value !== undefined);
+  if (active.length > 0) showMapDownload(Math.min(...active)).catch((e) => log.warn('carte', e));
+  else clearMapDownload().catch((e) => log.warn('carte', e));
+}
+
+export function subscribeMapDownloads(listener: () => void) {
+  downloadListeners.add(listener);
+  return () => {
+    downloadListeners.delete(listener);
+  };
+}
+
+export function getMapDownloads() {
+  return downloads;
+}
+
+function readPending(): Pending {
+  try {
+    return (JSON.parse(getSetting(PENDING_KEY) ?? '{}') as Pending) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function writePending(change: (pending: Pending) => Pending) {
+  const next = change(readPending());
+  const empty = !next.region && !next.france && !next.zone;
+  setSetting(PENDING_KEY, empty && !next.stale?.length ? null : JSON.stringify(next));
+}
+
+// Les packs créés pendant un téléchargement : gardés pour effacer les restes d'un téléchargement coupé.
+function notePack(id: string) {
+  writePending((pending) => ({ ...pending, stale: [...(pending.stale ?? []), id] }));
+}
+
+// Une fois tout fini, les packs inachevés qui ne servent à rien sont effacés.
+function cleanStale() {
+  const pending = readPending();
+  if (pending.region || pending.france || pending.zone) return;
+  const kept = new Set([...(savedRegion()?.packIds ?? []), ...(savedFrance()?.packIds ?? []), ...savedZones().flatMap((zone) => zone.packIds)]);
+  for (const id of pending.stale ?? []) if (!kept.has(id)) OfflineManager.deletePack(id).catch((e) => log.warn('carte', e));
+  setSetting(PENDING_KEY, null);
+}
+
+function track<T>(kind: keyof MapDownloads, task: () => Promise<T>): Promise<T> {
+  const existing = running.get(kind);
+  if (existing) return existing as Promise<T>;
+  const promise = task().finally(() => {
+    running.delete(kind);
+    setDownloads({ [kind]: null } as Partial<MapDownloads>);
+    cleanStale();
+  });
+  running.set(kind, promise);
+  return promise;
+}
+
+export function startRegionDownload(center: Point): Promise<MapRegion> {
+  writePending((pending) => ({ ...pending, region: { center } }));
+  setDownloads({ region: 0 });
+  return track('region', async () => {
+    const region = await downloadRegion(center, (fraction) => setDownloads({ region: fraction }));
+    writePending(({ region: _done, ...rest }) => rest);
+    return region;
+  });
+}
+
+export function startFranceDownload(): Promise<MapPack> {
+  writePending((pending) => ({ ...pending, france: true }));
+  setDownloads({ france: 0 });
+  return track('france', async () => {
+    const pack = await downloadFrance((fraction) => setDownloads({ france: fraction }));
+    writePending(({ france: _done, ...rest }) => rest);
+    return pack;
+  });
+}
+
+export function startZoneDownload(center: Point, name: string): Promise<MapRegion> {
+  writePending((pending) => ({ ...pending, zone: { center, name } }));
+  setDownloads({ zone: { name, progress: 0 } });
+  return track('zone', async () => {
+    const zone = await downloadZoneAround(center, (fraction) => setDownloads({ zone: { name, progress: fraction } }));
+    writePending(({ zone: _done, ...rest }) => rest);
+    return zone;
+  });
+}
+
+// Au lancement et au retour dans l'app : les téléchargements coupés reprennent.
+export function resumeMapDownloads() {
+  const pending = readPending();
+  const retry = (promise: Promise<unknown>) => promise.catch((e) => log.warn('carte', e));
+  if (pending.region && !running.has('region')) retry(startRegionDownload(pending.region.center));
+  if (pending.france && !running.has('france')) retry(startFranceDownload());
+  if (pending.zone && !running.has('zone')) retry(startZoneDownload(pending.zone.center, pending.zone.name));
 }
