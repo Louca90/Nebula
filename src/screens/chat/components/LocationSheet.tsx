@@ -9,8 +9,7 @@ import { haptics } from '../../../haptics';
 import { t } from '../../../i18n';
 import { log } from '../../../log';
 import { MiniMap } from '../../../map/MiniMap';
-import { savedRegion } from '../../../map/offlineMap';
-import { insideRegion } from '../../../map/region';
+import { isMapped } from '../../../map/offlineMap';
 import { DURATION, exitFade, timing } from '../../../motion';
 import { useBackInterceptor } from '../../../navigation/backInterceptors';
 import { createStyles, radius, spacing, useColors } from '../../../theme';
@@ -76,8 +75,7 @@ export function LocationSheet({ name, onShare, onClose }: Props) {
       .then((granted) => granted && setMe(lastKnownLocation()))
       .catch((e) => log.warn('position', e));
   }, []);
-  const region = savedRegion();
-  const mapped = !!me && !!region && insideRegion(region.bounds, me);
+  const mapped = !!me && isMapped(me);
   const pick = (id: string) => {
     if (id === chosen) return;
     haptics.select();

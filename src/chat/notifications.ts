@@ -1,9 +1,9 @@
-import notifee, { AndroidCategory, AndroidForegroundServiceType, AndroidImportance, AndroidStyle, AndroidVisibility } from '@notifee/react-native';
+import notifee, { AlarmType, AndroidCategory, AndroidForegroundServiceType, AndroidImportance, AndroidStyle, AndroidVisibility, TriggerType } from '@notifee/react-native';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { log } from '../log';
 import { NOTIFICATION_CHANNEL_ID, NOTIFICATION_SMALL_ICON } from '../config';
-import { t } from '../i18n';
+import { dateLocale, t } from '../i18n';
 
 // Les notifications sont créées ici, après déchiffrement : ni Google ni Vercel n'en voient le contenu.
 
@@ -120,21 +120,59 @@ export function clearPairNotification(contact: string) {
   notifee.cancelNotification(`pair:${contact}`).catch((e) => log.warn('notification', e));
 }
 
-// Nébula : « X pense à toi ». Un appui ouvre l'app sur l'onglet Nous.
-export async function showThoughtNotification(contact: string, name: string) {
+// Nébula : « X pense à toi ». Le texte dit combien de fois aujourd'hui et à quelle heure la dernière ;
+// un appui ouvre l'écran Pense à toi (pas la conversation).
+export async function showThoughtNotification(contact: string, name: string, count: number, last: number) {
   await ensureChannel();
+  const time = new Intl.DateTimeFormat(dateLocale(), { hour: '2-digit', minute: '2-digit' }).format(last);
   await notifee.displayNotification({
     id: `thought:${contact}`,
     title: t('pense.notificationTitre', { nom: name }),
-    body: t('pense.notificationTexte'),
-    data: { contact },
+    body: count > 1 ? t('pense.notificationCompte', { n: count, heure: time }) : t('pense.notificationUne', { heure: time }),
+    data: { thought: contact },
     android: {
       channelId: NOTIFICATION_CHANNEL_ID,
       visibility: AndroidVisibility.PRIVATE,
       smallIcon: NOTIFICATION_SMALL_ICON,
+      timestamp: last,
+      showTimestamp: true,
+      onlyAlertOnce: false,
       pressAction: { id: 'default' },
     },
   });
+}
+
+// Nébula : les notifications de couple (cycle, humeur, douleur). `data` dit quoi ouvrir à l'appui.
+export async function showCoupleNotification(id: string, title: string, body: string, data: Record<string, string>) {
+  await ensureChannel();
+  await notifee.displayNotification({
+    id,
+    title,
+    body,
+    data,
+    android: { channelId: NOTIFICATION_CHANNEL_ID, visibility: AndroidVisibility.PRIVATE, smallIcon: NOTIFICATION_SMALL_ICON, pressAction: { id: 'default' } },
+  });
+}
+
+// Une notification programmée (rappels du cycle). Une alarme inexacte, qui sonne même en veille et ne
+// demande aucune autorisation de plus ; Notifee la reprogramme après un redémarrage du téléphone.
+export async function scheduleCoupleNotification(id: string, at: number, title: string, body: string, data: Record<string, string>) {
+  if (at <= Date.now()) return;
+  await ensureChannel();
+  await notifee.createTriggerNotification(
+    {
+      id,
+      title,
+      body,
+      data,
+      android: { channelId: NOTIFICATION_CHANNEL_ID, visibility: AndroidVisibility.PRIVATE, smallIcon: NOTIFICATION_SMALL_ICON, pressAction: { id: 'default' } },
+    },
+    { type: TriggerType.TIMESTAMP, timestamp: at, alarmManager: { type: AlarmType.SET_AND_ALLOW_WHILE_IDLE } },
+  );
+}
+
+export async function cancelScheduledNotifications(ids: string[]) {
+  await notifee.cancelTriggerNotifications(ids);
 }
 
 // « X vous a supprimé » / « X vous a bloqué ».

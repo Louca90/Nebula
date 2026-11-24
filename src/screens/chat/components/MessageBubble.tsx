@@ -272,7 +272,7 @@ function BubbleView({ message, name, palettes, hidden, mediaHidden, pulse, onOpe
             </>
           ) : message.kind === 'location' ? (
             <LocationContent message={message} palette={palette} />
-          ) : message.kind === 'audio' && message.status !== 'receiving' && !isMediaDeleted(message) ? (
+          ) : message.kind === 'audio' && message.status !== 'receiving' && message.status !== 'offered' && message.status !== 'refused' && !isMediaDeleted(message) ? (
             <VoiceContent message={message} palette={palette} next={nextVoice} />
           ) : (
             <FileContent message={message} palette={palette} mediaHidden={mediaHidden} onOpen={(rect) => onOpenFile?.(message, rect)} onLongPress={select} onPrepare={onPrepareFile && (() => onPrepareFile(message))} onAccept={onAcceptFile && (() => onAcceptFile(message))} onRefuse={onRefuseFile && (() => onRefuseFile(message))} />

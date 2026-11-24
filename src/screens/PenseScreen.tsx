@@ -168,9 +168,13 @@ export function PenseScreen({ contact, onBack }: Props) {
           </View>
           <Thumb label={t('pense.toi')} down={mine} />
           <Thumb label={name} down={theirs} />
-          <Reanimated.View pointerEvents="none" style={[styles.bloom, bloomStyle]}>
-            <Lily size={28} color={fixed.onSignatureSoft} open={open} />
-          </Reanimated.View>
+          {/* Nébula : une couche qui couvre toute la rangée et centre le lys sur les deux axes (posé en
+              « left: 50% » avec une marge, il tombait à côté du milieu de la ligne). */}
+          <View pointerEvents="none" style={styles.bloomLayer}>
+            <Reanimated.View style={[styles.bloom, bloomStyle]}>
+              <Lily size={28} color={fixed.onSignatureSoft} open={open} />
+            </Reanimated.View>
+          </View>
         </View>
         <Text style={styles.thumbText}>{thumbText}</Text>
         <Pressable
@@ -325,11 +329,16 @@ const useStyles = createStyles((colors) => ({
     fontWeight: '600',
     color: fixed.mutedLight,
   },
-  bloom: {
+  bloomLayer: {
     position: 'absolute',
-    left: '50%',
-    top: 32,
-    marginLeft: -24,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bloom: {
     width: 48,
     height: 48,
     borderRadius: 24,

@@ -4,8 +4,10 @@ const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins')
 
 // Pear dans le menu « Partager » d'Android, pour les photos et vidéos (une ou plusieurs) : la galerie,
 // Google Photos ou une autre app peuvent les envoyer directement à un contact (lot 12).
+// Nébula : tous les fichiers. La Galerie Samsung partage un mélange de photos et de vidéos avec le type
+// « */* » : avec seulement image/* et video/*, Nébula n'apparaissait pas dans son menu Partager.
 const SHARE_ACTIONS = ['android.intent.action.SEND', 'android.intent.action.SEND_MULTIPLE'];
-const SHARE_TYPES = ['image/*', 'video/*'];
+const SHARE_TYPES = ['image/*', 'video/*', 'audio/*', 'application/*', 'text/*', '*/*'];
 
 function shareFilter(action) {
   return {
@@ -23,6 +25,7 @@ const SHORTCUTS_XML = `<?xml version="1.0" encoding="utf-8"?>
   <share-target android:targetClass="com.louca.nebula.MainActivity">
     <data android:mimeType="image/*" />
     <data android:mimeType="video/*" />
+    <data android:mimeType="*/*" />
     <category android:name="${SHARE_CATEGORY}" />
   </share-target>
 </shortcuts>

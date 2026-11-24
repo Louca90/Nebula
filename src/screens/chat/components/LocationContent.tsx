@@ -6,9 +6,8 @@ import { lastKnownLocation } from '../../../../modules/pear-native';
 import { Message } from '../../../chat/database';
 import { bearing, compassPoint, distanceKm, formatDistance, isSharing, parseLocationText } from '../../../chat/location';
 import { MiniMap } from '../../../map/MiniMap';
-import { savedRegion } from '../../../map/offlineMap';
+import { isMapped } from '../../../map/offlineMap';
 import { openMap } from '../../../map/openMap';
-import { insideRegion } from '../../../map/region';
 import { chat } from '../../../chat/manager';
 import { IN_PLACE_KM, nearestPlace } from '../../../components/editor/cities';
 import { t } from '../../../i18n';
@@ -70,8 +69,7 @@ export function LocationContent({ message, palette }: { message: Message; palett
   const direction = !mine && me && away !== null && away >= 0.3 ? bearing(me, location) : null;
   const place = [near ? t(near.km <= IN_PLACE_KM ? 'position.aVille' : 'position.presDe', { ville: near.name }) : null, away !== null ? t('position.aDistance', { distance: formatDistance(away, t('position.virgule')) }) : null].filter(Boolean).join(' · ');
 
-  const region = savedRegion();
-  const mapped = !!region && insideRegion(region.bounds, location);
+  const mapped = isMapped(location);
 
   return (
     <View style={styles.box}>

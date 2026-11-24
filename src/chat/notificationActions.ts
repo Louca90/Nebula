@@ -2,7 +2,7 @@ import { Event, EventType } from '@notifee/react-native';
 
 import { chat } from './manager';
 import { deleteCover } from './notifications';
-import { REQUESTS_TARGET, setNotificationTarget } from './notificationTarget';
+import { REQUESTS_TARGET, setNotificationTarget, targetOf } from './notificationTarget';
 import { log } from '../log';
 
 // Appui sur une notification ou sur l'une de ses actions, app ouverte, en arrière-plan ou fermée.
@@ -22,6 +22,11 @@ export async function handleNotificationEvent({ type, detail }: Event) {
         log.warn('action de demande', e);
       }
     }
+    return;
+  }
+  // Nébula : une pensée ouvre l'écran Pense à toi, un rappel du cycle ouvre le suivi du cycle.
+  if (typeof data?.thought === 'string' || data?.cycle) {
+    if (type === EventType.PRESS) setNotificationTarget(targetOf(data));
     return;
   }
   // Appel (vague 5) : Répondre ouvre Pear et décroche, Refuser et Raccrocher n'ouvrent rien.

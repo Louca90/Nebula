@@ -674,6 +674,14 @@ export function getRelayIncoming(messageId: string, contact: string): RelayIncom
   return db().getFirstSync<RelayIncoming>('SELECT file_id, contact, message_id, size FROM relay_incoming WHERE message_id = ? AND contact = ?', messageId, contact);
 }
 
+// Nébula : les fichiers du relais dont la réception a commencé mais n'a pas fini (app rendormie en
+// plein téléchargement) : ils reprennent à la prochaine ouverture.
+export function getStalledRelayDownloads(): { contact: string; message_id: string }[] {
+  return db().getAllSync<{ contact: string; message_id: string }>(
+    "SELECT r.contact, r.message_id FROM relay_incoming r JOIN messages m ON m.id = r.message_id AND m.contact = r.contact WHERE (r.state IS NULL OR r.state != 'text') AND m.mine = 0 AND m.status = 'receiving'",
+  );
+}
+
 export function deleteRelayIncoming(messageId: string, contact: string) {
   db().runSync('DELETE FROM relay_incoming WHERE message_id = ? AND contact = ?', messageId, contact);
 }

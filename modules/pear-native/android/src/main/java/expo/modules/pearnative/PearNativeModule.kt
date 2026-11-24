@@ -254,6 +254,9 @@ class PearNativeModule : Module() {
           .build()
       }
       ShortcutManagerCompat.setDynamicShortcuts(context, shortcuts)
+      // Nébula : le menu Partager (Samsung en particulier) classe les contacts selon l'usage signalé ;
+      // sans ce signal, la photo du contact pouvait ne jamais y apparaître.
+      shortcuts.forEach { ShortcutManagerCompat.reportShortcutUsed(context, it.id) }
     }
 
     // "system" : Android montre son propre aperçu pour quitter. "app" : l'app anime elle-même le geste.
@@ -926,12 +929,21 @@ class PearNativeModule : Module() {
     }
     return uris.mapIndexedNotNull { index, uri ->
       try {
-        val mime = context.contentResolver.getType(uri) ?: intent.type ?: return@mapIndexedNotNull null
-        if (!mime.startsWith("image/") && !mime.startsWith("video/")) return@mapIndexedNotNull null
-        val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime) ?: if (mime.startsWith("video/")) "mp4" else "jpg"
+        // Nébula : tous les fichiers (photos, vidéos, documents…). Le type « */* » d'un partage groupé est
+        // remplacé par celui de chaque fichier, deviné par son extension s'il le faut.
+        val name = displayName(uri)
+        val guessed = name?.substringAfterLast('.', "")?.lowercase()?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) }
+        val mime = context.contentResolver.getType(uri)?.takeIf { it != "*/*" }
+          ?: guessed
+          ?: intent.type?.takeIf { !it.contains('*') }
+          ?: "application/octet-stream"
+        val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
+          ?: name?.substringAfterLast('.', "")?.takeIf { it.isNotEmpty() && it.length <= 8 }
+          ?: if (mime.startsWith("video/")) "mp4" else if (mime.startsWith("image/")) "jpg" else "bin"
         val target = File(context.cacheDir, "partage-${System.currentTimeMillis()}-$index.$extension")
         context.contentResolver.openInputStream(uri)?.use { input -> FileOutputStream(target).use { input.copyTo(it) } } ?: return@mapIndexedNotNull null
         val result = mutableMapOf<String, Any>("uri" to Uri.fromFile(target).toString(), "mime" to mime, "size" to target.length().toDouble())
+        name?.let { result["name"] = it.take(200) }
         // Partage venu d'un raccourci : la clé publique du contact choisi dans le menu.
         intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)?.takeIf { it.startsWith(SHORTCUT_PREFIX) }?.let { result["contact"] = it.removePrefix(SHORTCUT_PREFIX) }
         result
@@ -939,6 +951,18 @@ class PearNativeModule : Module() {
         Log.w("PearNative", "média partagé illisible", e)
         null
       }
+    }
+  }
+
+  // Le nom du fichier partagé, tel que l'app d'origine le donne (null s'il n'est pas connu).
+  private fun displayName(uri: Uri): String? {
+    val context = appContext.reactContext ?: return null
+    return try {
+      context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) cursor.getString(0) else null
+      } ?: uri.lastPathSegment?.substringAfterLast('/')
+    } catch (e: Exception) {
+      uri.lastPathSegment?.substringAfterLast('/')
     }
   }
 

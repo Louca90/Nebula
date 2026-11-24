@@ -1,10 +1,17 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, PermissionsAndroid, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Reanimated, { useSharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { chat } from '../chat/manager';
-import { describeMessage, getContactProfile, getLastMessage, getMediaMessages, getPendingRequests, getUnreadCounts, Message, PairingRequest } from '../chat/database';
+import { describeMessage, getContactProfile, getLastMessage, getLocationMessages, getMediaMessages, getPendingRequests, getUnreadCounts, Message, PairingRequest } from '../chat/database';
+import { lastKnownLocation } from '../../modules/pear-native';
+import { distanceKm, formatDistance, isSharing, parseLocationText } from '../chat/location';
+import { cycleSummary, useCycle } from '../couple/cycle';
+import { MOOD_EMOJI, MOOD_FRESH_MS, MoodId, MOODS, useMoods } from '../couple/mood';
+import { Sheet } from '../components/Sheet';
+import { haptics } from '../haptics';
+import { log } from '../log';
 import type { PairMode } from '../components/PairSheet';
 import { useMediaPreview } from '../chat/media';
 import { useBottomBarSpace } from '../components/BottomBar';
@@ -29,6 +36,8 @@ type Props = {
   onMedia: (contact: Contact) => void;
   onPense: (contact: Contact) => void;
   onDates: () => void;
+  onCycle: () => void;
+  onMap: (contact: Contact) => void;
   onPair: (mode: PairMode) => void;
   onRequests: () => void;
 };
@@ -107,7 +116,7 @@ function PairInvite({ pending, request, onPair, onRequests }: { pending: boolean
   );
 }
 
-export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, onDates, onPair, onRequests }: Props) {
+export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, onDates, onCycle, onMap, onPair, onRequests }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const { top } = useInsets();
@@ -123,6 +132,16 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
   const nextDate = useNextDate();
   const thoughts = useThoughtsToday();
   const arriving = useRingArrival();
+  const cycle = useCycle();
+  const moods = useMoods();
+  const [moodOpen, setMoodOpen] = useState(false);
+  // Ma position, pour la carte Distance : seulement si la localisation est autorisée.
+  const [located, setLocated] = useState(false);
+  useEffect(() => {
+    PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION)
+      .then(setLocated)
+      .catch((e) => log.warn('distance', e));
+  }, [now]);
 
   const header = (
     <View style={[styles.header, { paddingTop: top + 8 }]}>
@@ -152,6 +171,23 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
   const media = getMediaMessages(key).slice(0, MEDIA_COUNT);
   const status = typing ? t('nous.ecrit') : online ? (route === 'relay' ? t('nous.enLigneRelais') : t('nous.enLigneDirect')) : t('nous.horsLigne');
   const days = nextDate ? daysUntil(nextDate, now) : null;
+  const away = distanceBetween(key, located, now);
+  const cycleInfo = cycle.periods.length > 0 ? cycleSummary(cycle, now) : null;
+  const cycleText = !cycleInfo
+    ? null
+    : cycleInfo.current
+      ? t('cycle.carteJour', { n: cycleInfo.currentDay ?? 1 })
+      : cycleInfo.late
+        ? t('cycle.carteRetard')
+        : cycleInfo.daysToNext === 0
+          ? t('cycle.carteAujourdhui')
+          : t('cycle.carteDans', { n: cycleInfo.daysToNext ?? 0 });
+  const theirMood = moods.theirs && now - moods.theirs.at < MOOD_FRESH_MS ? moods.theirs : null;
+  const myMood = moods.mine && now - moods.mine.at < MOOD_FRESH_MS ? moods.mine : null;
+  const pickMood = (mood: MoodId) => {
+    haptics.success();
+    chat.sendMood(key, mood);
+  };
 
   return (
     <View style={styles.screen}>
@@ -214,6 +250,67 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
           </Pressable>
         </Reanimated.View>
 
+        <Reanimated.View entering={enterUp(8, 260, 120)} style={styles.duo}>
+          <Pressable style={styles.duoItem} onPress={onCycle} accessibilityRole="button" accessibilityLabel={t('cycle.titre')}>
+            <Card style={styles.small}>
+              <View style={styles.penseTop}>
+                <View style={[styles.cycleDot, cycleInfo?.current && styles.cycleDotOn]} />
+                {cycleText && (
+                  <Text style={styles.cycleText} numberOfLines={1}>
+                    {cycleText}
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.smallLabel}>{cycleText ? t('cycle.titre') : t('cycle.carteSuivre')}</Text>
+            </Card>
+          </Pressable>
+          {away !== null ? (
+            <Pressable style={styles.duoItem} onPress={() => onMap(partner)} accessibilityRole="button" accessibilityLabel={t('distance.titre')}>
+              <Card style={styles.small}>
+                <Text style={styles.days} numberOfLines={1} adjustsFontSizeToFit>
+                  {formatDistance(away, t('position.virgule'))}
+                </Text>
+                <Text style={styles.smallLabel}>{t('distance.entreVous')}</Text>
+              </Card>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.duoItem} onPress={() => setMoodOpen(true)} accessibilityRole="button" accessibilityLabel={t('humeur.titre')}>
+              <Card style={styles.small}>
+                <Text style={styles.moodBig}>{myMood ? MOOD_EMOJI[myMood.mood] : '🙂'}</Text>
+                <Text style={styles.smallLabel}>{myMood ? t('humeur.toi', { humeur: t(`humeur.${myMood.mood}`) }) : t('humeur.choisir')}</Text>
+              </Card>
+            </Pressable>
+          )}
+        </Reanimated.View>
+
+        <Reanimated.View entering={enterUp(8, 260, 160)}>
+          <Card style={styles.mood}>
+            <Text style={styles.moodTitle}>{t('humeur.titre')}</Text>
+            <View style={styles.moodRow}>
+              <View style={styles.moodSide}>
+                <Text style={styles.moodEmoji}>{theirMood ? MOOD_EMOJI[theirMood.mood] : '·'}</Text>
+                <View style={styles.flex}>
+                  <Text style={styles.moodWho} numberOfLines={1}>
+                    {name}
+                  </Text>
+                  <Text style={styles.moodText} numberOfLines={1}>
+                    {theirMood ? `${t(`humeur.${theirMood.mood}`)} · ${when(theirMood.at, now)}` : t('humeur.pasEncore')}
+                  </Text>
+                </View>
+              </View>
+              <Pressable style={styles.moodSide} onPress={() => setMoodOpen(true)} accessibilityRole="button" accessibilityLabel={t('humeur.choisir')}>
+                <Text style={styles.moodEmoji}>{myMood ? MOOD_EMOJI[myMood.mood] : '＋'}</Text>
+                <View style={styles.flex}>
+                  <Text style={styles.moodWho}>{t('pense.toi')}</Text>
+                  <Text style={styles.moodText} numberOfLines={1}>
+                    {myMood ? t(`humeur.${myMood.mood}`) : t('humeur.choisir')}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          </Card>
+        </Reanimated.View>
+
         {media.length > 0 && (
           <>
             <View style={styles.mediaHead}>
@@ -230,7 +327,56 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
           </>
         )}
       </ScrollView>
+      {moodOpen && <MoodSheet current={myMood?.mood ?? null} onClose={() => setMoodOpen(false)} onPick={pickMood} />}
     </View>
+  );
+}
+
+// La distance entre nous : sa dernière position en direct, et la mienne (celle que je lui partage en
+// direct, sinon la dernière connue du téléphone). null si l'une des deux manque.
+function distanceBetween(contact: string, located: boolean, now: number): number | null {
+  let theirs: { latitude: number; longitude: number } | null = null;
+  let mine: { latitude: number; longitude: number } | null = null;
+  for (const message of getLocationMessages()) {
+    if (message.contact !== contact) continue;
+    const location = parseLocationText(message.text);
+    if (!location || !isSharing(location, now)) continue;
+    if (message.mine === 0 && !theirs) theirs = location;
+    if (message.mine === 1 && !mine) mine = location;
+  }
+  if (!theirs) return null;
+  if (!mine && located) {
+    try {
+      mine = lastKnownLocation();
+    } catch (e) {
+      log.warn('distance', e);
+    }
+  }
+  return mine ? distanceKm(mine, theirs) : null;
+}
+
+// Choisir son humeur : une grille d'émojis, l'autre la voit tout de suite.
+function MoodSheet({ current, onClose, onPick }: { current: MoodId | null; onClose: () => void; onPick: (mood: MoodId) => void }) {
+  const styles = useStyles();
+  return (
+    <Sheet title={t('humeur.question')} onClose={onClose}>
+      {(close) => (
+        <View style={styles.moodGrid}>
+          {MOODS.map((mood) => (
+            <Pressable
+              key={mood}
+              onPress={() => close(() => onPick(mood))}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: current === mood }}
+              style={({ pressed }) => [styles.moodChoice, current === mood && styles.moodChoiceOn, pressed && styles.pressed]}
+            >
+              <Text style={styles.moodChoiceEmoji}>{MOOD_EMOJI[mood]}</Text>
+              <Text style={styles.moodChoiceLabel}>{t(`humeur.${mood}`)}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </Sheet>
   );
 }
 
@@ -370,6 +516,93 @@ const useStyles = createStyles((colors) => ({
     fontWeight: '700',
     letterSpacing: -0.5,
     lineHeight: 28,
+    color: colors.text,
+  },
+  flex: {
+    flex: 1,
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  cycleDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: fixed.heart,
+  },
+  cycleDotOn: {
+    backgroundColor: fixed.heart,
+  },
+  cycleText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  moodBig: {
+    fontSize: 26,
+    lineHeight: 30,
+  },
+  mood: {
+    marginTop: 8,
+    marginHorizontal: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  moodTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  moodRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  moodSide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  moodEmoji: {
+    fontSize: 30,
+    color: fixed.lilac,
+  },
+  moodWho: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  moodText: {
+    fontSize: 13,
+    color: fixed.cardTextSoft,
+  },
+  moodGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    paddingBottom: 8,
+  },
+  moodChoice: {
+    width: '31%',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 18,
+    backgroundColor: fixed.thumbFace,
+  },
+  moodChoiceOn: {
+    backgroundColor: fixed.lilacDeep,
+  },
+  moodChoiceEmoji: {
+    fontSize: 30,
+  },
+  moodChoiceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.text,
   },
   mediaHead: {

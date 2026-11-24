@@ -40,7 +40,7 @@ function startOfDay(at: number) {
 }
 
 // Un petit calendrier : le mois, ses flèches, et le jour choisi en lilas.
-function MonthPicker({ value, onChange }: { value: number; onChange: (at: number) => void }) {
+export function MonthPicker({ value, onChange }: { value: number; onChange: (at: number) => void }) {
   const styles = useStyles();
   const colors = useColors();
   const [month, setMonth] = useState(() => {

@@ -17,7 +17,7 @@ import { migrateStoredFiles } from './src/chat/media';
 import { handleNotificationEvent } from './src/chat/notificationActions';
 import { refreshRemoteConfig } from './src/remoteConfig';
 import { deleteMessages, getContactProfile, getSetting, isBlocked, openDatabase, setContactVerified } from './src/chat/database';
-import { clearNotificationTarget, REQUESTS_TARGET, setNotificationTarget, useNotificationTarget } from './src/chat/notificationTarget';
+import { clearNotificationTarget, CYCLE_TARGET, PENSE_PREFIX, REQUESTS_TARGET, setNotificationTarget, targetOf, useNotificationTarget } from './src/chat/notificationTarget';
 import { chat } from './src/chat/manager';
 import { BottomBar, Tab } from './src/components/BottomBar';
 import { DialogHost, showDialog } from './src/components/dialog';
@@ -31,6 +31,8 @@ import { ContactScreen } from './src/screens/ContactScreen';
 import { NotificationSettingsScreen } from './src/screens/NotificationSettingsScreen';
 import { NousScreen } from './src/screens/NousScreen';
 import { PenseScreen } from './src/screens/PenseScreen';
+import { CycleScreen } from './src/screens/CycleScreen';
+import { rescheduleCycleNotifications } from './src/couple/cycleNotifications';
 import { DatesScreen } from './src/screens/DatesScreen';
 import { MediaScreen } from './src/screens/MediaScreen';
 import { OnboardingScreen, OnboardingStep } from './src/onboarding/OnboardingScreen';
@@ -80,6 +82,8 @@ type Route =
   // Nébula : Pense à toi (et pouce contre pouce), puis Nos dates.
   | { name: 'pense'; publicKey: string }
   | { name: 'dates' }
+  // Nébula : le suivi du cycle (carte de l'onglet Nous).
+  | { name: 'cycle' }
   // Nébula : les médias échangés (planche « Médias et visionneuse »).
   | { name: 'media'; publicKey: string }
   | { name: 'notifications'; publicKey: string }
@@ -293,7 +297,7 @@ function App() {
 
     // Appuyer sur une notification ouvre directement la conversation : app fermée (notification
     // initiale), au premier plan (ici) ou en arrière-plan (index.ts). L'ouverture se fait plus bas.
-    notifee.getInitialNotification().then((initial) => setNotificationTarget(initial?.notification.data?.contact));
+    notifee.getInitialNotification().then((initial) => setNotificationTarget(targetOf(initial?.notification.data)));
     const stopEvents = notifee.onForegroundEvent(handleNotificationEvent);
     // Les pushs reçus app ouverte sont traités par le moteur des conversations (connections.ts).
     return stopEvents;
@@ -308,9 +312,26 @@ function App() {
       setRoute({ name: 'requests' });
       return;
     }
+    // Nébula : une pensée ouvre Pense à toi, un rappel du cycle ouvre le suivi du cycle.
+    if (notificationTarget === CYCLE_TARGET) {
+      setRoute({ name: 'cycle' });
+      return;
+    }
+    if (notificationTarget.startsWith(PENSE_PREFIX)) {
+      const key = notificationTarget.slice(PENSE_PREFIX.length);
+      setRoute(contacts.some((contact) => contact.publicKey === key) ? { name: 'pense', publicKey: key } : { name: 'home' });
+      return;
+    }
     const known = contacts.some((contact) => contact.publicKey === notificationTarget);
     setRoute(known ? { name: 'chat', publicKey: notificationTarget } : { name: 'home' });
   }, [notificationTarget, identity, contacts]);
+
+  // Nébula : les rappels du cycle sont reprogrammés à chaque ouverture (les dates prévues avancent).
+  const partnerName = contacts.find((contact) => !contact.pending)?.name ?? null;
+  useEffect(() => {
+    if (!identity || !active || partnerName === null) return;
+    rescheduleCycleNotifications(partnerName).catch((e) => log.warn('rappels du cycle', e));
+  }, [identity, active, partnerName]);
 
   // Au premier plan, l'app garde les connexions ouvertes. En arrière-plan, seul un push la réveille.
   useEffect(() => {
@@ -717,6 +738,9 @@ function App() {
       const partner = contacts.find((contact) => contact.publicKey === current.publicKey);
       if (partner) return <MediaScreen contact={partner} onBack={() => setRoute(parentOf(current) ?? { name: 'home' })} />;
     }
+    if (current.name === 'cycle') {
+      return <CycleScreen partner={contacts.find((contact) => !contact.pending) ?? null} onBack={() => setRoute(parentOf(current) ?? { name: 'home' })} />;
+    }
     if (current.name === 'dates') {
       return <DatesScreen partner={contacts.find((contact) => !contact.pending) ?? null} onBack={() => setRoute(parentOf(current) ?? { name: 'home' })} />;
     }
@@ -734,6 +758,8 @@ function App() {
         onMedia={(contact) => setRoute({ name: 'media', publicKey: contact.publicKey })}
         onPense={(contact) => setRoute({ name: 'pense', publicKey: contact.publicKey })}
         onDates={() => setRoute({ name: 'dates' })}
+        onCycle={() => setRoute({ name: 'cycle' })}
+        onMap={(contact) => setRoute({ name: 'map', focus: contact.publicKey })}
       />
     );
   };

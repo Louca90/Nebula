@@ -234,7 +234,19 @@ export function receiveFileOffer(core: ChatCore, contact: string, data: Payload)
     // L'expéditeur a corrigé la taille annoncée : on attend la vraie.
     setFileSize(data.id, contact, size);
   }
-  startReceiving(core, contact, data.id, size);
+  queueStartReceiving(core, contact, data.id, size);
+}
+
+// Nébula : l'ouverture du fichier passe dans la file d'écriture, après la fermeture d'une réception
+// précédente du même fichier (connexion coupée, app réveillée en arrière-plan puis rendormie). Sans
+// cela, la reprise pouvait lire le fichier pendant que l'ancienne écriture n'était pas finie : la
+// taille tombait au milieu d'un morceau, le fichier repartait de zéro avec une nouvelle clé, et la fin
+// de l'ancienne écriture (chiffrée avec l'ancienne clé) s'y mélangeait. Le vocal reçu app fermée
+// devenait illisible.
+function queueStartReceiving(core: ChatCore, contact: string, id: string, size: number) {
+  core.writeQueue = core.writeQueue
+    .then(() => startReceiving(core, contact, id, size))
+    .catch((e) => log.warn('reprise du fichier', e));
 }
 
 // Ouvre (ou reprend) l'écriture du fichier et demande la suite à l'expéditeur.
@@ -273,7 +285,7 @@ function startReceiving(core: ChatCore, contact: string, id: string, size: numbe
 export function acceptFile(core: ChatCore, contact: string, id: string) {
   setIncomingStatus(id, contact, 'offered', 'receiving');
   const message = getMessage(id, contact);
-  if (message?.status === 'receiving' && message.file_size !== null) startReceiving(core, contact, id, message.file_size);
+  if (message?.status === 'receiving' && message.file_size !== null) queueStartReceiving(core, contact, id, message.file_size);
   core.notify();
 }
 
