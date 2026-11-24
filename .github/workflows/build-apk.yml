@@ -1,0 +1,56 @@
+# Compile l'APK release de Nébula sur les serveurs de GitHub, SANS le signer : la clé de signature ne
+# quitte jamais son propriétaire. L'APK non signé est déposé seul sur la branche « apk-build » ; il est
+# ensuite signé à part (apksigner) avec la clé de Nébula. Lancement manuel (Actions → APK non signé).
+name: APK non signé
+
+on:
+  workflow_dispatch:
+    inputs:
+      google_services:
+        description: 'google-services.json encodé en base64 (identifiants Firebase, déjà présents dans chaque APK publié)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - name: google-services.json
+        env:
+          GOOGLE_SERVICES: ${{ inputs.google_services }}
+        run: printf '%s' "$GOOGLE_SERVICES" | base64 -d > google-services.json
+      - run: npx expo prebuild --platform android --no-install
+        env:
+          CI: '1'
+      # Pas de clé ici : l'APK sort non signé (app-release-unsigned.apk).
+      - name: Sans signature
+        run: sed -i '/signingConfig signingConfigs.release/d' android/app/build.gradle
+      - name: Compilation
+        working-directory: android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+      - name: Dépôt sur la branche apk-build
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          mkdir -p /tmp/out && cp "$APK" /tmp/out/nebula-unsigned.apk
+          cd /tmp/out
+          git init -q -b apk-build
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add nebula-unsigned.apk
+          git commit -q -m "APK non signé (${GITHUB_SHA::7})"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" apk-build
