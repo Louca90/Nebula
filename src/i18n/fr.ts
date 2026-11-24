@@ -1193,6 +1193,7 @@ export const fr = {
     apercuAppel: 'Appel',
   },
   cycle: {
+    cEstElle: 'C’est {nom} qui note son cycle',
     finPrevue: 'Fin prévue dans {n} j',
     jourDuCycleCourt: 'jour du cycle',
     aujourdhui: 'Aujourd’hui',

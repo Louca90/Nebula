@@ -80,6 +80,11 @@ export function ShareReceiver({ contacts, ready, onSent }: { contacts: Contact[]
     try {
       for (const [index, key] of keys.entries()) {
         for (const item of items) {
+          // Nébula : un texte ou un lien partagé devient un message.
+          if (item.text) {
+            chat.send(key, item.text);
+            continue;
+          }
           // L'envoi déplace le fichier du cache : chaque contact sauf le dernier reçoit une copie.
           // Nébula : photo, vidéo, ou n'importe quel autre fichier (envoyé comme document, avec son nom).
           const video = item.mime.startsWith('video/');
