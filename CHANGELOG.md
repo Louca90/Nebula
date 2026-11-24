@@ -6,6 +6,8 @@
 
 - Le calendrier du cycle se feuillette au doigt, et chaque jour a sa fiche : douleur, médicaments, humeur.
 - Les écrans vides montrent le lys et quoi faire.
+- L'onglet Nous repensé : son dernier message, les gestes rapides et la journée en un coup d'œil.
+- Appareil photo et retouche redessinés, sans les filtres : outils ronds, boutons Enregistrer et Envoyer en bas.
 - Sous le capot : synchronisation du couple réunie, publication en une seule commande.
 
 ### Détails
@@ -15,6 +17,9 @@
 - Calendrier du cycle : glisser vers la gauche ou la droite pour changer de mois.
 - Fiche d'un jour : phase, douleur (modifiable par elle pour un jour passé), médicaments pris ce jour-là, humeur notée ce jour-là.
 - États vides (Nos dates, stickers, stockage, médicaments) : le lys, une phrase claire et, quand il y en a une, l'action à faire.
+- Onglet Nous : dernier message avec un bouton pour répondre, raccourcis (Pense à toi, Appeler, Position, Photo) et la liste « Aujourd'hui » (humeur, cycle, distance, prochaine date).
+- Appareil photo : « Pour [prénom] » en haut quand on vient d'une conversation, zoom en pastilles, déclencheur au cœur lilas, onglets Photo / Vidéo en rail.
+- Retouche photo et vidéo : en-tête « Retoucher », média aux coins arrondis, outils ronds avec leur nom (la vitesse s'écrit dans son bouton), Enregistrer et Envoyer en bas. Les filtres (Ambiance et glissé) sont retirés.
 
 #### Technique
 

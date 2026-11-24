@@ -1,30 +1,29 @@
 import { t } from '../i18n';
 import { ComponentRef, memo, ReactNode, Ref, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Dimensions, findNodeHandle, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, findNodeHandle, Image, StyleSheet, Text, View } from 'react-native';
 import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming, cancelAnimation, withDelay, withSequence } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
 import { File, Paths } from 'expo-file-system';
 import { haptics } from '../haptics';
 import { useVideoPlayer, VideoPlayer, VideoView } from 'expo-video';
 import { getThumbnailAsync } from 'expo-video-thumbnails';
-import { ArrowRight, Crop as CropIcon, Gauge, Pencil, Scissors, SlidersHorizontal, Smile, Trash2, Type, Undo2, Volume2, VolumeX, X } from 'lucide-react-native';
+import { ArrowRight, Check, Crop as CropIcon, Download, Gauge, Pencil, Scissors, SlidersHorizontal, Smile, Trash2, Type, Undo2, Volume2, VolumeX, X } from 'lucide-react-native';
 import { GestureDetector, usePanGesture, usePinchGesture, useRotationGesture, useSimultaneousGestures, useTapGesture } from 'react-native-gesture-handler';
 import Svg, { Defs, FeColorMatrix, Filter, G, Image as SvgImage } from 'react-native-svg';
 
 import { captureView, editVideo } from '../../modules/pear-native';
 import { VIDEO_BITRATE } from '../config';
 import { createMediaStyles, fixed, radius, spacing, useMediaColors } from '../theme';
-import { IconButton, useInsets, useNavigationBarHeight, usePressFeedback } from './ui';
+import { IconButton, useInsets, useNavigationBarHeight } from './ui';
 import { log } from '../log';
 import { DURATION, timing } from '../motion';
 import { AdjustPanel } from './editor/AdjustPanel';
-import { AmbiancePanel } from './editor/AmbiancePanel';
 import { ColorMatrix, isIdentity, toMedia3 } from './editor/colorMatrix';
-import { AmbianceIcon, EditorToolbar, TOOLBAR_HEIGHT } from './editor/EditorToolbar';
+import { EditorToolbar, TOOLBAR_HEIGHT } from './editor/EditorToolbar';
+import { GrainButton } from './nebula';
 import { FilteredView } from './editor/FilteredView';
-import { Adjustments, FilterId, isAdjusted, matrixOf, neighborOf, NO_ADJUSTMENTS, presetOf, stepsOf } from './editor/filters';
+import { Adjustments, FilterId, isAdjusted, matrixOf, NO_ADJUSTMENTS, presetOf, stepsOf } from './editor/filters';
 import { bringToFront, clamp, Layer, layerAt, newLayerId, SCALE_MAX, SCALE_MIN, Size, TEXT_SIZE_DEFAULT, TextLayer, updateLayer } from './editor/layers';
-import { getStampStyle, peekAmbient, readAmbient } from './editor/ambient';
+import { getStampStyle, readAmbient } from './editor/ambient';
 import { Ambient, formatStamp, NO_AMBIENT, Stamp, StampMarks } from './editor/stamps';
 import { TextEditor } from './editor/TextEditor';
 import { TextLayerView } from './editor/TextLayerView';
@@ -36,14 +35,6 @@ import { Crop, cropGeometry, ImagePlacement, isCropped, NO_CROP } from './editor
 import { CropPanel } from './editor/CropPanel';
 import { Trim, TrimPanel } from './editor/TrimPanel';
 
-// Un glissé horizontal devient un changement de filtre au-delà de cette distance.
-const SWIPE_START = 12;
-// Lâché après ce tiers de l'écran, ou lancé assez vite, le filtre voisin s'installe.
-const SWIPE_COMMIT = 0.3;
-const SWIPE_FLING = 500;
-// Vidéo (une seule vue vidéo, pas d'aperçu pendant le glissé) : distance pour passer au filtre voisin.
-const VIDEO_SWIPE_DISTANCE = 50;
-const SWIPE_MS = 220;
 const EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
 const TRASH_SIZE = 56;
 // Les vitesses proposées, dans l'ordre où le bouton les fait défiler.
@@ -53,14 +44,13 @@ const TRASH_REACH = 56;
 const EXPORT_SCALE_MAX = 2.5;
 // Largeur maximale d'un texte, avant qu'il passe à la ligne (en part de l'aperçu).
 const TEXT_MAX_WIDTH = 0.86;
-// Les boutons ronds du haut (fermer, annuler) et la pilule « Envoyer ».
+// Les boutons ronds du haut (fermer, annuler).
 const ROUND_SIZE = 44;
-const SEND_HEIGHT = 40;
-// Hauteur de la rangée Ambiance (vignette 80 + anneau + nom + marges).
-const AMBIANCE_PANEL_HEIGHT = 136;
-// Sans boutons fournis, l'écran parent pose son bouton d'envoi (52 points) en bas : la barre d'outils
-// se place au-dessus.
-const PARENT_SEND_HEIGHT = 52;
+// La rangée « Enregistrer · Envoyer » du bas (celle de l'éditeur, ou le bouton d'envoi du parent).
+const ACTIONS_HEIGHT = 52;
+// Le média, posé entre l'en-tête et les outils, à 12 points des bords, coins arrondis.
+const FRAME_MARGIN = 12;
+const FRAME_RADIUS = 24;
 // Historique : une retouche est retenue quand rien n'a bougé pendant ce temps (un pincement, un
 // glissé, un curseur ne font qu'un seul pas en arrière).
 const HISTORY_SETTLE_MS = 400;
@@ -71,21 +61,6 @@ type Edits = { layers: Layer[]; strokes: Stroke[]; filter: FilterId; adjustments
 
 function sameEdits(a: Edits, b: Edits) {
   return (Object.keys(a) as (keyof Edits)[]).every((key) => a[key] === b[key]);
-}
-
-// La pilule claire « Envoyer », avec l'effet d'appui commun.
-function SendPill({ label, onPress }: { label: string; onPress: () => void }) {
-  const colors = useMediaColors();
-  const styles = useStyles();
-  const feedback = usePressFeedback();
-  return (
-    <Pressable onPress={onPress} onPressIn={feedback.onPressIn} onPressOut={feedback.onPressOut} accessibilityRole="button" accessibilityLabel={label} hitSlop={6}>
-      <Reanimated.View style={[styles.send, feedback.style]}>
-        <Text style={styles.sendLabel}>{label}</Text>
-        <ArrowRight size={16} color={colors.text} strokeWidth={2} />
-      </Reanimated.View>
-    </Pressable>
-  );
 }
 
 export type MediaEditorHandle = {
@@ -139,11 +114,10 @@ type Props = {
   initialFilter?: FilterId;
   // Un outil occupe l'écran (réglages, texte, déplacement) : l'écran parent range ses boutons.
   onToolChange?: (open: boolean) => void;
-  // Les boutons du haut de la maquette (fermer, annuler, « Envoyer » en pilule claire, et `extra` entre
-  // les deux, par exemple « enregistrer »). Sans eux, l'écran parent garde ses propres boutons : l'éditeur
-  // n'ajoute alors que « annuler », à droite du bouton fermer du parent, et pose sa barre d'outils au-dessus
-  // du bouton d'envoi du parent.
-  actions?: { onClose: () => void; onSend: () => void; sendLabel?: string; extra?: ReactNode };
+  // En haut : fermer, le titre, `extra` (par exemple « vue unique ») et annuler. En bas : « Enregistrer »
+  // (si `onSave`) et « Envoyer ». Sans eux, l'écran parent garde ses propres boutons : l'éditeur n'ajoute
+  // que « annuler » et laisse la place du bouton d'envoi du parent sous ses outils.
+  actions?: { onClose: () => void; onSend: () => void; sendLabel?: string; onSave?: () => void; saved?: boolean; extra?: ReactNode };
   ref: Ref<MediaEditorHandle>;
 };
 
@@ -173,21 +147,14 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [brush, setBrush] = useState({ color: fixed.white, width: BRUSH_DEFAULT });
   const [overTrash, setOverTrash] = useState(false);
-  // Pendant un glissé sur une photo : le filtre voisin (1 : suivant, par la droite ; -1 : précédent).
-  const [swipeDirection, setSwipeDirection] = useState<0 | 1 | -1>(0);
-  const reveal = useSharedValue(0);
   const exportRoot = useRef<ComponentRef<typeof View>>(null);
   const screen = Dimensions.get('screen');
 
-  // L'image des vignettes Ambiance : la photo elle-même, ou la première image de la vidéo.
-  const [videoPoster, setVideoPoster] = useState<string | null>(null);
-  const poster = kind === 'image' ? uri : videoPoster;
   useEffect(() => {
     if (kind === 'video') {
       getThumbnailAsync(uri, { time: 0 })
         .then((thumbnail) => {
           setSize({ width: thumbnail.width, height: thumbnail.height });
-          setVideoPoster(thumbnail.uri);
         })
         .catch((e) => log.warn('média', e));
       return;
@@ -196,8 +163,6 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
       .then(({ width: measuredWidth, height: measuredHeight }) => setSize({ width: measuredWidth, height: measuredHeight }))
       .catch((e) => log.warn('média', e));
   }, [uri, kind]);
-  // La rangée Ambiance, ouverte au-dessus de la barre d'outils (elle n'occupe pas l'écran : pas « busy »).
-  const [ambiancing, setAmbiancing] = useState(false);
 
   // Vidéo : découpe, son et vitesse, appliqués à l'aperçu par le lecteur puis au fichier par Media3.
   const [trimming, setTrimming] = useState(false);
@@ -297,15 +262,6 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
     },
     [toast],
   );
-  const firstFilter = useRef(true);
-  useEffect(() => {
-    if (firstFilter.current) {
-      firstFilter.current = false;
-      return;
-    }
-    showToast(t(presetOf(filter).label));
-  }, [filter, showToast]);
-
   // La corbeille monte du bas pendant qu'on déplace un calque, et grossit quand il est dessus.
   const trash = useSharedValue(0);
   const trashHover = useSharedValue(0);
@@ -316,10 +272,21 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
     trashHover.set(withTiming(overTrash ? 1 : 0, { duration: 140, easing: EASING }));
   }, [overTrash, trashHover]);
 
-  const geometry = cropGeometry(size ?? screen, crop, screen);
+  // La mise en page : l'en-tête, le cadre du média, les outils, puis la rangée d'actions en bas.
+  const headerTop = topInset + spacing.md;
+  const headerBottom = headerTop + ROUND_SIZE;
+  const toolbarBottom = navigationBar + spacing.lg + ACTIONS_HEIGHT + spacing.md;
+  const toolbarTop = screen.height - toolbarBottom - TOOLBAR_HEIGHT;
+  const frame = {
+    x: FRAME_MARGIN,
+    y: headerBottom + spacing.md,
+    width: screen.width - FRAME_MARGIN * 2,
+    height: Math.max(1, toolbarTop - spacing.md - (headerBottom + spacing.md)),
+  };
+  const geometry = cropGeometry(size ?? frame, crop, frame);
   const { width, height, image: placement, pixelsPerPoint } = geometry;
-  const left = (screen.width - width) / 2;
-  const top = (screen.height - height) / 2;
+  const left = frame.x + (frame.width - width) / 2;
+  const top = frame.y + (frame.height - height) / 2;
   const textMaxWidth = width * TEXT_MAX_WIDTH;
   // Lieu et Batterie se lisent sur le téléphone quand le filtre est choisi (jamais avant).
   const [ambient, setAmbient] = useState<Ambient>(NO_AMBIENT);
@@ -333,19 +300,9 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
       current = false;
     };
   }, [stampKind]);
-  // Rangée Ambiance ouverte : la batterie et la ville (si déjà permise) s'écrivent sur leurs vignettes.
-  useEffect(() => {
-    if (!ambiancing) return;
-    let current = true;
-    peekAmbient().then((found) => current && setAmbient((previous) => ({ ...previous, ...found })));
-    return () => {
-      current = false;
-    };
-  }, [ambiancing]);
-
   const steps = stepsOf(filter, adjustments);
-  const neighbor = swipeDirection !== 0 ? neighborOf(filter, swipeDirection) : null;
-  const trashCenter = { x: screen.width / 2, y: screen.height - navigationBar - spacing.lg - TRASH_SIZE / 2 };
+  // La corbeille se pose en bas du média, là où le doigt l'atteint sans quitter l'image.
+  const trashCenter = { x: screen.width / 2, y: top + height - spacing.lg - TRASH_SIZE / 2 };
 
   const measure = useCallback((id: string, measured: Size) => {
     setSizes((current) => (current[id]?.width === measured.width && current[id]?.height === measured.height ? current : { ...current, [id]: measured }));
@@ -404,37 +361,14 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
     },
   }));
 
-  // --- Filtres ---
-
-  const settling = useRef(false);
-  const settleSwipe = (direction: 1 | -1, commit: boolean) => {
-    settling.current = true;
-    const settled = () => {
-      settling.current = false;
-      if (commit) setFilter((current) => neighborOf(current, direction));
-      setSwipeDirection(0);
-    };
-    reveal.set(
-      withTiming(commit ? 1 : 0, { duration: SWIPE_MS, easing: EASING }, (finished) => {
-        if (finished) scheduleOnRN(settled);
-      }),
-    );
-  };
-  // Remis à zéro une fois la couche voisine retirée : sinon l'ancien filtre reparaîtrait une image.
-  useEffect(() => {
-    if (swipeDirection === 0) reveal.set(0);
-  }, [swipeDirection, reveal]);
-
   // --- Gestes ---
 
-  // Un doigt sur un calque le déplace ; ailleurs, il change de filtre. Deux doigts pincent et tournent
+  // Un doigt sur un calque le déplace. Deux doigts pincent et tournent
   // le calque touché. Les gestes lisent l'état du dernier rendu par cette référence.
   const touch = useRef({
     target: null as string | null,
     base: { x: 0, y: 0, scale: 1, rotation: 0 },
     moved: false,
-    swiping: false,
-    direction: 0 as 0 | 1 | -1,
     ignored: false,
     overTrash: false,
   });
@@ -446,12 +380,10 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
 
   // Les boutons de l'éditeur sont des Pressable, que le détecteur de gestes de l'image ne voit pas :
   // sans ce filtre, un appui sur un outil ajoutait aussi un texte. Un geste qui part de l'en-tête, de la
-  // barre d'outils ou de la rangée Ambiance est laissé aux boutons.
+  // ou de la barre d'outils est laissé aux boutons.
   const onChrome = (absoluteY: number) => {
     if (busy) return false;
-    const headerBottom = topInset + spacing.md + ROUND_SIZE + spacing.sm;
-    const toolbarTop = screen.height - (toolbarBottom + toolbarInset + TOOLBAR_HEIGHT) - (ambiancing ? AMBIANCE_PANEL_HEIGHT + spacing.sm : 0);
-    return absoluteY < headerBottom || absoluteY > toolbarTop;
+    return absoluteY < headerBottom + spacing.sm || absoluteY > toolbarTop;
   };
 
   const latest = {
@@ -466,10 +398,8 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
     },
     panBegin: (x: number, y: number) => {
       const state = touch.current;
-      state.ignored = settling.current || onChrome(top + y);
+      state.ignored = onChrome(top + y);
       state.moved = false;
-      state.swiping = false;
-      state.direction = 0;
       latest.target(x, y);
     },
     panUpdate: (dx: number, dy: number, absoluteX: number, absoluteY: number) => {
@@ -488,28 +418,7 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
           setOverTrash(over);
           if (over) vibrate();
         }
-        return;
       }
-      if (!state.swiping && Math.abs(dx) > SWIPE_START && Math.abs(dx) > Math.abs(dy)) state.swiping = true;
-      if (!state.swiping || kind !== 'image') return;
-      // Vers la gauche, le filtre suivant arrive par la droite, comme sur Snap.
-      const direction = dx < 0 ? 1 : -1;
-      if (direction !== state.direction) {
-        state.direction = direction;
-        setSwipeDirection(direction);
-      }
-      reveal.set(Math.min(1, Math.abs(dx) / width));
-    },
-    panEnd: (dx: number, velocityX: number) => {
-      const state = touch.current;
-      if (state.ignored || state.target || !state.swiping) return;
-      const direction = dx < 0 ? 1 : -1;
-      if (kind !== 'image') {
-        if (Math.abs(dx) > VIDEO_SWIPE_DISTANCE) setFilter((current) => neighborOf(current, direction));
-        return;
-      }
-      const thrown = Math.abs(velocityX) > SWIPE_FLING && Math.sign(velocityX) === Math.sign(dx);
-      settleSwipe(direction, Math.abs(dx) / width > SWIPE_COMMIT || thrown);
     },
     pinch: (scale: number) => {
       const state = touch.current;
@@ -532,10 +441,6 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
       state.overTrash = false;
       setOverTrash(false);
       setDragging(null);
-    },
-    cancel: () => {
-      const state = touch.current;
-      if (!state.ignored && !state.target && state.swiping && state.direction !== 0) settleSwipe(state.direction, false);
     },
     // Un toucher : modifie le texte touché, ou en commence un nouveau.
     tap: (x: number, y: number, absoluteY: number) => {
@@ -566,11 +471,7 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
       latestRef.current.panBegin(event.x, event.y);
     },
     onUpdate: (event) => latestRef.current.panUpdate(event.translationX, event.translationY, event.absoluteX, event.absoluteY),
-    onDeactivate: (event) => latestRef.current.panEnd(event.translationX, event.velocityX),
-    onFinalize: (event) => {
-      if (event.canceled) latestRef.current.cancel();
-      finger(-1);
-    },
+    onFinalize: () => finger(-1),
   });
   const pinch = usePinchGesture({
     runOnJS: true,
@@ -609,11 +510,6 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
     });
   };
 
-  // La couche voisine arrive par un bord : le cadre glisse, l'image dedans reste immobile. Tout est
-  // animé sur le fil de l'interface, sans repasser par React à chaque image.
-  const side = swipeDirection === 1 ? 1 : -1;
-  const frameSlide = useAnimatedStyle(() => ({ transform: [{ translateX: side * width * (1 - reveal.get()) }] }));
-  const contentSlide = useAnimatedStyle(() => ({ transform: [{ translateX: -side * width * (1 - reveal.get()) }] }));
   const toastStyle = useAnimatedStyle(() => ({ opacity: toast.get(), transform: [{ scale: 0.96 + 0.04 * toast.get() }] }));
   const trashStyle = useAnimatedStyle(() => ({ opacity: trash.get(), transform: [{ translateY: 24 * (1 - trash.get()) }, { scale: 1 + 0.25 * trashHover.get() }] }));
   const currentStamp = presetOf(filter).stamp;
@@ -629,12 +525,7 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
 
   // --- Barre d'outils et boutons du haut ---
 
-  // Avec ses propres boutons, la barre est collée en bas ; sinon elle laisse la place au bouton d'envoi du parent.
-  const toolbarBottom = actions ? 0 : navigationBar + spacing.lg + PARENT_SEND_HEIGHT + spacing.sm;
-  const toolbarInset = actions ? navigationBar : 0;
-  const selectedTool = ambiancing
-    ? 'filters'
-    : adjusting
+  const selectedTool = adjusting
       ? 'adjust'
       : drawing
         ? 'draw'
@@ -647,11 +538,7 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
               : editing
                 ? 'text'
                 : null;
-  // Un outil qui prend l'écran referme la rangée Ambiance.
-  const openTool = (open: () => void) => () => {
-    setAmbiancing(false);
-    open();
-  };
+  const openTool = (open: () => void) => () => open();
   const headerVisible = useSharedValue(1);
   useEffect(() => {
     headerVisible.set(timing(busy ? 0 : 1, DURATION.small));
@@ -663,7 +550,7 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
 
   return (
     <>
-      <View style={[styles.canvas, { width, height, left, top }]}>
+      <View style={[styles.canvas, { width, height, left, top }, !busy && styles.framed]}>
         {/* Le fichier final, caché sous l'aperçu. */}
         {size && (
           <View ref={exportRoot} collapsable={false} pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -708,13 +595,6 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
             )}
           </>
         )}
-        {size && neighbor && (
-          <Reanimated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.clip, frameSlide]}>
-            <Reanimated.View style={[StyleSheet.absoluteFill, contentSlide]}>
-              <PhotoLayer uri={uri} id={neighbor} adjustments={adjustments} stamp={stamp} width={width} height={height} placement={placement} />
-            </Reanimated.View>
-          </Reanimated.View>
-        )}
         <StrokesView strokes={strokes} width={width} height={height} />
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {textLayers(true)}
@@ -725,9 +605,6 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
             collapsable={false}
             style={StyleSheet.absoluteFill}
             accessibilityLabel={t('editeur.aide')}
-            accessibilityHint={t(presetOf(filter).label)}
-            accessibilityActions={[{ name: 'increment', label: t('editeur.filtreSuivant') }, { name: 'decrement', label: t('editeur.filtrePrecedent') }]}
-            onAccessibilityAction={({ nativeEvent }) => setFilter((current) => neighborOf(current, nativeEvent.actionName === 'increment' ? 1 : -1))}
           />
         </GestureDetector>
       </View>
@@ -748,53 +625,57 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
         <Trash2 size={24} color={colors.background} strokeWidth={1.75} />
       </Reanimated.View>
 
-      <Reanimated.View pointerEvents={busy ? 'none' : 'box-none'} style={[styles.header, { top: topInset + spacing.md }, headerShown]}>
+      <Reanimated.View pointerEvents={busy ? 'none' : 'box-none'} style={[styles.header, { top: headerTop }, headerShown]}>
         {actions ? (
           <IconButton onPress={actions.onClose} label={t('editeur.fermer')} style={styles.round}>
-            <X size={22} color={colors.background} strokeWidth={1.9} />
+            <X size={20} color={fixed.white} strokeWidth={2} />
           </IconButton>
         ) : (
           // La place du bouton fermer de l'écran parent.
           <View pointerEvents="none" style={styles.roundSpace} />
         )}
+        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
+          {t('editeur.titre')}
+        </Text>
+        {actions?.extra}
         <IconButton onPress={undo} disabled={!canUndo} label={t('editeur.annulerAction')} style={styles.round}>
           <View style={!canUndo && styles.disabled}>
-            <Undo2 size={22} color={colors.background} strokeWidth={1.9} />
+            <Undo2 size={20} color={fixed.white} strokeWidth={1.8} />
           </View>
         </IconButton>
-        <View style={styles.headerSpace} />
-        {actions?.extra}
-        {actions && <SendPill label={actions.sendLabel ?? t('editeur.envoyer')} onPress={actions.onSend} />}
       </Reanimated.View>
 
-      {ambiancing && !busy && <AmbiancePanel value={filter} poster={poster} adjustments={adjustments} stamp={stamp} bottom={toolbarBottom + toolbarInset + TOOLBAR_HEIGHT + spacing.sm} onChange={setFilter} />}
+      {actions && (
+        <Reanimated.View pointerEvents={busy ? 'none' : 'box-none'} style={[styles.actions, { bottom: navigationBar + spacing.lg }, headerShown]}>
+          {actions.onSave && (
+            <GrainButton
+              variant="smoke"
+              style={styles.action}
+              label={actions.saved ? t('camera.enregistre') : t('editeur.enregistrer')}
+              disabled={actions.saved}
+              icon={actions.saved ? <Check size={18} color={fixed.white} strokeWidth={2} /> : <Download size={18} color={fixed.white} strokeWidth={1.8} />}
+              onPress={actions.onSave}
+            />
+          )}
+          <GrainButton style={styles.action} label={actions.sendLabel ?? t('editeur.envoyer')} icon={<ArrowRight size={18} color={fixed.onGrainButton} strokeWidth={2} />} onPress={actions.onSend} />
+        </Reanimated.View>
+      )}
 
       <EditorToolbar
         bottom={toolbarBottom}
-        inset={toolbarInset}
         hidden={busy}
         selected={selectedTool}
-        tools={[
-          ...(kind === 'image' ? [{ id: 'crop', icon: CropIcon, label: t('editeur.recadrer'), on: isCropped(crop), onPress: openTool(() => setCropping(true)) }] : []),
-          ...(kind === 'video'
-            ? [{ id: 'trim', icon: Scissors, label: t('editeur.decouper'), on: trim.start > 0 || trim.end !== null, onPress: openTool(() => duration > 0 && setTrimming(true)) }]
-            : []),
-          { id: 'draw', icon: Pencil, label: t('editeur.dessin'), on: strokes.length > 0, onPress: openTool(() => setDrawing(true)) },
-          { id: 'text', icon: Type, label: t('editeur.texte'), onPress: openTool(startNewText) },
-          {
-            id: 'filters',
-            icon: AmbianceIcon,
-            label: t('editeur.ambiance'),
-            on: filter !== 'none',
-            onPress: () => {
-              vibrate();
-              setAmbiancing((open) => !open);
-            },
-          },
-          { id: 'stickers', icon: Smile, label: t('editeur.stickers'), onPress: openTool(() => setPicking(true)) },
-          { id: 'adjust', icon: SlidersHorizontal, label: t('editeur.reglages'), on: isAdjusted(adjustments), onPress: openTool(() => setAdjusting(true)) },
-          ...(kind === 'video'
+        tools={
+          kind === 'image'
             ? [
+                { id: 'crop', icon: CropIcon, label: t('editeur.recadrer'), on: isCropped(crop), onPress: openTool(() => setCropping(true)) },
+                { id: 'text', icon: Type, label: t('editeur.texte'), onPress: openTool(startNewText) },
+                { id: 'draw', icon: Pencil, label: t('editeur.dessin'), on: strokes.length > 0, onPress: openTool(() => setDrawing(true)) },
+                { id: 'stickers', icon: Smile, label: t('editeur.stickers'), onPress: openTool(() => setPicking(true)) },
+                { id: 'adjust', icon: SlidersHorizontal, label: t('editeur.reglages'), on: isAdjusted(adjustments), onPress: openTool(() => setAdjusting(true)) },
+              ]
+            : [
+                { id: 'trim', icon: Scissors, label: t('editeur.decouper'), on: trim.start > 0 || trim.end !== null, onPress: openTool(() => duration > 0 && setTrimming(true)) },
                 {
                   id: 'sound',
                   icon: muted ? VolumeX : Volume2,
@@ -809,6 +690,8 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
                 {
                   id: 'speed',
                   icon: Gauge,
+                  // La vitesse s'écrit dans le bouton (« 1× », « 1,5× »…) plutôt qu'une icône.
+                  text: `${String(speed).replace('.', ',')}×`,
                   label: t('editeur.vitesse'),
                   on: speed !== 1,
                   onPress: () => {
@@ -818,9 +701,12 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
                     showToast(t('editeur.vitesseValeur', { vitesse: String(next).replace('.', ',') }));
                   },
                 },
+                { id: 'text', icon: Type, label: t('editeur.texte'), onPress: openTool(startNewText) },
+                { id: 'draw', icon: Pencil, label: t('editeur.dessin'), on: strokes.length > 0, onPress: openTool(() => setDrawing(true)) },
+                { id: 'stickers', icon: Smile, label: t('editeur.stickers'), onPress: openTool(() => setPicking(true)) },
+                { id: 'adjust', icon: SlidersHorizontal, label: t('editeur.reglages'), on: isAdjusted(adjustments), onPress: openTool(() => setAdjusting(true)) },
               ]
-            : []),
-        ]}
+        }
       />
 
       {adjusting && <AdjustPanel value={adjustments} bottom={navigationBar} onChange={setAdjustments} onClose={() => setAdjusting(false)} />}
@@ -867,8 +753,8 @@ const useStyles = createMediaStyles((colors) => ({
     position: 'absolute',
     overflow: 'hidden',
   },
-  clip: {
-    overflow: 'hidden',
+  framed: {
+    borderRadius: FRAME_RADIUS,
   },
   toast: {
     position: 'absolute',
@@ -905,14 +791,28 @@ const useStyles = createMediaStyles((colors) => ({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  headerSpace: {
+  title: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '600',
+    color: fixed.white,
+  },
+  actions: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  action: {
     flex: 1,
   },
   round: {
     width: ROUND_SIZE,
     height: ROUND_SIZE,
     borderRadius: radius.full,
-    backgroundColor: colors.overlay,
+    backgroundColor: fixed.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -922,19 +822,5 @@ const useStyles = createMediaStyles((colors) => ({
   },
   disabled: {
     opacity: 0.4,
-  },
-  send: {
-    height: SEND_HEIGHT,
-    paddingHorizontal: 18,
-    borderRadius: SEND_HEIGHT / 2,
-    backgroundColor: colors.background,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  sendLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
   },
 }));

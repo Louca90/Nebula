@@ -25,7 +25,8 @@ import { getStampStyle, nextStampStyle, readAmbient } from '../components/editor
 import { Ambient, formatStamp, NO_AMBIENT, StampMarks } from '../components/editor/stamps';
 import Svg from 'react-native-svg';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Button, IconButton, useInsets } from '../components/ui';
+import { Avatar, Button, IconButton, useInsets } from '../components/ui';
+import { getContactProfile } from '../chat/database';
 import { Contact } from '../storage';
 import { createMediaStyles, fixed, radius, spacing, useMediaColors } from '../theme';
 import { DURATION, timing } from '../motion';
@@ -76,17 +77,20 @@ const PREVIEW_FADE_MS = 200;
 
 type CameraMode = 'photo' | 'video';
 
-// Les onglets PHOTO / VIDÉO sous l'aperçu : le choisi passe en clair, l'autre en gris (fondu sur le fil natif).
+// Les onglets Photo / Vidéo sous le déclencheur : un rail sombre, l'onglet choisi s'y éclaire (fondu natif).
 function ModeTab({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const styles = useStyles();
   const on = useSharedValue(selected ? 1 : 0);
   useEffect(() => {
     on.set(timing(selected ? 1 : 0, 200));
   }, [selected, on]);
-  const style = useAnimatedStyle(() => ({ color: interpolateColor(on.get(), [0, 1], [fixed.cameraIdle, fixed.white]) }));
+  const tab = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(on.get(), [0, 1], [fixed.transparent, fixed.segmentOn]) }));
+  const style = useAnimatedStyle(() => ({ color: interpolateColor(on.get(), [0, 1], [fixed.cameraIdle, fixed.onSignatureSoft]) }));
   return (
-    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="tab" accessibilityState={{ selected }} style={styles.modeTab}>
-      <Reanimated.Text style={[styles.modeLabel, style]}>{label}</Reanimated.Text>
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="tab" accessibilityState={{ selected }}>
+      <Reanimated.View style={[styles.modeTab, tab]}>
+        <Reanimated.Text style={[styles.modeLabel, style]}>{label}</Reanimated.Text>
+      </Reanimated.View>
     </Pressable>
   );
 }
@@ -99,12 +103,17 @@ function ModeTabs({ mode, hidden, bottom, onChange }: { mode: CameraMode; hidden
   }, [hidden, shown]);
   const style = useAnimatedStyle(() => ({ opacity: shown.get() }));
   return (
-    <Reanimated.View pointerEvents={hidden ? 'none' : 'box-none'} style={[styles.modeTabs, { bottom }, style]} accessibilityRole="tablist">
-      <ModeTab label={t('camera.modePhoto')} selected={mode === 'photo'} onPress={() => onChange('photo')} />
-      <ModeTab label={t('camera.modeVideo')} selected={mode === 'video'} onPress={() => onChange('video')} />
+    <Reanimated.View pointerEvents={hidden ? 'none' : 'box-none'} style={[styles.modeTabs, { bottom }, style]}>
+      <View style={styles.modeRail} accessibilityRole="tablist">
+        <ModeTab label={t('camera.modePhoto')} selected={mode === 'photo'} onPress={() => onChange('photo')} />
+        <ModeTab label={t('camera.modeVideo')} selected={mode === 'video'} onPress={() => onChange('video')} />
+      </View>
     </Reanimated.View>
   );
 }
+
+// La pastille « vue unique » : sous l'en-tête de l'éditeur (16 + 44), dans le haut du média.
+const ONCE_HINT_TOP = 88;
 
 type Capture = { uri: string; kind: 'image' | 'video'; takenAt: number; filter: FilterId };
 
@@ -129,6 +138,7 @@ type ReviewProps = {
 function CaptureReview({ capture, contacts, onDiscard, onSent, to }: ReviewProps) {
   const colors = useMediaColors();
   const styles = useStyles();
+  const { top: topInset } = useInsets();
   const [picking, setPicking] = useState(false);
   const [saved, setSaved] = useState(false);
   // Vue unique : le contact ne peut ouvrir la photo (ou la vidéo) qu'une fois. Désactivé à chaque nouvelle prise.
@@ -218,8 +228,9 @@ function CaptureReview({ capture, contacts, onDiscard, onSent, to }: ReviewProps
           actions={{
             onClose: onDiscard,
             onSend: () => (to ? send([to]) : setPicking(true)),
+            onSave: save,
+            saved,
             extra: (
-              <>
               <IconButton onPress={toggleOnce} label={t('unique.bouton')} style={styles.roundControl}>
                 {/* Même icône que dans le sélecteur de la galerie : un « 1 » dans un anneau en pointillés. */}
                 <Reanimated.View style={[styles.onceFill, onceStyle]}>
@@ -228,15 +239,11 @@ function CaptureReview({ capture, contacts, onDiscard, onSent, to }: ReviewProps
                   </View>
                 </Reanimated.View>
               </IconButton>
-              <IconButton onPress={save} disabled={saved} label={saved ? t('camera.enregistre') : t('camera.enregistrerGalerie')} style={styles.roundControl}>
-                {saved ? <Check size={22} color={colors.background} strokeWidth={2} /> : <Download size={22} color={colors.background} strokeWidth={1.9} />}
-              </IconButton>
-              </>
             ),
           }}
         />
         {once && (
-          <Reanimated.Text entering={FadeIn.duration(180)} style={styles.onceHint}>
+          <Reanimated.Text entering={FadeIn.duration(180)} style={[styles.onceHint, { top: topInset + ONCE_HINT_TOP }]}>
             {t('unique.camera')}
           </Reanimated.Text>
         )}
@@ -267,6 +274,7 @@ export function CameraScreen({ contacts, to, onSent, onRecordingChange }: Props)
   const colors = useMediaColors();
   const styles = useStyles();
   const { top: topInset } = useInsets();
+  const recipient = to ? contacts.find((contact) => contact.publicKey === to) : undefined;
   const [cameraPermission, requestCamera] = useCameraPermissions();
   const [microphonePermission, requestMicrophone] = useMicrophonePermissions();
   const cameraAllowed = cameraPermission?.granted ?? cameraKnown.granted;
@@ -696,6 +704,18 @@ export function CameraScreen({ contacts, to, onSent, onRecordingChange }: Props)
 
       {!filming && (
         <View pointerEvents="box-none" style={[styles.topControls, { top: topInset + spacing.md }]}>
+          {/* Ouvert depuis une conversation : à qui partira la photo, entre deux places de 44 points. */}
+          <View style={styles.topSide} />
+          <View style={styles.topMiddle}>
+            {recipient && (
+              <View style={styles.recipient} accessibilityLabel={t('camera.pour', { nom: recipient.name })}>
+                <Avatar uri={getContactProfile(recipient.publicKey).photo_uri} size={22} />
+                <Text style={styles.recipientLabel} numberOfLines={1}>
+                  {t('camera.pour', { nom: recipient.name })}
+                </Text>
+              </View>
+            )}
+          </View>
           <IconButton onPress={() => setFlashOn(!flashOn)} label={flashOn ? t('camera.couperFlash') : t('camera.activerFlash')} style={styles.roundControl}>
             {flashOn ? <Zap size={20} color={colors.signature} fill={colors.signature} strokeWidth={2} /> : <ZapOff size={20} color={colors.onMedia} strokeWidth={2} />}
           </IconButton>
@@ -840,7 +860,32 @@ const useStyles = createMediaStyles((colors) => ({
     left: spacing.lg,
     right: spacing.lg,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 10,
+  },
+  topSide: {
+    width: 44,
+  },
+  topMiddle: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  recipient: {
+    height: 36,
+    maxWidth: '100%',
+    paddingLeft: 7,
+    paddingRight: 14,
+    borderRadius: radius.full,
+    backgroundColor: fixed.smokeButton,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recipientLabel: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: fixed.white,
   },
   filterRow: {
     position: 'absolute',
@@ -867,19 +912,25 @@ const useStyles = createMediaStyles((colors) => ({
     left: 0,
     right: 0,
     height: MODE_TABS_HEIGHT,
-    flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 26,
+    justifyContent: 'center',
+  },
+  modeRail: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 3,
+    borderRadius: radius.full,
+    backgroundColor: fixed.segmentTrack,
   },
   modeTab: {
-    paddingHorizontal: 4,
-    paddingVertical: 8,
+    height: 26,
+    paddingHorizontal: 14,
+    borderRadius: radius.full,
+    justifyContent: 'center',
   },
   modeLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    letterSpacing: 0.8,
   },
   thumbPlace: {
     position: 'absolute',
@@ -920,14 +971,18 @@ const useStyles = createMediaStyles((colors) => ({
     fontSize: 13,
     fontWeight: '700',
   },
+  // Posé en haut du média, sous l'en-tête de l'éditeur, dans une pastille lisible sur toute photo.
   onceHint: {
     position: 'absolute',
     alignSelf: 'center',
-    bottom: 120,
     fontSize: 13,
-    color: colors.background,
+    color: fixed.white,
     textAlign: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    backgroundColor: fixed.card,
+    overflow: 'hidden',
   },
   roundControl: {
     width: 44,

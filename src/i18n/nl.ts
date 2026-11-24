@@ -231,6 +231,7 @@ export const nl: Dictionary = {
     fichierAbime: 'Het gedownloade bestand komt niet overeen met de gepubliceerde update. Probeer het opnieuw: het wordt opnieuw gedownload.',
   },
   camera: {
+    pour: 'Voor {nom}',
     zoom: 'Zoom ×{valeur}',
     jeter: 'Weggooien',
     enregistre: 'Opgeslagen',
@@ -288,6 +289,8 @@ export const nl: Dictionary = {
     envoyerPlusieurs: '{n} bestanden versturen naar',
   },
   editeur: {
+    titre: 'Bewerken',
+    enregistrer: 'Opslaan',
     filtreOriginal: 'Origineel',
     filtreSombre: 'Donker',
     filtreHeure: 'Tijd',

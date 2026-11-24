@@ -231,6 +231,7 @@ export const de: Dictionary = {
     fichierAbime: 'Die heruntergeladene Datei passt nicht zum veröffentlichten Update. Versuche es erneut: sie wird neu heruntergeladen.',
   },
   camera: {
+    pour: 'Für {nom}',
     zoom: 'Zoom ×{valeur}',
     jeter: 'Verwerfen',
     enregistre: 'Gespeichert',
@@ -288,6 +289,8 @@ export const de: Dictionary = {
     envoyerPlusieurs: '{n} Dateien senden an',
   },
   editeur: {
+    titre: 'Bearbeiten',
+    enregistrer: 'Speichern',
     filtreOriginal: 'Original',
     filtreSombre: 'Dunkel',
     filtreHeure: 'Uhrzeit',

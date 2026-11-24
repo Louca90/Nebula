@@ -312,6 +312,7 @@ export const en: Dictionary = {
     fichierAbime: 'The downloaded file doesn\'t match the published update. Try again: it will be downloaded again.',
   },
   camera: {
+    pour: 'For {nom}',
     zoom: 'Zoom ×{valeur}',
     jeter: 'Discard',
     enregistre: 'Saved',
@@ -382,6 +383,8 @@ export const en: Dictionary = {
     envoyerPlusieurs: 'Send {n} files to',
   },
   editeur: {
+    titre: 'Edit',
+    enregistrer: 'Save',
     filtreOriginal: 'Original',
     filtreSombre: 'Dark',
     filtreHeure: 'Time',

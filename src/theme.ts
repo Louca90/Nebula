@@ -146,6 +146,9 @@ export const fixed = {
   thumbTrack: '#2A2A2E',
   thumbFace: '#232327',
   onSignatureSoft: '#E6DDF5',
+  // Appareil photo : le rail des onglets Photo / Vidéo et l'onglet choisi.
+  segmentTrack: '#1E1A24',
+  segmentOn: '#2A2433',
   ringTrack: '#26262A',
   transparent: 'transparent',
   hairline: 'rgba(255, 255, 255, 0.07)',

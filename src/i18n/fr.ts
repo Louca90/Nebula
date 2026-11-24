@@ -311,6 +311,7 @@ export const fr = {
     fichierAbime: 'Le fichier téléchargé ne correspond pas à la mise à jour publiée. Réessayez : il sera retéléchargé.',
   },
   camera: {
+    pour: 'Pour {nom}',
     zoom: 'Zoom ×{valeur}',
     jeter: 'Jeter',
     enregistre: 'Enregistré',
@@ -381,6 +382,8 @@ export const fr = {
     envoyerPlusieurs: 'Envoyer {n} fichiers à',
   },
   editeur: {
+    titre: 'Retoucher',
+    enregistrer: 'Enregistrer',
     filtreOriginal: 'Original',
     filtreSombre: 'Sombre',
     filtreHeure: 'Heure',
