@@ -74,14 +74,13 @@ const ANNOUNCE_URL = 'https://pear-drab.vercel.app/api/announce';
 
 // Notification « Pear X.Y est disponible » : un échec ne doit pas faire croire que la release a échoué.
 async function announce(version, versionCode) {
-  // Le serveur n'annonce que sur le topic de Pear : pas d'annonce pour Nébula tant qu'il ne gère pas « updates-nebula ».
-  return console.log("Nébula : pas d'annonce par push pour l'instant.");
   const secret = process.env.ANNOUNCE_SECRET;
   if (!secret) return console.log("ANNOUNCE_SECRET absent : pas d'annonce aux téléphones.");
   const response = await fetch(ANNOUNCE_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ version, versionCode }),
+    // app : le serveur (partagé avec Pear) annonce sur le topic de Nébula.
+    body: JSON.stringify({ version, versionCode, app: 'nebula' }),
   });
   console.log(response.ok ? 'Annonce envoyée.' : `Annonce refusée (${response.status}).`);
 }

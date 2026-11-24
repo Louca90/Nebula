@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Reanimated, { useAnimatedProps, useSharedValue } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
-import { ArrowLeft, ChevronLeft, ChevronRight, Droplet, Minus, Plus } from 'lucide-react-native';
+import { ArrowLeft, ChevronLeft, ChevronRight, Droplet, Minus, Pill, Plus } from 'lucide-react-native';
 
 import { chat } from '../chat/manager';
 import { acceptedPairingFrom, getContactProfile } from '../chat/database';
-import { cycleOwner, cycleStats, CycleData, cycleSummary, deletePeriod, endPeriod, PainLevel, setCycleOwner, setCycleSettings, setPain, startPeriod, useCycle } from '../couple/cycle';
+import { addMedDose, cycleOwner, cycleStats, CycleData, cycleSummary, deleteMedDose, deletePeriod, endPeriod, PainLevel, setCycleOwner, setCycleSettings, setPain, startPeriod, useCycle } from '../couple/cycle';
 import { DAY_MS, dayInfo, dayKey, dayStart, MAX_CYCLE, MIN_CYCLE, Phase, sortedPeriods } from '../couple/cycleMath';
 import { painLabel } from '../couple/cycleNotifications';
+import { lastDoses, MEDS } from '../couple/meds';
 import { haptics } from '../haptics';
 import { showDialog } from '../components/dialog';
 import { Sheet } from '../components/Sheet';
@@ -139,6 +140,76 @@ function CycleCalendar({ data, now, onDay }: { data: CycleData; now: number; onD
         </View>
       </View>
     </View>
+  );
+}
+
+const clock = (at: number) => format(at, { hour: '2-digit', minute: '2-digit' });
+
+// Nébula : les médicaments pris (planche « Cycle »). Elle touche celui qu'elle vient de prendre ; chaque
+// dernière prise dit quand elle pourra en reprendre (une notification l'en prévient, avec « Je l'ai
+// pris »). Lui voit la même liste, sans pouvoir rien toucher.
+function MedsSection({ data, canEdit, now, onChange }: { data: CycleData; canEdit: boolean; now: number; onChange: (action: () => void) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const doses = lastDoses(data.meds ?? []);
+  return (
+    <>
+      <Text style={styles.section}>{canEdit ? t('meds.question') : t('meds.titre')}</Text>
+      {canEdit && (
+        <View style={styles.medChips}>
+          {MEDS.map((med) => (
+            <Pressable
+              key={med.id}
+              onPress={() => onChange(() => addMedDose(med.id))}
+              accessibilityRole="button"
+              accessibilityLabel={`${t(`meds.${med.id}`)}, ${t('meds.intervalle', { n: med.hours })}`}
+              style={({ pressed }) => [styles.medChip, pressed && styles.pressed]}
+            >
+              <Pill size={16} color={fixed.lilac} strokeWidth={1.8} />
+              <View>
+                <Text style={styles.medChipLabel}>{t(`meds.${med.id}`)}</Text>
+                <Text style={styles.medChipSub}>{t('meds.intervalle', { n: med.hours })}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      <View style={[styles.list, canEdit && styles.medList]}>
+        {doses.length === 0 ? (
+          <Text style={styles.empty}>{canEdit ? t('meds.aucun') : t('meds.aucunLui')}</Text>
+        ) : (
+          doses.map((dose, index) => {
+            const ready = dose.next <= now;
+            return (
+              <Pressable
+                key={`${dose.med}-${dose.at}`}
+                disabled={!canEdit}
+                onLongPress={() =>
+                  showDialog(t('meds.supprimerTitre'), `${t(`meds.${dose.med}`)} · ${t('meds.pris', { heure: clock(dose.at) })}`, [
+                    { label: t('commun.supprimer'), style: 'danger', onPress: () => onChange(() => deleteMedDose(dose.at, dose.med)) },
+                    { label: t('commun.annuler'), style: 'cancel' },
+                  ])
+                }
+                style={[styles.row, index > 0 && styles.rowBorder]}
+              >
+                <View style={styles.rowIcon}>
+                  <Pill size={18} color={ready ? fixed.lilac : colors.textMuted} strokeWidth={1.8} />
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{t(`meds.${dose.med}`)}</Text>
+                  <Text style={styles.rowDate}>
+                    {`${t('meds.pris', { heure: clock(dose.at) })} · ${
+                      ready ? (canEdit ? t('meds.possible') : t('meds.possibleLui')) : canEdit ? t('meds.reprendre', { heure: clock(dose.next) }) : t('meds.reprendreLui', { heure: clock(dose.next) })
+                    }`}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+      <Text style={styles.note}>{t('meds.notice')}</Text>
+    </>
   );
 }
 
@@ -322,6 +393,8 @@ export function CycleScreen({ partner, onBack }: Props) {
           </>
         )}
 
+        {(canEdit || (data.meds ?? []).length > 0) && <MedsSection data={data} canEdit={canEdit} now={now} onChange={change} />}
+
         {(canEdit || data.periods.length > 0) && (
           <>
             <Text style={styles.section}>{t('cycle.calendrier')}</Text>
@@ -425,6 +498,12 @@ const useStyles = createStyles((colors) => ({
   section: { paddingTop: 22, paddingHorizontal: 28, paddingBottom: 8, fontSize: 12, fontWeight: '600', color: colors.textMuted, letterSpacing: 0.72, textTransform: 'uppercase' },
   list: { marginHorizontal: 12, borderRadius: 22, backgroundColor: colors.surface, overflow: 'hidden' },
   calendarBox: { paddingHorizontal: 8, paddingTop: 6, paddingBottom: 14 },
+  medChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginHorizontal: 12, marginBottom: 10 },
+  medChip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.surface, minHeight: 52 },
+  medChipLabel: { fontSize: 14, fontWeight: '600', color: colors.text },
+  medChipSub: { fontSize: 12, color: colors.textMuted },
+  medList: {},
+  empty: { padding: 16, fontSize: 14, lineHeight: 20, color: colors.textMuted },
   note: { paddingTop: 8, paddingHorizontal: 28, fontSize: 12, lineHeight: 17, color: colors.textMuted },
   pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
   pains: { flexDirection: 'row', gap: 6, padding: 8 },

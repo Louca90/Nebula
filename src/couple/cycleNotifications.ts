@@ -1,7 +1,19 @@
 import { cancelScheduledNotifications, scheduleCoupleNotification, showCoupleNotification } from '../chat/notifications';
 import { dateLocale, t } from '../i18n';
 import { log } from '../log';
-import { CycleData, cycleSummary, getCycle, PainLevel } from './cycle';
+import { acceptedPairingFrom, getPartnerKey } from '../chat/database';
+import { cycleOwner, CycleData, cycleSummary, getCycle, PainLevel } from './cycle';
+import { lastDoses, MEDS } from './meds';
+
+// Tant que rien n'est noté, le cycle est à celle qui a accepté la liaison (voir cycleOwner).
+function guessAcceptedHere() {
+  try {
+    const partner = getPartnerKey();
+    return partner ? acceptedPairingFrom(partner) : true;
+  } catch {
+    return false;
+  }
+}
 import { addDays, dayKey } from './cycleMath';
 
 // Nébula : les rappels du cycle, programmés sur chaque téléphone à partir de la copie commune.
@@ -11,7 +23,7 @@ import { addDays, dayKey } from './cycleMath';
 //   - lui : le jour prévu (le matin).
 // Tout est reprogrammé à chaque changement (ici ou reçu) et à l'ouverture de l'app.
 
-const IDS = ['cycle-soon', 'cycle-day', 'cycle-ask', 'cycle-ask-again', 'cycle-end'];
+const IDS = ['cycle-soon', 'cycle-day', 'cycle-ask', 'cycle-ask-again', 'cycle-end', ...MEDS.map((med) => `med-${med.id}`)];
 const DATA = { cycle: '1' };
 
 function at(day: number, hour: number) {
@@ -22,11 +34,19 @@ function at(day: number, hour: number) {
 
 const formatDay = (day: number) => new Intl.DateTimeFormat(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(day);
 
-export async function rescheduleCycleNotifications(partnerName: string, data: CycleData = getCycle()) {
+export async function rescheduleCycleNotifications(partnerName: string, data: CycleData = getCycle(), acceptedHere = guessAcceptedHere()) {
   try {
     await cancelScheduledNotifications(IDS);
-    if (!data.owner || data.periods.length === 0) return;
     const now = Date.now();
+    // Nébula : pour elle, « Tu peux reprendre … » quand le délai d'un médicament est passé, avec « Je l'ai pris ».
+    if (cycleOwner(data, acceptedHere) === 'me') {
+      for (const dose of lastDoses(data.meds ?? [])) {
+        if (dose.next <= now) continue;
+        const name = t(`meds.${dose.med}`);
+        await scheduleCoupleNotification(`med-${dose.med}`, dose.next, t('meds.notifTitre', { med: name }), t('meds.notifTexte'), { cycle: '1', med: dose.med }, [{ title: t('meds.jeLaiPris'), id: 'med-taken' }]);
+      }
+    }
+    if (!data.owner || data.periods.length === 0) return;
     const summary = cycleSummary(data, now);
     const mine = data.owner === 'me';
     const tasks: Promise<void>[] = [];

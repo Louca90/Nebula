@@ -1,5 +1,21 @@
 # Journal des versions
 
+## 1.1.3 (versionCode 5)
+
+### Résumé
+
+- Nouveau dans le suivi du cycle : noter un médicament pris (paracétamol, ibuprofène, Spasfon…).
+- Nébula dit quand elle peut en reprendre et l'en prévient, avec « Je l'ai pris » dans la notification.
+- Lui voit les prises, sans pouvoir rien modifier.
+
+### Détails
+
+#### Nouveautés
+
+- Médicaments : un appui note la prise ; la dernière prise de chaque médicament indique l'heure à partir de laquelle en reprendre, d'après le délai minimum de la notice.
+- Notification au bon moment, avec le bouton « Je l'ai pris » qui note la nouvelle prise sans ouvrir l'app.
+- Les prises sont synchronisées avec l'autre téléphone, en lecture seule.
+
 ## 1.1.2 (versionCode 4)
 
 ### Résumé
