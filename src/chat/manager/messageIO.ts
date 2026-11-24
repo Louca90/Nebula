@@ -38,7 +38,7 @@ import { t } from '../../i18n';
 import { mergeDates, parseDates } from '../../couple/dates';
 import { mergeCycle, parseCycle } from '../../couple/cycle';
 import { notifyCycleChange, rescheduleCycleNotifications } from '../../couple/cycleNotifications';
-import { isMood, MOOD_EMOJI, receiveMood } from '../../couple/mood';
+import { isMood, receiveMood } from '../../couple/mood';
 import { addThought, theirThoughtsToday } from '../../couple/thoughts';
 import { notifyMessage } from './notify';
 import { addSystemMessage, applyEphemeral, flush } from './outbox';
@@ -191,7 +191,7 @@ function receiveEvent(core: ChatCore, contact: string, data: Payload) {
     // Nébula : son humeur, choisie sur l'autre téléphone.
     if (isMood(data.mood) && isCount(data.at) && receiveMood(data.mood, Math.min(data.at, Date.now())) && AppState.currentState !== 'active') {
       const name = core.names.get(contact) ?? 'Nébula';
-      showCoupleNotification('mood', t('humeur.notifTitre', { nom: name }), `${MOOD_EMOJI[data.mood]} ${t(`humeur.${data.mood}`)}`, { mood: contact }).catch((e) => log.warn('notification', e));
+      showCoupleNotification('mood', t('humeur.notifTitre', { nom: name }), t('humeur.notifTexte', { humeur: t(`humeur.${data.mood}`) }), { mood: contact }).catch((e) => log.warn('notification', e));
     }
   } else if (data.action === 'profile') {
     setContactProfileField(contact, 'name', typeof data.name === 'string' ? data.name.slice(0, MAX_PROFILE_NAME_LENGTH) : null);

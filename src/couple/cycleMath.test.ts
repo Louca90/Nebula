@@ -1,3 +1,5 @@
+import { describe, expect, test } from '@jest/globals';
+
 import { addDays, averageCycle, averagePeriod, currentPeriod, dayInfo, dayStart, nextStart, Period } from './cycleMath';
 
 const day = (iso: string) => dayStart(new Date(`${iso}T12:00:00`).getTime());

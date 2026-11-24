@@ -5,17 +5,6 @@ import { readJson, useCoupleVersion, writeJson } from './store';
 
 export const MOODS = ['radieuse', 'bien', 'calme', 'fatiguee', 'triste', 'stressee', 'enervee', 'malade', 'amoureuse'] as const;
 export type MoodId = (typeof MOODS)[number];
-export const MOOD_EMOJI: Record<MoodId, string> = {
-  radieuse: '🥰',
-  bien: '😊',
-  calme: '😌',
-  fatiguee: '😴',
-  triste: '😢',
-  stressee: '😰',
-  enervee: '😤',
-  malade: '🤒',
-  amoureuse: '😍',
-};
 
 export type Mood = { mood: MoodId; at: number };
 export type Moods = { mine: Mood | null; theirs: Mood | null };

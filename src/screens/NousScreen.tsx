@@ -8,7 +8,9 @@ import { describeMessage, getContactProfile, getLastMessage, getLocationMessages
 import { lastKnownLocation } from '../../modules/pear-native';
 import { distanceKm, formatDistance, isSharing, parseLocationText } from '../chat/location';
 import { cycleSummary, useCycle } from '../couple/cycle';
-import { MOOD_EMOJI, MOOD_FRESH_MS, MoodId, MOODS, useMoods } from '../couple/mood';
+import { MOOD_FRESH_MS, MoodId, MOODS, useMoods } from '../couple/mood';
+import { MoodIcon } from '../components/MoodIcon';
+import { Droplet, Plus } from 'lucide-react-native';
 import { Sheet } from '../components/Sheet';
 import { haptics } from '../haptics';
 import { log } from '../log';
@@ -254,9 +256,9 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
           <Pressable style={styles.duoItem} onPress={onCycle} accessibilityRole="button" accessibilityLabel={t('cycle.titre')}>
             <Card style={styles.small}>
               <View style={styles.penseTop}>
-                <View style={[styles.cycleDot, cycleInfo?.current && styles.cycleDotOn]} />
+                <Droplet size={22} color={fixed.cycle.period} fill={cycleInfo?.current ? fixed.cycle.period : fixed.transparent} strokeWidth={1.8} />
                 {cycleText && (
-                  <Text style={styles.cycleText} numberOfLines={1}>
+                  <Text style={styles.penseCount} numberOfLines={1}>
                     {cycleText}
                   </Text>
                 )}
@@ -264,20 +266,13 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
               <Text style={styles.smallLabel}>{cycleText ? t('cycle.titre') : t('cycle.carteSuivre')}</Text>
             </Card>
           </Pressable>
-          {away !== null ? (
+          {away !== null && (
             <Pressable style={styles.duoItem} onPress={() => onMap(partner)} accessibilityRole="button" accessibilityLabel={t('distance.titre')}>
               <Card style={styles.small}>
                 <Text style={styles.days} numberOfLines={1} adjustsFontSizeToFit>
                   {formatDistance(away, t('position.virgule'))}
                 </Text>
                 <Text style={styles.smallLabel}>{t('distance.entreVous')}</Text>
-              </Card>
-            </Pressable>
-          ) : (
-            <Pressable style={styles.duoItem} onPress={() => setMoodOpen(true)} accessibilityRole="button" accessibilityLabel={t('humeur.titre')}>
-              <Card style={styles.small}>
-                <Text style={styles.moodBig}>{myMood ? MOOD_EMOJI[myMood.mood] : '🙂'}</Text>
-                <Text style={styles.smallLabel}>{myMood ? t('humeur.toi', { humeur: t(`humeur.${myMood.mood}`) }) : t('humeur.choisir')}</Text>
               </Card>
             </Pressable>
           )}
@@ -287,8 +282,10 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
           <Card style={styles.mood}>
             <Text style={styles.moodTitle}>{t('humeur.titre')}</Text>
             <View style={styles.moodRow}>
-              <View style={styles.moodSide}>
-                <Text style={styles.moodEmoji}>{theirMood ? MOOD_EMOJI[theirMood.mood] : '·'}</Text>
+              <View style={styles.moodSide} accessible accessibilityLabel={`${name} : ${theirMood ? t(`humeur.${theirMood.mood}`) : t('humeur.pasEncore')}`}>
+                <View style={[styles.moodTile, !theirMood && styles.moodTileEmpty]}>
+                  {theirMood && <MoodIcon mood={theirMood.mood} size={20} color={fixed.lilac} />}
+                </View>
                 <View style={styles.flex}>
                   <Text style={styles.moodWho} numberOfLines={1}>
                     {name}
@@ -298,8 +295,10 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
                   </Text>
                 </View>
               </View>
-              <Pressable style={styles.moodSide} onPress={() => setMoodOpen(true)} accessibilityRole="button" accessibilityLabel={t('humeur.choisir')}>
-                <Text style={styles.moodEmoji}>{myMood ? MOOD_EMOJI[myMood.mood] : '＋'}</Text>
+              <Pressable style={({ pressed }) => [styles.moodSide, pressed && styles.pressed]} onPress={() => setMoodOpen(true)} accessibilityRole="button" accessibilityLabel={t('humeur.choisir')}>
+                <View style={styles.moodTile}>
+                  {myMood ? <MoodIcon mood={myMood.mood} size={20} color={fixed.lilac} /> : <Plus size={20} color={fixed.lilac} strokeWidth={1.8} />}
+                </View>
                 <View style={styles.flex}>
                   <Text style={styles.moodWho}>{t('pense.toi')}</Text>
                   <Text style={styles.moodText} numberOfLines={1}>
@@ -355,7 +354,7 @@ function distanceBetween(contact: string, located: boolean, now: number): number
   return mine ? distanceKm(mine, theirs) : null;
 }
 
-// Choisir son humeur : une grille d'émojis, l'autre la voit tout de suite.
+// Choisir son humeur : une grille d'icônes au trait, l'autre la voit tout de suite.
 function MoodSheet({ current, onClose, onPick }: { current: MoodId | null; onClose: () => void; onPick: (mood: MoodId) => void }) {
   const styles = useStyles();
   return (
@@ -370,7 +369,7 @@ function MoodSheet({ current, onClose, onPick }: { current: MoodId | null; onClo
               accessibilityState={{ checked: current === mood }}
               style={({ pressed }) => [styles.moodChoice, current === mood && styles.moodChoiceOn, pressed && styles.pressed]}
             >
-              <Text style={styles.moodChoiceEmoji}>{MOOD_EMOJI[mood]}</Text>
+              <MoodIcon mood={mood} size={24} color={current === mood ? fixed.onSignatureSoft : fixed.lilac} />
               <Text style={styles.moodChoiceLabel}>{t(`humeur.${mood}`)}</Text>
             </Pressable>
           ))}
@@ -524,26 +523,6 @@ const useStyles = createStyles((colors) => ({
   pressed: {
     opacity: 0.8,
   },
-  cycleDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: fixed.heart,
-  },
-  cycleDotOn: {
-    backgroundColor: fixed.heart,
-  },
-  cycleText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  moodBig: {
-    fontSize: 26,
-    lineHeight: 30,
-  },
   mood: {
     marginTop: 8,
     marginHorizontal: 12,
@@ -566,9 +545,18 @@ const useStyles = createStyles((colors) => ({
     alignItems: 'center',
     gap: 10,
   },
-  moodEmoji: {
-    fontSize: 30,
-    color: fixed.lilac,
+  moodTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.signature,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moodTileEmpty: {
+    backgroundColor: fixed.transparent,
+    borderWidth: 1,
+    borderColor: fixed.smokeEdge,
   },
   moodWho: {
     fontSize: 14,
@@ -592,13 +580,10 @@ const useStyles = createStyles((colors) => ({
     gap: 6,
     paddingVertical: 14,
     borderRadius: 18,
-    backgroundColor: fixed.thumbFace,
+    backgroundColor: colors.signature,
   },
   moodChoiceOn: {
     backgroundColor: fixed.lilacDeep,
-  },
-  moodChoiceEmoji: {
-    fontSize: 30,
   },
   moodChoiceLabel: {
     fontSize: 13,
