@@ -894,7 +894,7 @@ export const fr = {
     sArrete: 'S’arrête tout seul',
     uneJournee: 'Pour une journée',
     tantQueOuverte: 'Tant que l’app est ouverte',
-    tantQueOuverteAide: 'S’arrête dès que tu quittes Nébula',
+    tantQueOuverteAide: 'S’arrête si tu quittes Nébula plus de 2 minutes',
     partagerDirect: 'Partager en direct',
     seulVoit: 'Chiffré · seul·e {nom} voit ta position',
     titre: 'Position en direct',
@@ -931,6 +931,8 @@ export const fr = {
     cap_no: 'au nord-ouest',
   },
   stickers: {
+    enCours: 'Création…',
+    creerCourt: 'Créer',
     titre: 'Stickers',
     nouveau: 'Créer un sticker',
     envoyer: 'Envoyer ce sticker',

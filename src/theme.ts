@@ -158,6 +158,8 @@ export const fixed = {
   cardTextSoft: '#DCD5E8',
   // Nébula, suivi du cycle : un rose poudré (plus doux que le cœur des réactions) pour les règles, le
   // lilas des planches pour la fertilité. Texte sombre lisible sur le rose plein.
+  // Création d'un sticker : le voile posé hors du contour (noir violacé des planches).
+  stickerDim: 'rgba(11, 9, 20, 0.72)',
   cycle: {
     period: '#E8A3B5',
     periodSoft: 'rgba(232, 163, 181, 0.16)',

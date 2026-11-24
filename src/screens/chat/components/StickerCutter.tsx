@@ -8,12 +8,13 @@ import { captureView, cropImage, nativeImageSize } from '../../../../modules/pea
 import { addSticker, Sticker } from '../../../chat/stickers';
 import { Bounds, captureScale, clampPoint, fitInside, isUsableOutline, outlineBounds, outlinePath } from '../../../chat/stickerShape';
 import { addPoint } from '../../../components/editor/drawing';
-import { IconButton, useInsets } from '../../../components/ui';
+import { useInsets } from '../../../components/ui';
 import { showDialog } from '../../../components/dialog';
 import { haptics } from '../../../haptics';
 import { t } from '../../../i18n';
 import { log } from '../../../log';
-import { createMediaStyles, radius, spacing, useMediaColors } from '../../../theme';
+import { Backdrop, GrainButton } from '../../../components/nebula';
+import { createStyles, fixed, spacing, useColors } from '../../../theme';
 
 // La photo est d'abord remise droite et réduite : ce qu'on découpe est ce qu'on voit.
 const WORK_SIZE = 1600;
@@ -35,7 +36,7 @@ async function prepare(uri: string): Promise<Photo> {
 // sticker est le contenu du contour, sur fond transparent, enregistré sur ce téléphone.
 export function StickerCutter({ sourceUri, onDone, onClose }: { sourceUri: string; onDone: (sticker: Sticker) => void; onClose: () => void }) {
   const styles = useStyles();
-  const colors = useMediaColors();
+  const colors = useColors();
   const { top, bottom } = useInsets();
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [area, setArea] = useState<{ width: number; height: number } | null>(null);
@@ -127,83 +128,136 @@ export function StickerCutter({ sourceUri, onDone, onClose }: { sourceUri: strin
 
   return (
     <Modal visible animationType="fade" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
-      <View style={[styles.screen, { paddingTop: top, paddingBottom: bottom + spacing.md }]}>
-        <View style={styles.bar}>
-          <IconButton onPress={onClose} label={t('commun.fermer')}>
-            <X size={24} color={colors.onMedia} strokeWidth={1.75} />
-          </IconButton>
-          <Text style={styles.hint}>{usable ? t('stickers.pret') : t('stickers.entourer')}</Text>
-          <IconButton
-            onPress={() => {
-              setPoints([]);
-              setClosed(false);
-            }}
-            label={t('stickers.recommencer')}
-            disabled={points.length === 0}
-          >
-            <RotateCcw size={22} color={points.length === 0 ? colors.onDarkMuted : colors.onMedia} strokeWidth={1.75} />
-          </IconButton>
-        </View>
-        <View style={styles.area} onLayout={(event) => setArea({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
-          {photo && frame ? (
-            <View style={{ position: 'absolute', left: frame.left, top: frame.top, width: frame.width, height: frame.height }} {...pan}>
-              <Image source={{ uri: photo.uri }} style={{ width: frame.width, height: frame.height }} />
-              <Svg pointerEvents="none" width={frame.width} height={frame.height} style={StyleSheet.absoluteFill}>
-                {/* Contour fermé : tout ce qui est dehors s'assombrit (remplissage pair-impair). */}
-                {usable && <Path d={`M0 0H${frame.width}V${frame.height}H0Z ${outline}`} fill={colors.overlay} fillRule="evenodd" />}
-                {points.length >= 4 && (
-                  <Path d={closed ? outline : `M${points[0]} ${points[1]} ${points.slice(2).reduce((d, value, index) => d + (index % 2 === 0 ? ` L${value}` : ` ${value}`), '')}`} fill="none" stroke={colors.onMedia} strokeWidth={2.5} strokeDasharray="8 6" strokeLinecap="round" strokeLinejoin="round" />
-                )}
-              </Svg>
+      <View style={styles.screen}>
+        {/* Nébula : le fond Améthyste à grain des planches, comme les autres pages pleines. */}
+        <Backdrop kind="amethyste" />
+        <View style={[styles.content, { paddingTop: top + spacing.sm, paddingBottom: bottom + spacing.md }]}>
+          <View style={styles.bar}>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={t('commun.fermer')} hitSlop={6} style={({ pressed }) => [styles.round, pressed && styles.pressed]}>
+              <X size={22} color={colors.text} strokeWidth={1.8} />
+            </Pressable>
+            <View style={styles.titles}>
+              <Text style={styles.title}>{t('stickers.nouveau')}</Text>
+              <Text style={styles.hint} numberOfLines={2}>
+                {usable ? t('stickers.pret') : t('stickers.entourer')}
+              </Text>
             </View>
-          ) : (
-            <ActivityIndicator color={colors.onMedia} />
-          )}
-          {/* La copie à capturer : seulement le contenu du contour, à la taille de son cadre. Invisible. */}
-          {photo && frame && saving && (
-            <View ref={capture} collapsable={false} pointerEvents="none" style={[styles.capture, { width: saving.width, height: saving.height }]}>
-              <Svg width={saving.width} height={saving.height}>
-                <Defs>
-                  <ClipPath id="cut">
-                    <Path d={outlinePath(points, -saving.x, -saving.y)} />
-                  </ClipPath>
-                </Defs>
-                <SvgImage href={{ uri: photo.uri }} x={-saving.x} y={-saving.y} width={frame.width} height={frame.height} preserveAspectRatio="none" clipPath="url(#cut)" onLoad={() => setLoaded(true)} />
-              </Svg>
-            </View>
-          )}
+            <Pressable
+              onPress={() => {
+                setPoints([]);
+                setClosed(false);
+              }}
+              disabled={points.length === 0}
+              accessibilityRole="button"
+              accessibilityLabel={t('stickers.recommencer')}
+              hitSlop={6}
+              style={({ pressed }) => [styles.round, points.length === 0 && styles.roundOff, pressed && styles.pressed]}
+            >
+              <RotateCcw size={20} color={colors.text} strokeWidth={1.8} />
+            </Pressable>
+          </View>
+          <View style={styles.area} onLayout={(event) => setArea({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
+            {photo && frame ? (
+              <View style={[styles.photo, { left: frame.left, top: frame.top, width: frame.width, height: frame.height }]} {...pan}>
+                <Image source={{ uri: photo.uri }} style={{ width: frame.width, height: frame.height }} />
+                <Svg pointerEvents="none" width={frame.width} height={frame.height} style={StyleSheet.absoluteFill}>
+                  {/* Contour fermé : tout ce qui est dehors s'assombrit (remplissage pair-impair). */}
+                  {usable && <Path d={`M0 0H${frame.width}V${frame.height}H0Z ${outline}`} fill={fixed.stickerDim} fillRule="evenodd" />}
+                  {points.length >= 4 && (
+                    <Path
+                      d={closed ? outline : `M${points[0]} ${points[1]} ${points.slice(2).reduce((d, value, index) => d + (index % 2 === 0 ? ` L${value}` : ` ${value}`), '')}`}
+                      fill="none"
+                      stroke={fixed.lilac}
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  )}
+                </Svg>
+              </View>
+            ) : (
+              <ActivityIndicator color={fixed.lilac} />
+            )}
+            {/* La copie à capturer : seulement le contenu du contour, à la taille de son cadre. Invisible. */}
+            {photo && frame && saving && (
+              <View ref={capture} collapsable={false} pointerEvents="none" style={[styles.capture, { width: saving.width, height: saving.height }]}>
+                <Svg width={saving.width} height={saving.height}>
+                  <Defs>
+                    <ClipPath id="cut">
+                      <Path d={outlinePath(points, -saving.x, -saving.y)} />
+                    </ClipPath>
+                  </Defs>
+                  <SvgImage href={{ uri: photo.uri }} x={-saving.x} y={-saving.y} width={frame.width} height={frame.height} preserveAspectRatio="none" clipPath="url(#cut)" onLoad={() => setLoaded(true)} />
+                </Svg>
+              </View>
+            )}
+          </View>
+          <GrainButton label={saving ? t('stickers.enCours') : t('stickers.creer')} onPress={save} disabled={!usable || !!saving} style={styles.create} />
         </View>
-        <Pressable onPress={save} disabled={!usable || !!saving} accessibilityRole="button" style={[styles.create, (!usable || !!saving) && styles.createOff]}>
-          {saving ? <ActivityIndicator color={colors.onSignature} /> : <Text style={styles.createLabel}>{t('stickers.creer')}</Text>}
-        </Pressable>
       </View>
     </Modal>
   );
 }
 
-const useStyles = createMediaStyles((colors) => ({
+const useStyles = createStyles((colors) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
+  content: {
+    flex: 1,
+  },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    height: 56,
+    gap: 12,
+    paddingHorizontal: 16,
+    minHeight: 56,
+  },
+  round: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: fixed.smokeButton,
+    borderWidth: 1,
+    borderColor: fixed.smokeEdge,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roundOff: {
+    opacity: 0.4,
+  },
+  pressed: {
+    transform: [{ scale: 0.97 }],
+  },
+  titles: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
   },
   hint: {
-    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
     textAlign: 'center',
-    fontSize: 15,
-    color: colors.onMedia,
+    color: fixed.cardTextSoft,
   },
   area: {
     flex: 1,
-    margin: spacing.md,
+    marginHorizontal: 16,
+    marginVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  photo: {
+    position: 'absolute',
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: fixed.card,
   },
   capture: {
     position: 'absolute',
@@ -212,21 +266,6 @@ const useStyles = createMediaStyles((colors) => ({
     opacity: 0,
   },
   create: {
-    alignSelf: 'center',
-    minWidth: 200,
-    height: 52,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.full,
-    backgroundColor: colors.signature,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  createOff: {
-    opacity: 0.4,
-  },
-  createLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.onSignature,
+    marginHorizontal: 16,
   },
 }));

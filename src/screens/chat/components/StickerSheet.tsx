@@ -10,7 +10,7 @@ import { Sheet } from '../../../components/Sheet';
 import { haptics } from '../../../haptics';
 import { t } from '../../../i18n';
 import { EASE } from '../../../motion';
-import { createStyles, useColors } from '../../../theme';
+import { createStyles, fixed } from '../../../theme';
 
 import { LONG_PRESS_MS } from '../constants';
 import { StickerCutter } from './StickerCutter';
@@ -36,7 +36,6 @@ function cellIn(index: number): EntryExitAnimationFunction {
 // La première case en crée un : on choisit une photo, puis on entoure au doigt ce qu'on veut garder.
 export function StickerSheet({ onSend, onClose }: { onSend: (sticker: Sticker) => void; onClose: () => void }) {
   const styles = useStyles();
-  const colors = useColors();
   const { width } = useWindowDimensions();
   const [stickers, setStickers] = useState(listStickers);
   const [picking, setPicking] = useState(false);
@@ -65,9 +64,8 @@ export function StickerSheet({ onSend, onClose }: { onSend: (sticker: Sticker) =
           <ScrollView style={styles.scroll} contentContainerStyle={styles.grid}>
             <Reanimated.View entering={cellIn(0)}>
               <Pressable onPress={() => setPicking(true)} accessibilityRole="button" accessibilityLabel={t('stickers.nouveau')} style={({ pressed }) => [styles.cell, styles.add, { width: cell, height: cell }, pressed && styles.pressed]}>
-                <View style={styles.plus}>
-                  <Plus size={20} color={colors.onSignature} strokeWidth={2.4} />
-                </View>
+                <Plus size={24} color={fixed.lilac} strokeWidth={1.8} />
+                <Text style={styles.addLabel}>{t('stickers.creerCourt')}</Text>
               </Pressable>
             </Reanimated.View>
             {stickers.map((sticker, index) => (
@@ -115,9 +113,10 @@ export function StickerSheet({ onSend, onClose }: { onSend: (sticker: Sticker) =
 const useStyles = createStyles((colors) => ({
   scroll: { maxHeight: 360 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
-  cell: { borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-  add: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border, backgroundColor: 'transparent' },
-  plus: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.signature },
+  cell: { borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: fixed.tile },
+  // Nébula : la case « créer » sur la pastille lilas sombre des planches (plus de pointillés).
+  add: { backgroundColor: colors.signature, gap: 4 },
+  addLabel: { fontSize: 12, fontWeight: '600', color: colors.onSignature },
   pressed: { opacity: 0.85, transform: [{ scale: 0.96 }] },
   empty: { fontSize: 14, lineHeight: 19, textAlign: 'center', color: colors.textMuted },
 }));

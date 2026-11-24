@@ -15,15 +15,10 @@ import { WhatsNew } from '../update/WhatsNew';
 import { pagesFor } from '../update/pages';
 import { currentLanguage, languageChoice, LANGUAGES, t } from '../i18n';
 import { LanguageSheet } from '../components/LanguageSheet';
-import { createStyles, setTextScaleIndex, setThemePreference, spacing, TEXT_SCALES, ThemePreference, useTextScaleIndex, useThemePreference } from '../theme';
+import { createStyles, setTextScaleIndex, spacing, TEXT_SCALES, useTextScaleIndex } from '../theme';
 import { haptics } from '../haptics';
 import { checkForUpdate, getInstallPermission, previewUpdateScreen, requestInstallPermission, useUpdateState } from '../update/updates';
 
-const THEMES: { value: ThemePreference; label: string }[] = [
-  { value: 'auto', label: t('profil.themeAuto') },
-  { value: 'light', label: t('profil.themeClair') },
-  { value: 'dark', label: t('profil.themeSombre') },
-];
 
 type Props = { onBack: () => void; onDiagnostic: () => void; onStorage: () => void; onServers: () => void; onReplayOnboarding: () => void };
 
@@ -32,7 +27,6 @@ export function SettingsScreen({ onBack, onDiagnostic, onStorage, onServers, onR
   const styles = useStyles();
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const currentPages = pagesFor(appVersionName() ?? '');
-  const theme = useThemePreference();
   const textSize = useTextScaleIndex();
   const update = useUpdateState();
   const [canInstall, setCanInstall] = useState(getInstallPermission);
@@ -75,7 +69,8 @@ export function SettingsScreen({ onBack, onDiagnostic, onStorage, onServers, onR
     <Screen>
       <Header title={t('profil.parametres')} onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content}>
-        <SettingsGroup title={t('profil.apparence')} before={<SegmentedControl options={THEMES} value={theme} onChange={setThemePreference} />}>
+        {/* Nébula n'a qu'un thème, sombre : plus de choix Automatique / Clair / Sombre. */}
+        <SettingsGroup title={t('profil.apparence')}>
           <SettingRow
             icon={Languages}
             label={t('langue.titre')}

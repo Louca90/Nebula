@@ -1,7 +1,7 @@
 import { AppState } from 'react-native';
 import { randombytes_buf, to_base64 } from 'react-native-libsodium';
 
-import { lastKnownLocation } from '../../../modules/pear-native';
+import { lastKnownLocation, measureLocation } from '../../../modules/pear-native';
 import { addMessage, getMessage, getSetting, setLocationText, setSetting } from '../database';
 import { isSharing, locationText, OPEN_SHARE_WINDOW_S, parseLocation, parseLocationText, SharedLocation } from '../location';
 import { log } from '../../log';
@@ -29,6 +29,29 @@ type Share = { id: string; until: number; open?: boolean; once?: boolean };
 // Un partage « app ouverte » laissé par un lancement précédent (Pear fermé) s'arrête au premier tour.
 const launchedAt = Date.now();
 const openSince = new Map<string, number>();
+
+// Nébula : un passage en arrière-plan de moins d'OPEN_GRACE_MS (fenêtre d'empreinte ou d'autorisation,
+// sélecteur de photos, écran verrouillé un instant, aller-retour vers une autre app) n'arrête plus le
+// partage « tant que l'app est ouverte » ; il s'arrête si Nébula reste en arrière-plan plus longtemps.
+const OPEN_GRACE_MS = 2 * 60 * 1000;
+let backgroundSince: number | null = null;
+
+// Une nouvelle mesure de position au plus toutes les MEASURE_EVERY_MS pendant un partage : la dernière
+// position connue d'Android peut sinon rester figée.
+const MEASURE_EVERY_MS = 45 * 1000;
+let lastMeasure = 0;
+let measuring = false;
+function measureIfNeeded() {
+  const now = Date.now();
+  if (measuring || now - lastMeasure < MEASURE_EVERY_MS) return;
+  measuring = true;
+  lastMeasure = now;
+  measureLocation()
+    .catch(() => null)
+    .finally(() => {
+      measuring = false;
+    });
+}
 
 // Mes partages en cours, par contact. Gardés dans les réglages : un partage reprend si Pear est rouvert
 // avant sa fin.
@@ -150,20 +173,24 @@ export function tickLocations(core: ChatCore) {
       continue;
     }
     const contact = key;
-    // « App ouverte » : arrêté si Pear n'est plus au premier plan, ou s'il vient d'un lancement précédent.
-    const staleOpen = share.open && (AppState.currentState !== 'active' || (openSince.get(contact) ?? 0) < launchedAt);
+    // « App ouverte » : arrêté si Nébula est en arrière-plan depuis trop longtemps, ou s'il vient d'un
+    // lancement précédent.
+    const away = backgroundSince !== null && now - backgroundSince > OPEN_GRACE_MS;
+    const staleOpen = share.open && (away || (openSince.get(contact) ?? 0) < launchedAt);
     if (staleOpen || now >= share.until || !getMessage(share.id, contact)) {
       // Fini, ou message supprimé : plus rien ne part.
       stopLocation(core, contact);
       continue;
     }
     core.keepConnected(contact, KEEP_MS);
-    const position = lastKnownLocation();
-    if (!position) continue;
+    // La fin glisse même sans nouvelle position : le partage ne s'éteint pas faute de mesure.
     if (share.open) {
       share.until = now + OPEN_SHARE_WINDOW_S * 1000;
       saveShares();
     }
+    if (AppState.currentState === 'active') measureIfNeeded();
+    const position = lastKnownLocation();
+    if (!position) continue;
     const location: SharedLocation = { ...position, at: now, until: share.until, ...(share.open ? { open: true as const } : {}) };
     setLocationText(share.id, contact, 1, locationText(location));
     send(core, contact, share.id, location);
@@ -175,6 +202,18 @@ export function tickLocations(core: ChatCore) {
 // Pear passe en arrière-plan : les partages « tant que l'app est ouverte » s'arrêtent tout de suite.
 export function stopOpenLocations(core: ChatCore) {
   for (const [contact, share] of [...loadShares()]) if (share.open && !share.once) stopLocation(core, contact);
+}
+
+// Nébula : changement de premier plan. En arrière-plan, on note l'heure ; au retour, si l'absence a
+// dépassé OPEN_GRACE_MS, les partages « app ouverte » s'arrêtent (le contact voit « partage terminé »).
+export function noteAppStateForLocations(core: ChatCore, state: string) {
+  if (state === 'active') {
+    const away = backgroundSince !== null && Date.now() - backgroundSince > OPEN_GRACE_MS;
+    backgroundSince = null;
+    if (away) stopOpenLocations(core);
+  } else if (state === 'background' && backgroundSince === null) {
+    backgroundSince = Date.now();
+  }
 }
 
 // Une position reçue du contact (première ou mise à jour d'un partage déjà affiché).
