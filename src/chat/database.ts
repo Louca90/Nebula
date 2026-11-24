@@ -492,6 +492,12 @@ export function getContactState(contact: string): 'active' | 'pending' | null {
   return db().getFirstSync<{ state: 'active' | 'pending' }>('SELECT state FROM contacts WHERE public_key = ?', contact)?.state ?? null;
 }
 
+// Nébula : vrai si c'est ce téléphone qui a accepté la demande de liaison de ce contact (elle, d'après la
+// prise en main : lui scanne son code, elle accepte). Sert à deviner qui note son cycle, sans rien demander.
+export function acceptedPairingFrom(contact: string): boolean {
+  return !!db().getFirstSync<{ one: number }>("SELECT 1 AS one FROM pairing_requests WHERE from_key = ? AND state = 'accepted' LIMIT 1", contact);
+}
+
 // Nébula : la personne liée (contact actif), s'il y en a une. Les notes à soi ne sont pas des contacts.
 export function getPartnerKey(): string | null {
   return db().getFirstSync<{ public_key: string }>("SELECT public_key FROM contacts WHERE state = 'active' LIMIT 1")?.public_key ?? null;

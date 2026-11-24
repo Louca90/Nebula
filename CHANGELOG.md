@@ -1,5 +1,33 @@
 # Journal des versions
 
+## 1.1.1 (versionCode 3)
+
+### Résumé
+
+- La position « tant que l'app est ouverte » ne s'arrête plus : elle reprend toute seule quand tu reviens.
+- Le cycle s'affiche au bon téléphone, sans rien régler.
+- Captures d'écran autorisables, et place réelle de l'app dans Stockage.
+- Plein de corrections : boutons, clavier, lien de liaison, visionneuse.
+
+### Détails
+
+#### Nouveautés
+
+- Captures d'écran : interrupteur dans Confidentialité. Une capture bloquée propose de les autoriser (Android 14+). Les médias à vue unique restent toujours protégés.
+- Stockage : la place totale de l'app (application, cartes hors ligne, cache), comme dans les réglages d'Android.
+- Texte et liens partagés vers Nébula envoyés comme message.
+
+#### Corrections
+
+- Position « tant que l'app est ouverte » : plus de « partage terminé » en quittant l'app. L'autre voit « Nébula fermé · position d'il y a … », et tout reprend au retour. Position remesurée pendant le partage.
+- Cycle : sur son téléphone à lui, ni bouton ni calendrier vide tant qu'elle n'a rien noté.
+- Lien de liaison en nebula:// (il ouvrait Pear), retrouvé même au milieu d'un message copié.
+- Sauvegardes nommées Nebula-….nebula (les anciennes .pear se restaurent toujours).
+- Répondre ouvre le clavier à chaque fois. Fond noir derrière la saisie, clavier ouvert.
+- Grain des boutons sur toute leur largeur, fond de la page de mise à jour à sa place.
+- Visionneuse de photo de profil : la croix et le nom ne réapparaissent plus en fermant.
+- Création de sticker au style de Nébula, plus de choix de thème clair.
+
 ## 1.1.0 (versionCode 2)
 
 ### Résumé

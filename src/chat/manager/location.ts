@@ -3,7 +3,7 @@ import { randombytes_buf, to_base64 } from 'react-native-libsodium';
 
 import { lastKnownLocation, measureLocation } from '../../../modules/pear-native';
 import { addMessage, getMessage, getSetting, setLocationText, setSetting } from '../database';
-import { isSharing, locationText, OPEN_SHARE_WINDOW_S, parseLocation, parseLocationText, SharedLocation } from '../location';
+import { isSharing, locationText, OPEN_SHARE_KEEP_MS, parseLocation, parseLocationText, SharedLocation } from '../location';
 import { log } from '../../log';
 
 import { ChatCore } from './core';
@@ -22,19 +22,13 @@ import { Payload } from './types';
 const KEEP_MS = 60 * 1000;
 const SHARES_KEY = 'location_shares';
 
-// open : « tant que l'app est ouverte » (voir OPEN_SHARE_WINDOW_S).
+// open : « tant que l'app est ouverte » (voir OPEN_SHARE_KEEP_MS).
 // once : position envoyée une seule fois, gardée ici jusqu'à ce que la connexion directe l'emporte.
 type Share = { id: string; until: number; open?: boolean; once?: boolean };
 
-// Un partage « app ouverte » laissé par un lancement précédent (Pear fermé) s'arrête au premier tour.
-const launchedAt = Date.now();
-const openSince = new Map<string, number>();
-
-// Nébula : un passage en arrière-plan de moins d'OPEN_GRACE_MS (fenêtre d'empreinte ou d'autorisation,
-// sélecteur de photos, écran verrouillé un instant, aller-retour vers une autre app) n'arrête plus le
-// partage « tant que l'app est ouverte » ; il s'arrête si Nébula reste en arrière-plan plus longtemps.
-const OPEN_GRACE_MS = 2 * 60 * 1000;
-let backgroundSince: number | null = null;
+// Nébula : un partage « tant que l'app est ouverte » ne s'arrête plus tout seul (ni en quittant l'app,
+// ni à la relance) : il envoie la position quand Nébula est au premier plan, se tait sinon, et reprend
+// dès le retour. Seuls « Arrêter » et le mode discret l'arrêtent (voir OPEN_SHARE_KEEP_MS).
 
 // Une nouvelle mesure de position au plus toutes les MEASURE_EVERY_MS pendant un partage : la dernière
 // position connue d'Android peut sinon rester figée.
@@ -125,11 +119,10 @@ export function startLocation(core: ChatCore, contact: string, seconds: number, 
   stopLocation(core, contact);
   const now = Date.now();
   const id = to_base64(randombytes_buf(16));
-  const until = now + (open ? OPEN_SHARE_WINDOW_S : seconds) * 1000;
+  const until = now + (open ? OPEN_SHARE_KEEP_MS : seconds * 1000);
   const location: SharedLocation = { ...position, at: now, until, ...(open ? { open: true as const } : {}) };
   addMessage({ id, contact, mine: 1, text: locationText(location), status: 'read', created_at: now, kind: 'location', conn_session: core.sessionFor(contact) });
   loadShares().set(contact, { id, until, ...(open ? { open: true } : {}) });
-  if (open) openSince.set(contact, now);
   saveShares();
   core.keepConnected(contact, KEEP_MS);
   send(core, contact, id, location);
@@ -173,11 +166,9 @@ export function tickLocations(core: ChatCore) {
       continue;
     }
     const contact = key;
-    // « App ouverte » : arrêté si Nébula est en arrière-plan depuis trop longtemps, ou s'il vient d'un
-    // lancement précédent.
-    const away = backgroundSince !== null && now - backgroundSince > OPEN_GRACE_MS;
-    const staleOpen = share.open && (away || (openSince.get(contact) ?? 0) < launchedAt);
-    if (staleOpen || now >= share.until || !getMessage(share.id, contact)) {
+    // « App ouverte » : jamais fini tout seul (un partage d'une version précédente, à la fin courte, est
+    // prolongé ici). Les autres : fin à leur heure. Message supprimé : plus rien ne part.
+    if ((!share.open && now >= share.until) || !getMessage(share.id, contact)) {
       // Fini, ou message supprimé : plus rien ne part.
       stopLocation(core, contact);
       continue;
@@ -185,7 +176,7 @@ export function tickLocations(core: ChatCore) {
     core.keepConnected(contact, KEEP_MS);
     // La fin glisse même sans nouvelle position : le partage ne s'éteint pas faute de mesure.
     if (share.open) {
-      share.until = now + OPEN_SHARE_WINDOW_S * 1000;
+      share.until = now + OPEN_SHARE_KEEP_MS;
       saveShares();
     }
     if (AppState.currentState === 'active') measureIfNeeded();
@@ -204,16 +195,17 @@ export function stopOpenLocations(core: ChatCore) {
   for (const [contact, share] of [...loadShares()]) if (share.open && !share.once) stopLocation(core, contact);
 }
 
-// Nébula : changement de premier plan. En arrière-plan, on note l'heure ; au retour, si l'absence a
-// dépassé OPEN_GRACE_MS, les partages « app ouverte » s'arrêtent (le contact voit « partage terminé »).
+// Nébula : retour dans l'app. Les partages en cours repartent tout de suite : une mesure fraîche, puis
+// la position envoyée dès que la connexion directe est rouverte (quelques secondes), sans rien relancer.
 export function noteAppStateForLocations(core: ChatCore, state: string) {
-  if (state === 'active') {
-    const away = backgroundSince !== null && Date.now() - backgroundSince > OPEN_GRACE_MS;
-    backgroundSince = null;
-    if (away) stopOpenLocations(core);
-  } else if (state === 'background' && backgroundSince === null) {
-    backgroundSince = Date.now();
-  }
+  if (state !== 'active' || loadShares().size === 0) return;
+  lastMeasure = 0;
+  measureLocation()
+    .catch(() => null)
+    .finally(() => {
+      tickLocations(core);
+      setTimeout(() => AppState.currentState === 'active' && tickLocations(core), 4000);
+    });
 }
 
 // Une position reçue du contact (première ou mise à jour d'un partage déjà affiché).

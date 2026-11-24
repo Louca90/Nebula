@@ -5,8 +5,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { ArrowLeft, ChevronLeft, ChevronRight, Droplet, Minus, Plus } from 'lucide-react-native';
 
 import { chat } from '../chat/manager';
-import { getContactProfile } from '../chat/database';
-import { cycleStats, CycleData, cycleSummary, deletePeriod, endPeriod, PainLevel, setCycleOwner, setCycleSettings, setPain, startPeriod, useCycle } from '../couple/cycle';
+import { acceptedPairingFrom, getContactProfile } from '../chat/database';
+import { cycleOwner, cycleStats, CycleData, cycleSummary, deletePeriod, endPeriod, PainLevel, setCycleOwner, setCycleSettings, setPain, startPeriod, useCycle } from '../couple/cycle';
 import { DAY_MS, dayInfo, dayKey, dayStart, MAX_CYCLE, MIN_CYCLE, Phase, sortedPeriods } from '../couple/cycleMath';
 import { painLabel } from '../couple/cycleNotifications';
 import { haptics } from '../haptics';
@@ -186,8 +186,10 @@ export function CycleScreen({ partner, onBack }: Props) {
   const [sheet, setSheet] = useState<'start' | 'end' | null>(null);
   const name = partner ? (getContactProfile(partner.publicKey).name ?? partner.name) : '';
   const summary = cycleSummary(data, now);
-  // Lui voit son cycle à elle sans le modifier ; tant que personne n'a rien noté, chacun peut commencer.
-  const canEdit = data.owner !== 'partner';
+  // Lui voit son cycle à elle sans le modifier. Tant que rien n'est noté, le téléphone qui a accepté la
+  // liaison (le sien) propose de noter ; l'autre attend, sans bouton.
+  const owner = cycleOwner(data, partner ? acceptedPairingFrom(partner.publicKey) : true);
+  const canEdit = owner === 'me';
   const today = dayStart(now);
   const info = dayInfo(today, data.periods, summary.cycleLength, summary.periodLength, now);
 
@@ -243,7 +245,7 @@ export function CycleScreen({ partner, onBack }: Props) {
         </IconButton>
         <View style={styles.headerText}>
           <Text style={styles.title}>{t('cycle.titre')}</Text>
-          {data.owner === 'partner' && <Text style={styles.subtitle}>{t('cycle.sousTitreLui', { nom: name })}</Text>}
+          {owner === 'partner' && <Text style={styles.subtitle}>{t('cycle.sousTitreLui', { nom: name })}</Text>}
         </View>
       </View>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -283,12 +285,6 @@ export function CycleScreen({ partner, onBack }: Props) {
                 onPress={() => change(() => (summary.current ? endPeriod(now) : startPeriod(now, 'me')))}
               />
               <GrainButton variant="smoke" label={t('cycle.autreJour')} onPress={() => setSheet(summary.current ? 'end' : 'start')} />
-              {/* Rien n'est encore noté : sur son téléphone à lui, il laisse le suivi à elle. */}
-              {data.owner === null && data.periods.length === 0 && partner && (
-                <Pressable onPress={() => change(() => setCycleOwner('partner'))} hitSlop={8} style={styles.ownerLink} accessibilityRole="button">
-                  <Text style={styles.ownerLinkText}>{t('cycle.cEstElle', { nom: name })}</Text>
-                </Pressable>
-              )}
             </View>
           )}
         </Reanimated.View>
@@ -326,10 +322,14 @@ export function CycleScreen({ partner, onBack }: Props) {
           </>
         )}
 
-        <Text style={styles.section}>{t('cycle.calendrier')}</Text>
-        <Reanimated.View entering={enterUp(8, 260, 80)} style={[styles.list, styles.calendarBox]}>
-          <CycleCalendar data={data} now={now} onDay={onDay} />
-        </Reanimated.View>
+        {(canEdit || data.periods.length > 0) && (
+          <>
+            <Text style={styles.section}>{t('cycle.calendrier')}</Text>
+            <Reanimated.View entering={enterUp(8, 260, 80)} style={[styles.list, styles.calendarBox]}>
+              <CycleCalendar data={data} now={now} onDay={onDay} />
+            </Reanimated.View>
+          </>
+        )}
 
         {history.length > 0 && (
           <>
@@ -387,6 +387,12 @@ export function CycleScreen({ partner, onBack }: Props) {
           </>
         )}
         <Text style={styles.footer}>{t('cycle.prive')}</Text>
+        {/* Rien n'est noté et ce téléphone attend : si les rôles sont inversés, on corrige d'un appui. */}
+        {!canEdit && data.owner === null && data.periods.length === 0 && (
+          <Pressable onPress={() => change(() => setCycleOwner('me'))} hitSlop={8} style={styles.ownerLink} accessibilityRole="button">
+            <Text style={styles.ownerLinkText}>{t('cycle.cEstMoi')}</Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       {sheet === 'start' && <DaySheet title={t('cycle.debutTitre')} initial={now} onClose={() => setSheet(null)} onSave={(day) => change(() => startPeriod(day, 'me'))} />}
@@ -414,8 +420,8 @@ const useStyles = createStyles((colors) => ({
   headline: { fontSize: 20, fontWeight: '700', letterSpacing: -0.2, color: colors.text },
   subline: { fontSize: 13, lineHeight: 18, color: fixed.mutedLight },
   actions: { gap: 10 },
-  ownerLink: { alignSelf: 'center', paddingVertical: 6 },
-  ownerLinkText: { fontSize: 14, fontWeight: '500', color: fixed.lilac },
+  ownerLink: { alignSelf: 'center', paddingVertical: 10 },
+  ownerLinkText: { fontSize: 13, color: colors.textMuted, textDecorationLine: 'underline' },
   section: { paddingTop: 22, paddingHorizontal: 28, paddingBottom: 8, fontSize: 12, fontWeight: '600', color: colors.textMuted, letterSpacing: 0.72, textTransform: 'uppercase' },
   list: { marginHorizontal: 12, borderRadius: 22, backgroundColor: colors.surface, overflow: 'hidden' },
   calendarBox: { paddingHorizontal: 8, paddingTop: 6, paddingBottom: 14 },

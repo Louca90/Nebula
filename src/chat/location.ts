@@ -4,11 +4,16 @@
 // jamais par push ni par le relais : sans connexion, rien ne part et rien n'attend sur un serveur.
 
 export const LOCATION_DURATIONS = [15 * 60, 3600, 8 * 3600] as const;
-// « Tant que l'app est ouverte » : la fin glisse de cette durée à chaque position envoyée, et le partage
-// s'arrête dès que Pear passe en arrière-plan. Si le téléphone coupe Pear d'un coup, il finit seul.
-export const OPEN_SHARE_WINDOW_S = 10 * 60;
 // Durée la plus longue acceptée d'un contact, avec une marge pour une horloge décalée.
 const MAX_SHARE_MS = (8 * 3600 + 600) * 1000;
+// Nébula : « tant que l'app est ouverte » ne s'arrête plus en quittant l'app. Le partage reste en cours
+// (jusqu'à « Arrêter » ou au mode discret) ; quand l'app est fermée, aucune position ne part et l'autre
+// voit la dernière, avec son heure. Chaque position repousse la fin d'autant : sans nouvelle pendant
+// 30 jours, le partage s'éteint chez l'autre.
+export const OPEN_SHARE_KEEP_MS = 30 * 24 * 3600 * 1000;
+const MAX_OPEN_SHARE_MS = OPEN_SHARE_KEEP_MS + 600 * 1000;
+// Une position plus vieille que ça n'est plus montrée « en direct » (l'autre a quitté l'app).
+export const FRESH_LOCATION_MS = 3 * 60 * 1000;
 
 export type SharedLocation = {
   latitude: number;
@@ -32,7 +37,7 @@ export function parseLocation(value: unknown): SharedLocation | null {
   const { latitude, longitude, at, until, open, once } = value as Record<string, unknown>;
   if (!isCoordinate(latitude, 90) || !isCoordinate(longitude, 180) || !isTime(at) || !isTime(until)) return null;
   // Une fin trop lointaine est ramenée à la durée maximale.
-  return { latitude, longitude, at, until: Math.min(until, at + MAX_SHARE_MS), ...(open === true ? { open: true as const } : {}), ...(once === true ? { once: true as const } : {}) };
+  return { latitude, longitude, at, until: Math.min(until, at + (open === true ? MAX_OPEN_SHARE_MS : MAX_SHARE_MS)), ...(open === true ? { open: true as const } : {}), ...(once === true ? { once: true as const } : {}) };
 }
 
 export function parseLocationText(text: string): SharedLocation | null {
@@ -46,6 +51,9 @@ export function parseLocationText(text: string): SharedLocation | null {
 export const locationText = (location: SharedLocation) => JSON.stringify(location);
 
 export const isSharing = (location: SharedLocation, now: number) => location.until > now && location.until > location.at;
+
+// En cours et récente : l'autre a l'app ouverte en ce moment (ou vient de la quitter).
+export const isFresh = (location: SharedLocation, now: number) => isSharing(location, now) && now - location.at < FRESH_LOCATION_MS;
 
 const RAD = Math.PI / 180;
 

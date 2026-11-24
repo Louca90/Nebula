@@ -32,6 +32,12 @@ describe('position en direct', () => {
     expect(parsed && parsed.until - parsed.at).toBe((8 * 3600 + 600) * 1000);
   });
 
+  it('garde 30 jours un partage « tant que l’app est ouverte »', () => {
+    const year = 365 * 24 * 3600 * 1000;
+    const parsed = parseLocation({ ...paris, at: 1000, until: 1000 + year, open: true });
+    expect(parsed && parsed.until - parsed.at).toBe((30 * 24 * 3600 + 600) * 1000);
+  });
+
   it('sait si un partage est encore en cours', () => {
     expect(isSharing({ ...paris, at: 1000, until: 5000 }, 2000)).toBe(true);
     expect(isSharing({ ...paris, at: 1000, until: 5000 }, 6000)).toBe(false);

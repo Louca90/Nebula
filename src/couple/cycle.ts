@@ -132,6 +132,12 @@ export function setCycleOwner(owner: CycleOwner) {
   return update(() => ({ owner }));
 }
 
+// À qui est le cycle, vu de ce téléphone. Tant que rien n'est noté : elle est celle qui a accepté la
+// demande de liaison (voir acceptedPairingFrom). Une fois noté, la propriétaire enregistrée l'emporte.
+export function cycleOwner(data: CycleData, acceptedHere: boolean): CycleOwner {
+  return data.owner ?? (acceptedHere ? 'me' : 'partner');
+}
+
 // Ce que montre la carte : règles en cours (jour n), sinon dans combien de jours.
 export function cycleSummary(data: CycleData, now: number) {
   const { cycleLength, periodLength } = cycleStats(data);

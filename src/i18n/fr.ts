@@ -365,7 +365,7 @@ export const fr = {
     prete: 'Sauvegarde prête. Range-la dans un endroit sûr (Drive, ordinateur…).',
     partager: 'Partager le fichier',
     profilCharge: 'Profil chargé.',
-    choisirAide: 'Choisis un fichier de sauvegarde Nébula (.pear).',
+    choisirAide: 'Choisis un fichier de sauvegarde Nébula (.nebula).',
     choisirFichier: 'Choisir un fichier',
     remplacerTitre: 'Remplacer tout ?',
     remplacerAide: 'Cette sauvegarde remplace ton identité, tes contacts et toutes les conversations de ce téléphone. Ce qui n’est pas dans la sauvegarde sera perdu.',
@@ -710,6 +710,7 @@ export const fr = {
     mention: 'Transféré',
   },
   stockage: {
+    application: 'Application et cartes',
     photos: 'Photos',
     videos: 'Vidéos',
     vocaux: 'Vocaux',
@@ -889,12 +890,13 @@ export const fr = {
     aide: 'Le média s\'efface après avoir été ouvert une fois.',
   },
   position: {
+    appFermee: 'Nébula fermé · position d’{quand}',
     ponctuelle: 'Position envoyée',
     seulementActuelle: 'Envoyer seulement ma position actuelle',
     sArrete: 'S’arrête tout seul',
     uneJournee: 'Pour une journée',
     tantQueOuverte: 'Tant que l’app est ouverte',
-    tantQueOuverteAide: 'S’arrête si tu quittes Nébula plus de 2 minutes',
+    tantQueOuverteAide: 'Reprend tout seul dès que tu rouvres Nébula',
     partagerDirect: 'Partager en direct',
     seulVoit: 'Chiffré · seul·e {nom} voit ta position',
     titre: 'Position en direct',
@@ -1084,6 +1086,7 @@ export const fr = {
     sousTitre: '{nom} · {n} éléments',
   },
   carte: {
+    derniere: 'Dernière position {quand}',
     telechargerAideFrance: 'Nébula télécharge le détail rue par rue à {km} km autour de toi, puis toute la France (villes, villages, routes). Ensuite la carte marche hors ligne : rien ne sort de ton téléphone quand tu la regardes.',
     franceTitre: 'Toute la France',
     franceAide: 'Villes, villages et routes, hors ligne (quelques centaines de Mo, en Wi-Fi de préférence).',
@@ -1195,7 +1198,8 @@ export const fr = {
     apercuAppel: 'Appel',
   },
   cycle: {
-    cEstElle: 'C’est {nom} qui note son cycle',
+    cEstMoi: 'C’est moi qui note mon cycle',
+    carteAttente: 'Son cycle',
     finPrevue: 'Fin prévue dans {n} j',
     jourDuCycleCourt: 'jour du cycle',
     aujourdhui: 'Aujourd’hui',
@@ -1296,5 +1300,13 @@ export const fr = {
   distance: {
     titre: 'Distance',
     entreVous: 'entre vous deux',
+  },
+  captures: {
+    groupe: 'Écran',
+    titre: 'Autoriser les captures d’écran',
+    aide: 'Bloquées par défaut. Les photos et vidéos à vue unique restent toujours protégées.',
+    bloqueeTitre: 'Capture bloquée',
+    bloqueeTexte: 'Nébula bloque les captures d’écran. Les autoriser ? Tu pourras refaire ta capture tout de suite.',
+    autoriser: 'Autoriser les captures',
   },
 };

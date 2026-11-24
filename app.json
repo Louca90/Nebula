@@ -3,7 +3,7 @@
     "name": "Nébula",
     "slug": "nebula",
     "scheme": "nebula",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "platforms": [
       "android"
     ],
@@ -12,7 +12,7 @@
     "userInterfaceStyle": "dark",
     "android": {
       "package": "com.louca.nebula",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundImage": "./assets/android-icon-background.png",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -37,7 +37,8 @@
         "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.WAKE_LOCK",
-        "android.permission.POST_PROMOTED_NOTIFICATIONS"
+        "android.permission.POST_PROMOTED_NOTIFICATIONS",
+        "android.permission.DETECT_SCREEN_CAPTURE"
       ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW"

@@ -4,6 +4,7 @@ import Reanimated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-
 import { EASE } from '../../motion';
 import { BlurTargetView } from 'expo-blur';
 import { Backdrop } from '../../components/nebula';
+import { ComposerShade } from './components/ComposerShade';
 import { EphemeralBanner } from './components/EphemeralBanner';
 import { useChatBackdrop } from '../../couple/backdrop';
 import * as Clipboard from 'expo-clipboard';
@@ -347,11 +348,21 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, preview,
   // Double appui : met le cœur, ou l'enlève s'il y est déjà.
   const likeMessage = (message: Message) => chat.react(contactKey, message.id, LIKE);
 
+  // Nébula : le clavier s'ouvre à chaque fois. Un champ resté actif après la fermeture du clavier (geste
+  // retour) ne rouvre pas le clavier sur un simple focus : on le retire puis on le redonne, après la
+  // fermeture du menu du message (sinon le focus partait pendant que le menu se refermait).
+  // Le haut de la barre de saisie (bas de la liste), pour poser le fond noir derrière elle.
+  const [composerTop, setComposerTop] = useState<number | null>(null);
+  const focusComposer = () => {
+    input.current?.blur();
+    setTimeout(() => input.current?.focus(), 80);
+  };
+
   const startReply = (message: Message) => {
     if (editing) setDraft('');
     setEditing(null);
     setReplyingTo(message);
-    input.current?.focus();
+    focusComposer();
   };
 
   const saveMedia = async (message: Message) => {
@@ -402,7 +413,7 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, preview,
               setReplyingTo(null);
               setEditing(message);
               setDraft(message.text);
-              input.current?.focus();
+              focusComposer();
             },
           },
         ]
@@ -601,7 +612,8 @@ export function ChatScreen({ contactKey, name, pending, onBack, onInfo, preview,
         <ChatHeader contactKey={contactKey} name={name} onBack={onBack} onInfo={onInfo} onSearch={() => setSearching(true)} onMenu={() => setMenuOpen(true)} ephemeral={ephemeral} onEphemeral={chooseEphemeral} dimmed={attachOpen} onUndim={() => setAttachOpen(false)} />
         {/* Le décalage compense la barre d'état, placée au-dessus de la zone floutée. */}
         <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={topInset} style={styles.flex}>
-          <View ref={listArea} collapsable={false} style={styles.flex}>
+          {composerTop !== null && <ComposerShade top={composerTop} />}
+          <View ref={listArea} collapsable={false} style={styles.flex} onLayout={(event) => setComposerTop(event.nativeEvent.layout.y + event.nativeEvent.layout.height)}>
           {palettes.hasWallpaper && <ComposerFade />}
           {!!ephemeral && <EphemeralBanner seconds={ephemeral} />}
           <PinnedBanner messages={pinnedMessages} onJump={jumpTo} />

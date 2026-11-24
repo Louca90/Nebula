@@ -9,8 +9,11 @@ import {
 
 const KEY_BYTES = 32;
 // Une clé de 32 octets fait toujours 43 caractères en base64 URL.
-// pear://pair?k=<clé>&n=<pseudo encodé>. Les anciens liens n'ont que k.
-const PAIRING_LINK = /^pear:\/\/pair\?k=([A-Za-z0-9_-]{43})(?:&n=([^&\s]{0,200}))?$/;
+// nebula://pair?k=<clé>&n=<pseudo encodé>. Les anciens liens n'ont que k ; ceux de Pear (pear://) sont
+// encore lus. Nébula : avant, le lien commençait par pear:// et ouvrait Pear quand il était installé.
+const PAIRING_LINK = /^(?:nebula|pear):\/\/pair\?k=([A-Za-z0-9_-]{43})(?:&n=([^&\s]{0,200}))?$/;
+// Le lien au milieu d'un texte (message copié en entier) : le premier mot qui en est un.
+const LINK_IN_TEXT = /(?:nebula|pear):\/\/pair\?\S+/;
 // Le pseudo reste court dans le lien (et donc dans le QR code, qui reste facile à scanner).
 export const LINK_NAME_LENGTH = 20;
 
@@ -81,14 +84,16 @@ export function deriveMessageKey(secret: Uint8Array): Uint8Array {
 // Seulement la clé publique et le pseudo : pas de photo (elle arrive après la connexion).
 export function buildPairingLink(publicKey: string, name?: string | null): string {
   const short = [...(name ?? '').trim()].slice(0, LINK_NAME_LENGTH).join('');
-  return short ? `pear://pair?k=${publicKey}&n=${encodeURIComponent(short)}` : `pear://pair?k=${publicKey}`;
+  return short ? `nebula://pair?k=${publicKey}&n=${encodeURIComponent(short)}` : `nebula://pair?k=${publicKey}`;
 }
 
 export type PairingLink = { publicKey: string; name: string | null };
 
 // Renvoie la clé publique et le pseudo contenus dans le lien, ou null si le lien n'est pas valide.
 export function parsePairingLink(text: string): PairingLink | null {
-  const match = text.trim().match(PAIRING_LINK);
+  // Le lien seul, même entouré de texte ; la ponctuation collée à la fin (« … », point) est retirée.
+  const token = (text.match(LINK_IN_TEXT)?.[0] ?? text.trim()).replace(/[.,;:!?)»"'\]]+$/, '');
+  const match = token.match(PAIRING_LINK);
   if (!match) return null;
   try {
     if (from_base64(match[1]).length !== KEY_BYTES) return null;

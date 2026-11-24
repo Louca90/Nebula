@@ -9,7 +9,8 @@ import { NebulaBlurTarget } from './modules/pear-native/blur';
 import * as Linking from 'expo-linking';
 import notifee from '@notifee/react-native';
 
-import { backHookAvailable, setBackMode, setSecureWindow } from './modules/pear-native';
+import { backHookAvailable, setBackMode } from './modules/pear-native';
+import { applySecureScreen, startSecureScreen } from './src/secureScreen';
 import { LockScreen } from './src/components/LockScreen';
 import { shouldLock } from './src/lockRules';
 import { cleanupCache } from './src/chat/cleanup';
@@ -275,10 +276,12 @@ function App() {
   const [locked, setLocked] = useState<boolean | null>(null);
   const backgroundedAt = useRef<number | null>(null);
   useEffect(() => {
-    // En debug, captures permises pour tester l'interface ; la release reste toujours protégée.
-    setSecureWindow(!__DEV__).catch((e) => log.warn('fenêtre protégée', e));
+    // En debug, captures permises pour tester l'interface. Nébula : en release, bloquées sauf si elles
+    // sont autorisées dans Confidentialité (voir secureScreen.ts).
+    const stopSecure = startSecureScreen();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
+        applySecureScreen();
         let enabled = false;
         try {
           enabled = getSetting('app_lock') === '1';
@@ -289,8 +292,15 @@ function App() {
         backgroundedAt.current = Date.now();
       }
     });
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      stopSecure();
+    };
   }, []);
+  // La base ouverte (identité chargée) : le réglage des captures peut enfin être lu.
+  useEffect(() => {
+    if (identity) applySecureScreen();
+  }, [identity]);
 
   useEffect(() => {
     notifee.requestPermission().catch((e) => log.warn('notification', e));
@@ -354,9 +364,9 @@ function App() {
     setRoute({ name: 'contact', publicKey, suggestedName: name });
   };
 
-  // Un lien pear://pair ouvert depuis une autre app arrive ici.
+  // Un lien nebula://pair (ou l'ancien pear://pair) ouvert depuis une autre app arrive ici.
   useEffect(() => {
-    if (!url || !identity || !url.startsWith('pear://pair')) return;
+    if (!url || !identity || !/^(nebula|pear):\/\/pair/.test(url)) return;
     const key = parsePairingLink(url);
     if (key) openKey(key);
     else showDialog(t('app.lienNonReconnu'), t('app.lienNonValide'));

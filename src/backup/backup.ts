@@ -148,7 +148,7 @@ export async function exportBackup(kind: BackupKind, password: string, media: bo
   const header = newHeader(kind, kind === 'full' && media);
   const key = deriveKey(password, header);
   const day = new Date().toISOString().slice(0, 10);
-  const output = new File(exportsDirectory(), `Pear-${kind === 'full' ? 'sauvegarde' : 'profil'}-${day}${BACKUP_EXTENSION}`);
+  const output = new File(exportsDirectory(), `Nebula-${kind === 'full' ? 'sauvegarde' : 'profil'}-${day}${BACKUP_EXTENSION}`);
   const { entries, snapshot } = kind === 'full' ? fullEntries(media) : { entries: await profileEntries(), snapshot: null };
   const total = entries.reduce((sum, entry) => sum + entry.size, 0);
   let done = 0;

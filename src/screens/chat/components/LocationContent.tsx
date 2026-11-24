@@ -4,7 +4,7 @@ import { ArrowUp, MapPin } from 'lucide-react-native';
 
 import { lastKnownLocation } from '../../../../modules/pear-native';
 import { Message } from '../../../chat/database';
-import { bearing, compassPoint, distanceKm, formatDistance, isSharing, parseLocationText } from '../../../chat/location';
+import { bearing, compassPoint, distanceKm, formatDistance, isFresh, isSharing, parseLocationText } from '../../../chat/location';
 import { MiniMap } from '../../../map/MiniMap';
 import { isMapped } from '../../../map/offlineMap';
 import { openMap } from '../../../map/openMap';
@@ -98,7 +98,7 @@ export function LocationContent({ message, palette }: { message: Message; palett
             </Text>
           )}
           <Text style={[styles.time, { color: palette.muted }]}>
-            {location.once ? `${t('position.ponctuelle')} · ${ago(now - location.at)}` : live ? `${ago(now - location.at)} · ${location.open ? t('position.tantQueOuverte') : remaining(location.until - now)}` : t('position.termine')}
+            {location.once ? `${t('position.ponctuelle')} · ${ago(now - location.at)}` : live ? (location.open && !mine && !isFresh(location, now) ? t('position.appFermee', { quand: ago(now - location.at) }) : `${ago(now - location.at)} · ${location.open ? t('position.tantQueOuverte') : remaining(location.until - now)}`) : t('position.termine')}
           </Text>
         </View>
       </View>

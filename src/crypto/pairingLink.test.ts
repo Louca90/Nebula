@@ -6,14 +6,21 @@ describe('lien de pairing', () => {
   it('transporte la clé et le pseudo, y compris accents et emojis', () => {
     const { publicKey } = createIdentity();
     const link = buildPairingLink(publicKey, 'Élvira 🍐');
-    expect(link).toMatch(/^pear:\/\/pair\?k=[A-Za-z0-9_-]{43}&n=/);
+    expect(link).toMatch(/^nebula:\/\/pair\?k=[A-Za-z0-9_-]{43}&n=/);
     expect(parsePairingLink(link)).toEqual({ publicKey, name: 'Élvira 🍐' });
   });
 
   it('lit encore les anciens liens qui n’ont que la clé', () => {
     const { publicKey } = createIdentity();
     expect(parsePairingLink(`pear://pair?k=${publicKey}`)).toEqual({ publicKey, name: null });
-    expect(buildPairingLink(publicKey)).toBe(`pear://pair?k=${publicKey}`);
+    expect(buildPairingLink(publicKey)).toBe(`nebula://pair?k=${publicKey}`);
+  });
+
+  it('retrouve le lien au milieu d’un message copié', () => {
+    const { publicKey } = createIdentity();
+    const link = buildPairingLink(publicKey, 'Louca');
+    expect(parsePairingLink(`Ajoute-moi sur Nébula : ${link}.`)).toEqual({ publicKey, name: 'Louca' });
+    expect(parsePairingLink(`\n${link}\n`)).toEqual({ publicKey, name: 'Louca' });
   });
 
   it('raccourcit le pseudo à 20 caractères', () => {

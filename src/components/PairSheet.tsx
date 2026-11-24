@@ -36,7 +36,7 @@ const codeIn: EntryExitAnimationFunction = () => {
 };
 
 // La feuille « QR code » : « Mon code » et « Scanner » dans la même feuille, avec un sélecteur dont la
-// pastille glisse. Le contenu du code reste pear://pair?k=<clé>&n=<pseudo>. Un code lu ferme la feuille
+// pastille glisse. Le contenu du code reste nebula://pair?k=<clé>&n=<pseudo>. Un code lu ferme la feuille
 // et ouvre « Nouveau contact » (onKeyReceived).
 // initialMode : ouvrir directement sur le scanner (bouton « Scanner son code » de Nébula).
 export function PairSheet({ visible, publicKey, onClose, onKeyReceived, initialMode = 'code' }: { visible: boolean; publicKey: string; onClose: () => void; onKeyReceived: (link: PairingLink) => void; initialMode?: Mode }) {

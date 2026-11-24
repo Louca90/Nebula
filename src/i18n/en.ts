@@ -366,7 +366,7 @@ export const en: Dictionary = {
     prete: 'Backup ready. Keep it somewhere safe (Drive, computer…).',
     partager: 'Share the file',
     profilCharge: 'Profile loaded.',
-    choisirAide: 'Choose a Nébula backup file (.pear).',
+    choisirAide: 'Choose a Nébula backup file (.nebula).',
     choisirFichier: 'Choose a file',
     remplacerTitre: 'Replace everything?',
     remplacerAide: 'This backup replaces your identity, your contacts and all the conversations on this phone. Anything not in the backup will be lost.',
@@ -711,6 +711,7 @@ export const en: Dictionary = {
     mention: 'Forwarded',
   },
   stockage: {
+    application: 'App and maps',
     photos: 'Photos',
     videos: 'Videos',
     vocaux: 'Voice',
@@ -890,12 +891,13 @@ export const en: Dictionary = {
     aide: 'The media is erased after being opened once.',
   },
   position: {
+    appFermee: 'Nébula closed · position from {quand}',
     ponctuelle: 'Location sent',
     seulementActuelle: 'Send only my current location',
     sArrete: 'Stops on its own',
     uneJournee: 'For a day',
     tantQueOuverte: 'While the app is open',
-    tantQueOuverteAide: 'Stops if you leave Nébula for more than 2 minutes',
+    tantQueOuverteAide: 'Resumes by itself as soon as you reopen Nébula',
     partagerDirect: 'Share live',
     seulVoit: 'Encrypted · only {nom} sees your location',
     titre: 'Live location',
@@ -1085,6 +1087,7 @@ export const en: Dictionary = {
     sousTitre: '{nom} · {n} items',
   },
   carte: {
+    derniere: 'Last position {quand}',
     telechargerAideFrance: 'Nébula downloads street-level detail {km} km around you, then all of France (cities, villages, roads). After that the map works offline: nothing leaves your phone while you look at it.',
     franceTitre: 'All of France',
     franceAide: 'Cities, villages and roads, offline (a few hundred MB, Wi-Fi recommended).',
@@ -1196,7 +1199,8 @@ export const en: Dictionary = {
     apercuAppel: 'Call',
   },
   cycle: {
-    cEstElle: '{nom} tracks her own cycle',
+    cEstMoi: 'I track my own cycle',
+    carteAttente: 'Her cycle',
     finPrevue: 'Expected to end in {n} d',
     jourDuCycleCourt: 'cycle day',
     aujourdhui: 'Today',
@@ -1297,5 +1301,13 @@ export const en: Dictionary = {
   distance: {
     titre: 'Distance',
     entreVous: 'between you two',
+  },
+  captures: {
+    groupe: 'Screen',
+    titre: 'Allow screenshots',
+    aide: 'Blocked by default. View-once photos and videos always stay protected.',
+    bloqueeTitre: 'Screenshot blocked',
+    bloqueeTexte: 'Nébula blocks screenshots. Allow them? You can take your screenshot again right away.',
+    autoriser: 'Allow screenshots',
   },
 };

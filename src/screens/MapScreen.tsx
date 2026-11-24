@@ -6,7 +6,7 @@ import { Download, Eye, EyeOff, Lock, MessageCircle } from 'lucide-react-native'
 
 import { freshLocation, lastKnownLocation } from '../../modules/pear-native';
 import { getContactProfile, getLocationMessages } from '../chat/database';
-import { distanceKm, formatDistance, isSharing, parseLocationText, SharedLocation } from '../chat/location';
+import { distanceKm, formatDistance, isFresh, isSharing, parseLocationText, SharedLocation } from '../chat/location';
 import { chat } from '../chat/manager';
 import { useMediaUri } from '../chat/media';
 import { showDialog } from '../components/dialog';
@@ -56,7 +56,8 @@ const ENDED_VISIBLE_MS = 24 * 3600 * 1000;
 const PIN = 48;
 const TICK_MS = 15 * 1000;
 
-type Pin = { contact: Contact; location: SharedLocation; live: boolean };
+// live : partage en cours ; fresh : position récente (l'autre a l'app ouverte en ce moment).
+type Pin = { contact: Contact; location: SharedLocation; live: boolean; fresh: boolean };
 
 function ago(ms: number) {
   if (ms < 60_000) return t('position.aLinstant');
@@ -76,7 +77,7 @@ function pinsFor(contacts: Contact[], now: number): Pin[] {
     if (!contact || !location) continue;
     const live = isSharing(location, now);
     if (!live && now - location.at > ENDED_VISIBLE_MS) continue;
-    pins.push({ contact, location, live });
+    pins.push({ contact, location, live, fresh: isFresh(location, now) });
   }
   return pins;
 }
@@ -108,17 +109,17 @@ function ContactPin({ pin, selected, index }: { pin: Pin; selected: boolean; ind
     cancelAnimation(drift);
     pulse.set(0);
     drift.set(0);
-    if (!pin.live || reduced) return;
+    if (!pin.fresh || reduced) return;
     pulse.set(withDelay(index * 300, withRepeat(withTiming(1, { duration: 2200, easing: Easing.out(Easing.cubic) }), -1, false)));
     drift.set(withDelay(1000, withRepeat(withTiming(1, { duration: 2500 + index * 500, easing: Easing.inOut(Easing.sin) }), -1, true)));
-  }, [pin.live, reduced, index, pulse, drift]);
+  }, [pin.fresh, reduced, index, pulse, drift]);
   const halo = useAnimatedStyle(() => ({ opacity: 0.55 * (1 - pulse.get()), transform: [{ scale: 0.6 + 2 * pulse.get() }] }));
   const body = useAnimatedStyle(() => ({ transform: [{ translateX: 6 * drift.get() }, { translateY: -4 * drift.get() }] }));
   const face = useAnimatedStyle(() => ({ transform: [{ scale: 1 + 0.15 * chosen.get() }] }));
   return (
     <Reanimated.View entering={enterUp(-14, 420, 120 + index * 90)} style={styles.pin}>
       <Reanimated.View style={[styles.pinBody, body]}>
-        {pin.live && <Reanimated.View style={[styles.halo, halo]} />}
+        {pin.fresh && <Reanimated.View style={[styles.halo, halo]} />}
         <Reanimated.View style={[styles.face, { borderColor: selected ? ink.signature : pin.live ? ink.ink : ink.ended }, !pin.live && styles.faceEnded, face]}>
           <Face publicKey={pin.contact.publicKey} name={pin.contact.name} size={PIN - 6} />
         </Reanimated.View>
@@ -330,8 +331,10 @@ export function MapScreen({ contacts, focus, onBack, onOpenChat }: Props) {
 
   const detail = (pin: Pin) => {
     const away = me ? formatDistance(distanceKm(me, pin.location), t('position.virgule')) : null;
-    const parts = pin.live
+    const parts = pin.fresh
       ? [t('carte.enDirect'), away ? t('position.aDistance', { distance: away }) : null, ago(now - pin.location.at)]
+      : pin.live
+        ? [t('carte.derniere', { quand: ago(now - pin.location.at) }), away ? t('position.aDistance', { distance: away }) : null]
       : [t('carte.partagee', { quand: ago(now - pin.location.at) }), away ? t('position.aDistance', { distance: away }) : null];
     return parts.filter(Boolean).join(' · ');
   };

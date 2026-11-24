@@ -22,6 +22,7 @@ import { VIEWER_CANCEL_MS, VIEWER_CLOSE_DISTANCE, VIEWER_CLOSE_MS, VIEWER_CLOSE_
 import { useChatStyles } from '../styles';
 import { Rect } from '../types';
 import { t } from '../../../i18n';
+import { holdSecureScreen } from '../../../secureScreen';
 
 // Plein écran. Toucher la vidéo affiche ou masque les commandes (elles se masquent seules après 2,5 s de
 // lecture) ; double-toucher à gauche ou à droite recule ou avance de 10 s, avec une onde à l'endroit
@@ -212,6 +213,12 @@ export function MediaViewer({ viewing: { message, rect, poster, size, round, tit
   const progress = useSharedValue(0);
   const dragX = useSharedValue(0);
   const dragY = useSharedValue(0);
+  // Nébula : le haut (croix, nom) s'efface en glissant et ne revient plus pendant la fermeture (la photo
+  // repart vers l'avatar et le glissé retombe à 0 : avant, la croix et le nom réapparaissaient).
+  const topFade = useSharedValue(1);
+  // Nébula : un média à vue unique garde les captures bloquées tant qu'il est affiché, même si elles sont
+  // autorisées dans les réglages.
+  useEffect(() => (message.view_once ? holdSecureScreen() : undefined), [message.view_once]);
   const closingRef = useRef(false);
   const [opened, setOpened] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -290,6 +297,7 @@ export function MediaViewer({ viewing: { message, rect, poster, size, round, tit
     closingRef.current = true;
     if (isVideo) player.pause();
     setClosing(true);
+    topFade.set(withTiming(0, { duration: 120, easing: VIEWER_EASING }));
     const config = { duration: VIEWER_CLOSE_MS, easing: VIEWER_EASING };
     dragX.set(withTiming(0, config));
     dragY.set(withTiming(0, config));
@@ -392,6 +400,8 @@ export function MediaViewer({ viewing: { message, rect, poster, size, round, tit
   const half = height / 2;
   const dimming = useAnimatedStyle(() => ({ opacity: progress.get() * interpolate(dragY.get(), [0, half], [1, 0.15], 'clamp') }));
   const chrome = useAnimatedStyle(() => ({ opacity: interpolate(dragY.get(), [0, VIEWER_CLOSE_DISTANCE], [1, 0], 'clamp') }));
+  // Un seul style d'opacité pour le haut (deux styles d'opacité à la suite : le second remplaçait le premier).
+  const topStyle = useAnimatedStyle(() => ({ opacity: topFade.get() * progress.get() * interpolate(dragY.get(), [0, VIEWER_CLOSE_DISTANCE], [1, 0], 'clamp') }));
   const dragged = useAnimatedStyle(() => ({
     transform: [{ translateX: dragX.get() }, { translateY: dragY.get() }, { scale: interpolate(dragY.get(), [0, half], [1, VIEWER_MIN_SCALE], 'clamp') }],
   }));
@@ -446,7 +456,7 @@ export function MediaViewer({ viewing: { message, rect, poster, size, round, tit
       </View>
       </GestureDetector>
       {title ? (
-        <Reanimated.View style={[styles.viewerTop, chrome, dimming]}>
+        <Reanimated.View style={[styles.viewerTop, topStyle]}>
           <IconButton onPress={close} label={t('commun.fermer')} style={styles.viewerTopClose}>
             <X size={20} color={colors.background} strokeWidth={2} />
           </IconButton>
@@ -456,7 +466,7 @@ export function MediaViewer({ viewing: { message, rect, poster, size, round, tit
           </View>
         </Reanimated.View>
       ) : (
-        <Reanimated.View style={[styles.viewerClose, dimming]}>
+        <Reanimated.View style={[styles.viewerClose, topStyle]}>
           <IconButton onPress={close} label={t('commun.fermer')}>
             <X size={28} color={colors.background} strokeWidth={1.75} />
           </IconButton>

@@ -1,6 +1,6 @@
 {
-  "version": "1.1.0",
-  "versionCode": 2,
-  "summary": "- Nouveau : le suivi du cycle, avec calendrier, prévisions et rappels pour vous deux.\n- Vos humeurs et la distance entre vous, directement dans l'onglet Nous.\n- Toute la France sur la carte, et le détail des rues autour d'elle quand elle partage sa position.\n- Les vocaux reçus app fermée s'écoutent enfin, et Pense à toi n'a plus de limite.",
+  "version": "1.1.1",
+  "versionCode": 3,
+  "summary": "- La position « tant que l'app est ouverte » ne s'arrête plus : elle reprend toute seule quand tu reviens.\n- Le cycle s'affiche au bon téléphone, sans rien régler.\n- Captures d'écran autorisables, et place réelle de l'app dans Stockage.\n- Plein de corrections : boutons, clavier, lien de liaison, visionneuse.",
   "pages": {}
 }

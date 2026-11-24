@@ -7,6 +7,7 @@ import { appVersionCode, appVersionName, authenticate } from '../../../modules/p
 import { getSetting, setSetting } from '../../chat/database';
 import { linkPreviewsEnabled, setLinkPreviewsEnabled } from '../../chat/linkPreview';
 import { BackupSheet } from '../../components/BackupSheet';
+import { screenshotsAllowed, setScreenshotsAllowed } from '../../secureScreen';
 import { showDialog } from '../../components/dialog';
 import { LanguageSheet } from '../../components/LanguageSheet';
 import { LilyMark } from '../../components/Lily';
@@ -207,6 +208,7 @@ export function PrivacyPage({ onBack, onServers }: { onBack: () => void; onServe
   const [lock, setLock] = useState(() => getSetting('app_lock') === '1');
   const [relay, setRelay] = useState(() => getSetting('relay_enabled') !== '0');
   const [linkPreviews, setLinkPreviews] = useState(linkPreviewsEnabled);
+  const [captures, setCaptures] = useState(screenshotsAllowed);
   // On vérifie que l'empreinte ou le code marche avant d'activer : sinon on s'enfermerait dehors.
   const changeLock = async (value: boolean) => {
     if (value) {
@@ -250,6 +252,23 @@ export function PrivacyPage({ onBack, onServers }: { onBack: () => void; onServe
                 onChange={(value) => {
                   setLinkPreviews(value);
                   setLinkPreviewsEnabled(value);
+                }}
+              />
+            }
+          />
+        </SettingsGroup>
+        <SettingsGroup title={t('captures.groupe')}>
+          <SettingRow
+            icon={Camera}
+            label={t('captures.titre')}
+            detail={t('captures.aide')}
+            right={
+              <Toggle
+                value={captures}
+                label={t('captures.titre')}
+                onChange={(value) => {
+                  setCaptures(value);
+                  setScreenshotsAllowed(value);
                 }}
               />
             }
