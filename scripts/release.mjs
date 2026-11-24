@@ -19,7 +19,8 @@ const APP_JSON = join(ROOT, 'app.json');
 const CHANGELOG = join(ROOT, 'CHANGELOG.md');
 const NOTES = join(ROOT, 'src/update/release-notes.json');
 const DIST = join(ROOT, 'dist');
-const JAVA_HOME = process.env.JAVA_HOME || 'C:\\Program Files\\Android\\Android Studio\\jbr';
+const WINDOWS = process.platform === 'win32';
+const JAVA_HOME = process.env.JAVA_HOME || (WINDOWS ? 'C:\\Program Files\\Android\\Android Studio\\jbr' : '');
 
 const run = (command, options = {}) => execSync(command, { cwd: ROOT, stdio: 'inherit', ...options });
 const output = (command) => execSync(command, { cwd: ROOT, encoding: 'utf8' }).trim();
@@ -62,7 +63,8 @@ function sha256(path) {
 // Signature Ed25519 de « versionCode + sha256 » avec la clé de la configuration distante (scripts/sign-config.mjs).
 // Le préfixe et le format doivent rester identiques à releaseSigningMessage (src/update/release.ts).
 function signRelease(versionCode, hash) {
-  const keyFile = join(homedir(), '.pear', 'remote-config-key.hex');
+  // Nébula : NEBULA_RELEASE_KEY désigne la clé propre à Nébula (créée pour la 1.1.0) ; sinon celle de Pear.
+  const keyFile = process.env.NEBULA_RELEASE_KEY || join(homedir(), '.pear', 'remote-config-key.hex');
   if (!existsSync(keyFile)) throw new Error(`Clé de signature absente : ${keyFile} (voir sign-config.mjs init).`);
   const message = new TextEncoder().encode(['pear-release-v1', versionCode, hash].join('\n'));
   return bytesToHex(ed25519.sign(message, hexToBytes(readFileSync(keyFile, 'utf8').trim())));
@@ -143,9 +145,9 @@ function build() {
   run('npx jest --silent');
   // CI=1 : pas de question sur les changements non commités.
   run('npx expo prebuild --platform android --no-install', { env: { ...process.env, CI: '1' } });
-  const env = { ...process.env, JAVA_HOME };
+  const env = JAVA_HOME ? { ...process.env, JAVA_HOME } : process.env;
   const abis = process.argv.includes('--all-abis') ? '' : ' -PreactNativeArchitectures=arm64-v8a';
-  run(`"${join(ROOT, 'android', 'gradlew.bat')}" assembleRelease${abis}`, { cwd: join(ROOT, 'android'), env });
+  run(`"${join(ROOT, 'android', WINDOWS ? 'gradlew.bat' : 'gradlew')}" assembleRelease${abis}`, { cwd: join(ROOT, 'android'), env });
   mkdirSync(DIST, { recursive: true });
   const target = apkPath(version);
   copyFileSync(join(ROOT, 'android/app/build/outputs/apk/release/app-release.apk'), target);

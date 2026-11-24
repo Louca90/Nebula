@@ -46,13 +46,17 @@ export function releaseSigningMessage(versionCode: number, sha256: string) {
 
 // Une release sans empreinte ou sans signature valide n'est jamais proposée : quelqu'un qui publierait un
 // APK sur le dépôt sans la clé privée ne pourrait pas le faire installer.
-export function isReleaseSigned(release: Release, publicKeyHex: string): boolean {
+// Nébula : plusieurs clés peuvent être acceptées (l'ancienne clé de Pear et celle de Nébula, créée en 1.1.0).
+export function isReleaseSigned(release: Release, publicKeyHex: string | readonly string[]): boolean {
   if (!release.sha256 || !release.signature) return false;
-  try {
-    return ed25519.verify(hexToBytes(release.signature), releaseSigningMessage(release.versionCode, release.sha256), hexToBytes(publicKeyHex));
-  } catch {
-    return false;
-  }
+  const keys = typeof publicKeyHex === 'string' ? [publicKeyHex] : publicKeyHex;
+  return keys.some((key) => {
+    try {
+      return ed25519.verify(hexToBytes(release.signature as string), releaseSigningMessage(release.versionCode, release.sha256 as string), hexToBytes(key));
+    } catch {
+      return false;
+    }
+  });
 }
 
 // La section « Résumé » jusqu'au titre suivant. Sans elle, les premières lignes de la description.

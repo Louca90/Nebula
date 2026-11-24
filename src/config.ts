@@ -27,6 +27,10 @@ export const REMOTE_CONFIG_URL = 'https://raw.githubusercontent.com/Louca90/Pear
 // Clé publique Ed25519 de signature ; la clé privée est hors du dépôt (scripts/sign-config.mjs).
 export const REMOTE_CONFIG_PUBLIC_KEY = '84740cf7b9d167c8b9878958c4bfc6d2a410104213cc7c043e4098de07770b73';
 export const REMOTE_CONFIG_TIMEOUT_MS = 10 * SECOND;
+// Nébula : les releases peuvent être signées par la clé ci-dessus (celle de Pear, gardée sur le PC de
+// Louca) ou par la clé propre à Nébula, créée pour la 1.1.0 (clé privée hors du dépôt, sauvegardée sur
+// son Drive). La configuration distante, elle, reste vérifiée avec la seule clé de Pear.
+export const RELEASE_PUBLIC_KEYS = [REMOTE_CONFIG_PUBLIC_KEY, '61b3842e30801e4f4da1f70b640193b94b367339ef6da1bc204e70d7abb0cb0a'] as const;
 
 // Mises à jour : la dernière release du dépôt GitHub de Nébula (voir RELEASE.md).
 // Topic FCM des annonces de version (server/api/announce.js).

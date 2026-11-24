@@ -4,7 +4,7 @@ import { isReleaseSigned, Release } from './release';
 // Les mises à jour normales passent toujours devant : une version de test n'est proposée que si son
 // versionCode dépasse celui de la dernière stable ET celui installé. Sans programme testeur, seules les
 // stables comptent. Une release non signée est ignorée.
-export function chooseRelease(releases: Release[], installedCode: number, testerOn: boolean, publicKeyHex: string): Release | null {
+export function chooseRelease(releases: Release[], installedCode: number, testerOn: boolean, publicKeyHex: string | readonly string[]): Release | null {
   const signed = releases.filter((release) => isReleaseSigned(release, publicKeyHex));
   const best = (list: Release[]) => list.reduce<Release | null>((top, release) => (!top || release.versionCode > top.versionCode ? release : top), null);
   const stable = best(signed.filter((release) => !release.prerelease));
