@@ -990,6 +990,12 @@ export const fr = {
     dejaSorties: 'Les nouveautés déjà sorties',
   },
   nous: {
+    nouveaux: '{n} nouveau(x)',
+    appeler: 'Appeler',
+    position: 'Position',
+    photo: 'Photo',
+    aujourdhui: 'Aujourd’hui',
+    prochaineFois: 'Prochaine fois',
     etape1: 'Sur son téléphone, elle ouvre Nébula et touche « Montrer mon code ».',
     etape2: 'Sur le tien, touche « Scanner son code » et vise son QR code.',
     etape3: 'Elle reçoit ta demande et l’accepte : vous êtes liés.',
@@ -1202,6 +1208,7 @@ export const fr = {
     apercuAppel: 'Appel',
   },
   cycle: {
+    carteJourCourt: 'J{n}',
     douleurTitre: 'Douleur',
     rienNote: 'Rien de noté',
     cEstMoi: 'C’est moi qui note mon cycle',

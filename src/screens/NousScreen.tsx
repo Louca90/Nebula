@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { ReactNode, useEffect, useState, useSyncExternalStore } from 'react';
 import { Image, PermissionsAndroid, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Reanimated, { useSharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
@@ -10,7 +10,7 @@ import { distanceKm, formatDistance, isSharing, parseLocationText } from '../cha
 import { cycleOwner, cycleSummary, useCycle } from '../couple/cycle';
 import { MOOD_FRESH_MS, MoodId, MOODS, useMoods } from '../couple/mood';
 import { MoodIcon } from '../components/MoodIcon';
-import { Droplet, Plus } from 'lucide-react-native';
+import { Camera, ChevronRight, Droplet, MapPin, MessageCircle, Navigation, Phone, Plus } from 'lucide-react-native';
 import { Sheet } from '../components/Sheet';
 import { haptics } from '../haptics';
 import { log } from '../log';
@@ -21,7 +21,7 @@ import { Lily } from '../components/Lily';
 import { Backdrop, Card, GrainButton } from '../components/nebula';
 import { OnlineRing, useRingArrival } from '../components/OnlineRing';
 import { Avatar, useInsets } from '../components/ui';
-import { t } from '../i18n';
+import { dateLocale, t } from '../i18n';
 import { enterUp } from '../motion';
 import { Contact } from '../storage';
 import { createStyles, fixed, useColors } from '../theme';
@@ -40,6 +40,8 @@ type Props = {
   onDates: () => void;
   onCycle: () => void;
   onMap: (contact: Contact) => void;
+  onShareLocation: (contact: Contact) => void;
+  onCamera: (contact: Contact) => void;
   onPair: (mode: PairMode) => void;
   onRequests: () => void;
 };
@@ -118,7 +120,7 @@ function PairInvite({ pending, request, onPair, onRequests }: { pending: boolean
   );
 }
 
-export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, onDates, onCycle, onMap, onPair, onRequests }: Props) {
+export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, onDates, onCycle, onMap, onShareLocation, onCamera, onPair, onRequests }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const { top } = useInsets();
@@ -147,7 +149,7 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
 
   const header = (
     <View style={[styles.header, { paddingTop: top + 8 }]}>
-      <StaticLily size={30} color={colors.text} />
+      <StaticLily size={22} color={colors.text} />
       <Text style={styles.appName}>Nébula</Text>
     </View>
   );
@@ -213,101 +215,75 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
           </View>
         </Reanimated.View>
 
+        {/* Nébula : la conversation est une barre de message (son dernier message, l'heure, les nouveaux),
+            avec un bouton rond qui ouvre la discussion : plus de carte « Conversation ». */}
         <Reanimated.View entering={enterUp(8, 260, 40)}>
-          <Pressable onPress={() => onOpenChat(partner)} accessibilityRole="button" accessibilityLabel={t('nous.conversation')}>
-            <Card style={styles.conversation}>
-              <View style={styles.convTop}>
-                <Text style={styles.convTitle}>{t('nous.conversation')}</Text>
-                {last && <Text style={styles.convWhen}>{when(last.created_at, now)}</Text>}
-              </View>
-              <View style={styles.convBottom}>
-                <Text style={styles.convPreview} numberOfLines={1}>
-                  {last ? describeMessage(last) : t('nous.premierMessage')}
+          <Pressable onPress={() => onOpenChat(partner)} accessibilityRole="button" accessibilityLabel={t('nous.conversation')} style={({ pressed }) => [styles.message, pressed && styles.pressed]}>
+            <View style={styles.flex}>
+              <Text style={styles.messageText} numberOfLines={1}>
+                {last ? describeMessage(last) : t('nous.premierMessage')}
+              </Text>
+              {last && (
+                <Text style={styles.messageMeta} numberOfLines={1}>
+                  {unread > 0 ? `${when(last.created_at, now)} · ${t('nous.nouveaux', { n: unread })}` : when(last.created_at, now)}
                 </Text>
-                {unread > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{unread}</Text>
-                  </View>
-                )}
-              </View>
-            </Card>
-          </Pressable>
-        </Reanimated.View>
-
-        <Reanimated.View entering={enterUp(8, 260, 80)} style={styles.duo}>
-          <Pressable style={styles.duoItem} onPress={() => onPense(partner)} accessibilityRole="button" accessibilityLabel={t('nous.penseAToi')}>
-            <Card style={styles.small}>
-              <View style={styles.penseTop}>
-                <StaticLily size={26} color={fixed.lilac} />
-                {thoughts > 0 && <Text style={styles.penseCount}>{thoughts}</Text>}
-              </View>
-              <Text style={styles.smallLabel}>{t('nous.penseAToi')}</Text>
-            </Card>
-          </Pressable>
-          <Pressable style={styles.duoItem} onPress={onDates} accessibilityRole="button" accessibilityLabel={t('nous.nosDates')}>
-            <Card style={styles.small}>
-              {days !== null ? <Text style={styles.days}>{t('nous.jours', { n: days })}</Text> : <CalendarGlyph color={fixed.lilac} />}
-              <Text style={styles.smallLabel}>{days !== null ? t('nous.avantDeSeRevoir') : t('nous.ajouterDate')}</Text>
-            </Card>
-          </Pressable>
-        </Reanimated.View>
-
-        <Reanimated.View entering={enterUp(8, 260, 120)} style={styles.duo}>
-          <Pressable style={styles.duoItem} onPress={onCycle} accessibilityRole="button" accessibilityLabel={t('cycle.titre')}>
-            <Card style={styles.small}>
-              <View style={styles.penseTop}>
-                <Droplet size={22} color={fixed.cycle.period} fill={cycleInfo?.current ? fixed.cycle.period : fixed.transparent} strokeWidth={1.8} />
-                {cycleText && (
-                  <Text style={styles.penseCount} numberOfLines={1}>
-                    {cycleText}
-                  </Text>
-                )}
-              </View>
-              <Text style={styles.smallLabel}>{cycleText ? t('cycle.titre') : cycleOwner(cycle, acceptedPairingFrom(key)) === 'me' ? t('cycle.carteSuivre') : t('cycle.carteAttente')}</Text>
-            </Card>
-          </Pressable>
-          {away !== null && (
-            <Pressable style={styles.duoItem} onPress={() => onMap(partner)} accessibilityRole="button" accessibilityLabel={t('distance.titre')}>
-              <Card style={styles.small}>
-                <Text style={styles.days} numberOfLines={1} adjustsFontSizeToFit>
-                  {formatDistance(away, t('position.virgule'))}
-                </Text>
-                <Text style={styles.smallLabel}>{t('distance.entreVous')}</Text>
-              </Card>
-            </Pressable>
-          )}
-        </Reanimated.View>
-
-        <Reanimated.View entering={enterUp(8, 260, 160)}>
-          <Card style={styles.mood}>
-            <Text style={styles.moodTitle}>{t('humeur.titre')}</Text>
-            <View style={styles.moodRow}>
-              <View style={styles.moodSide} accessible accessibilityLabel={`${name} : ${theirMood ? t(`humeur.${theirMood.mood}`) : t('humeur.pasEncore')}`}>
-                <View style={[styles.moodTile, !theirMood && styles.moodTileEmpty]}>
-                  {theirMood && <MoodIcon mood={theirMood.mood} size={20} color={fixed.lilac} />}
-                </View>
-                <View style={styles.flex}>
-                  <Text style={styles.moodWho} numberOfLines={1}>
-                    {name}
-                  </Text>
-                  <Text style={styles.moodText} numberOfLines={1}>
-                    {theirMood ? `${t(`humeur.${theirMood.mood}`)} · ${when(theirMood.at, now)}` : t('humeur.pasEncore')}
-                  </Text>
-                </View>
-              </View>
-              <Pressable style={({ pressed }) => [styles.moodSide, pressed && styles.pressed]} onPress={() => setMoodOpen(true)} accessibilityRole="button" accessibilityLabel={t('humeur.choisir')}>
-                <View style={styles.moodTile}>
-                  {myMood ? <MoodIcon mood={myMood.mood} size={20} color={fixed.lilac} /> : <Plus size={20} color={fixed.lilac} strokeWidth={1.8} />}
-                </View>
-                <View style={styles.flex}>
-                  <Text style={styles.moodWho}>{t('pense.toi')}</Text>
-                  <Text style={styles.moodText} numberOfLines={1}>
-                    {myMood ? t(`humeur.${myMood.mood}`) : t('humeur.choisir')}
-                  </Text>
-                </View>
-              </Pressable>
+              )}
             </View>
-          </Card>
+            <View style={styles.messageButton}>
+              <MessageCircle size={20} color={fixed.onGrainButton} strokeWidth={2} />
+            </View>
+          </Pressable>
+        </Reanimated.View>
+
+        {/* Quatre gestes, en ronds comme sur une fiche contact. */}
+        <Reanimated.View entering={enterUp(8, 260, 80)} style={styles.actions}>
+          <QuickAction label={t('nous.penseAToi')} badge={thoughts} onPress={() => onPense(partner)}>
+            <StaticLily size={22} color={fixed.lilac} />
+          </QuickAction>
+          <QuickAction label={t('nous.appeler')} onPress={() => chat.startCall(key, false)}>
+            <Phone size={22} color={fixed.lilac} strokeWidth={1.8} />
+          </QuickAction>
+          <QuickAction label={t('nous.position')} onPress={() => onShareLocation(partner)}>
+            <MapPin size={22} color={fixed.lilac} strokeWidth={1.8} />
+          </QuickAction>
+          <QuickAction label={t('nous.photo')} onPress={() => onCamera(partner)}>
+            <Camera size={22} color={fixed.lilac} strokeWidth={1.8} />
+          </QuickAction>
+        </Reanimated.View>
+
+        {/* Aujourd'hui : une seule liste, des lignes de même forme (plus de petites cartes éparpillées). */}
+        <Text style={styles.cap}>{t('nous.aujourdhui')}</Text>
+        <Reanimated.View entering={enterUp(8, 260, 120)} style={styles.list}>
+          <TodayRow
+            first
+            label={t('humeur.titre')}
+            detail={`${name} : ${theirMood ? t(`humeur.${theirMood.mood}`) : t('humeur.pasEncore')} · ${t('pense.toi')} : ${myMood ? t(`humeur.${myMood.mood}`) : t('humeur.choisir')}`}
+            onPress={() => setMoodOpen(true)}
+            icon={theirMood ? <MoodIcon mood={theirMood.mood} size={18} color={fixed.lilac} /> : <Plus size={18} color={fixed.lilac} strokeWidth={1.8} />}
+          />
+          <TodayRow
+            label={t('cycle.titre')}
+            detail={cycleText ?? (cycleOwner(cycle, acceptedPairingFrom(key)) === 'me' ? t('cycle.carteSuivre') : t('cycle.carteAttente'))}
+            value={cycleInfo?.current ? t('cycle.carteJourCourt', { n: cycleInfo.currentDay ?? 1 }) : undefined}
+            onPress={onCycle}
+            icon={<Droplet size={18} color={fixed.cycle.period} fill={cycleInfo?.current ? fixed.cycle.period : fixed.transparent} strokeWidth={1.8} />}
+          />
+          {away !== null && (
+            <TodayRow
+              label={t('distance.titre')}
+              detail={t('distance.entreVous')}
+              value={formatDistance(away, t('position.virgule'))}
+              onPress={() => onMap(partner)}
+              icon={<Navigation size={18} color={fixed.lilac} strokeWidth={1.8} />}
+            />
+          )}
+          <TodayRow
+            label={t('nous.prochaineFois')}
+            detail={nextDate ? new Intl.DateTimeFormat(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(nextDate) : t('nous.ajouterDate')}
+            value={days !== null ? t('nous.jours', { n: days }) : undefined}
+            onPress={onDates}
+            icon={<CalendarGlyph color={fixed.lilac} size={18} />}
+          />
         </Reanimated.View>
 
         {media.length > 0 && (
@@ -379,9 +355,48 @@ function MoodSheet({ current, onClose, onPick }: { current: MoodId | null; onClo
   );
 }
 
-function CalendarGlyph({ color }: { color: string }) {
+// Un geste rapide : un rond sombre, son icône et son nom dessous ; un compteur éventuel en pastille.
+function QuickAction({ label, badge, onPress, children }: { label: string; badge?: number; onPress: () => void; children: ReactNode }) {
+  const styles = useStyles();
   return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
+      <View style={styles.actionCircle}>
+        {children}
+        {!!badge && (
+          <View style={styles.actionBadge}>
+            <Text style={styles.actionBadgeText}>{badge}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.actionLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+// Une ligne de la liste « Aujourd'hui » : icône, titre, détail, valeur et chevron.
+function TodayRow({ label, detail, value, icon, first, onPress }: { label: string; detail: string; value?: string; icon: ReactNode; first?: boolean; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.row, !first && styles.rowBorder, pressed && styles.rowPressed]}>
+      <View style={styles.rowIcon}>{icon}</View>
+      <View style={styles.flex}>
+        <Text style={styles.rowTitle}>{label}</Text>
+        <Text style={styles.rowDetail} numberOfLines={1}>
+          {detail}
+        </Text>
+      </View>
+      {!!value && <Text style={styles.rowValue}>{value}</Text>}
+      <ChevronRight size={16} color={colors.textMuted} strokeWidth={2} />
+    </Pressable>
+  );
+}
+
+function CalendarGlyph({ color, size = 24 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <Path d="M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
       <Path d="M16 2v4M8 2v4M3 10h18" />
     </Svg>
@@ -402,10 +417,125 @@ const useStyles = createStyles((colors) => ({
   },
   appName: {
     flex: 1,
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+    color: fixed.cardTextSoft,
+  },
+  message: {
+    marginHorizontal: 12,
+    minHeight: 64,
+    paddingVertical: 8,
+    paddingLeft: 18,
+    paddingRight: 8,
+    borderRadius: 32,
+    backgroundColor: fixed.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  messageText: {
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.text,
+  },
+  messageMeta: {
+    marginTop: 3,
+    fontSize: 12,
+    color: fixed.mutedLight,
+  },
+  messageButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: fixed.grainButton,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actions: {
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    paddingTop: 20,
+  },
+  action: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: fixed.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: fixed.lilac,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: fixed.onGrainButton,
+    fontVariant: ['tabular-nums'],
+  },
+  actionLabel: {
+    fontSize: 12,
+    color: fixed.cardTextSoft,
+  },
+  list: {
+    marginHorizontal: 12,
+    borderRadius: 22,
+    backgroundColor: fixed.card,
+    overflow: 'hidden',
+  },
+  row: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  rowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: fixed.hairline,
+  },
+  rowPressed: {
+    backgroundColor: fixed.hairline,
+  },
+  rowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.signature,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  rowDetail: {
+    marginTop: 2,
+    fontSize: 12,
+    color: fixed.mutedLight,
+  },
+  rowValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
   },
   who: {
     flexDirection: 'row',
@@ -423,9 +553,9 @@ const useStyles = createStyles((colors) => ({
     minWidth: 0,
   },
   name: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: '700',
-    letterSpacing: -0.4,
+    letterSpacing: -0.6,
     color: colors.text,
   },
   status: {

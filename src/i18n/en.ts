@@ -991,6 +991,12 @@ export const en: Dictionary = {
     dejaSorties: 'Features already released',
   },
   nous: {
+    nouveaux: '{n} new',
+    appeler: 'Call',
+    position: 'Location',
+    photo: 'Photo',
+    aujourdhui: 'Today',
+    prochaineFois: 'Next time',
     etape1: 'On their phone, they open Nébula and tap “Show my code”.',
     etape2: 'On yours, tap “Scan their code” and aim at their QR code.',
     etape3: 'They get your request and accept it: you are linked.',
@@ -1203,6 +1209,7 @@ export const en: Dictionary = {
     apercuAppel: 'Call',
   },
   cycle: {
+    carteJourCourt: 'D{n}',
     douleurTitre: 'Pain',
     rienNote: 'Nothing logged',
     cEstMoi: 'I track my own cycle',
