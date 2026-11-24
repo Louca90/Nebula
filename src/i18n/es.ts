@@ -231,6 +231,7 @@ export const es: Dictionary = {
     fichierAbime: 'El archivo descargado no corresponde a la actualización publicada. Vuelve a intentarlo: se descargará de nuevo.',
   },
   camera: {
+    pour: 'Para {nom}',
     zoom: 'Zoom ×{valeur}',
     jeter: 'Descartar',
     enregistre: 'Guardado',
@@ -288,6 +289,9 @@ export const es: Dictionary = {
     envoyerPlusieurs: 'Enviar {n} archivos a',
   },
   editeur: {
+    changerStyle: 'Toca otra vez para cambiar el estilo',
+    titre: 'Retocar',
+    enregistrer: 'Guardar',
     filtreOriginal: 'Original',
     filtreSombre: 'Oscuro',
     filtreHeure: 'Hora',

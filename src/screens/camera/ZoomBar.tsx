@@ -1,18 +1,15 @@
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Reanimated, { interpolateColor, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { haptics } from '../../haptics';
 
 import type { WideLens } from '../../../modules/pear-native/camera';
 import { t } from '../../i18n';
 import { DURATION, timing } from '../../motion';
-import { createMediaStyles, radius, useMediaColors } from '../../theme';
+import { createMediaStyles, fixed, radius } from '../../theme';
 
-const PILL = 38;
-// La pastille active grossit légèrement (sur le fil natif, sans toucher à la mise en page).
-const ACTIVE_SCALE = 1.14;
-// Fond des pastilles : le voile du thème, plus léger pour les inactives.
-const IDLE_BACKDROP = 0.6;
+const PILL_HEIGHT = 32;
+const PILL_MIN_WIDTH = 40;
 
 export type ZoomLevel = { id: 'wide' | '1' | '2'; value: number; zoom: number; lens: string | null };
 
@@ -36,26 +33,21 @@ export function activeLevel(levels: ZoomLevel[], wide: WideLens | null, zoom: nu
   return zoom >= 1.95 && levels.some((level) => level.id === '2') ? '2' : '1';
 }
 
-// Active : elle grossit un peu, son fond fonce et son libellé passe en couleur signature claire.
+// Active : la pastille se remplit du lilas clair des boutons à grain ; les autres restent en fumée.
 function Pill({ level, active, zoom, lens, onPress }: { level: ZoomLevel; active: boolean; zoom: number; lens: string | null; onPress: () => void }) {
-  const colors = useMediaColors();
   const styles = useStyles();
   const on = useSharedValue(active ? 1 : 0);
   useEffect(() => {
     on.set(timing(active ? 1 : 0, DURATION.small));
   }, [active]);
-  const idleText = colors.onMedia;
-  const activeText = colors.signature;
-  const pillStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 + on.get() * (ACTIVE_SCALE - 1) }] }));
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: IDLE_BACKDROP + on.get() * (1 - IDLE_BACKDROP) }));
-  const labelStyle = useAnimatedStyle(() => ({ color: interpolateColor(on.get(), [0, 1], [idleText, activeText]) }));
+  const pillStyle = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(on.get(), [0, 1], [fixed.smokeButton, fixed.grainButton]) }));
+  const labelStyle = useAnimatedStyle(() => ({ color: interpolateColor(on.get(), [0, 1], [fixed.white, fixed.onGrainButton]) }));
   // Sur l'objectif ultra grand-angle séparé, le zoom de cet objectif multiplie son propre rapport.
   const shown = !active ? level.value : level.id === 'wide' && lens ? level.value * zoom : zoom;
   return (
     <Pressable onPress={onPress} hitSlop={6} accessibilityRole="button" accessibilityLabel={t('camera.zoom', { valeur: format(level.value) })} accessibilityState={{ selected: active }}>
       <Reanimated.View style={[styles.pill, pillStyle]}>
-        <Reanimated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]} />
-        <Reanimated.Text style={[styles.label, active && styles.labelActive, labelStyle]}>{active ? `${format(shown)}×` : format(level.value)}</Reanimated.Text>
+        <Reanimated.Text style={[styles.label, labelStyle]}>{active ? `${format(shown)}×` : format(level.value)}</Reanimated.Text>
       </Reanimated.View>
     </Pressable>
   );
@@ -87,7 +79,7 @@ export function ZoomBar({ levels, active, zoom, lens, bottom, onChoose }: Props)
   );
 }
 
-const useStyles = createMediaStyles((colors) => ({
+const useStyles = createMediaStyles(() => ({
   bar: {
     position: 'absolute',
     left: 0,
@@ -97,25 +89,19 @@ const useStyles = createMediaStyles((colors) => ({
   track: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 4,
+    gap: 6,
   },
   pill: {
-    width: PILL,
-    height: PILL,
+    minWidth: PILL_MIN_WIDTH,
+    height: PILL_HEIGHT,
+    paddingHorizontal: 8,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backdrop: {
-    borderRadius: radius.full,
-    backgroundColor: colors.overlay,
-  },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  labelActive: {
+    fontSize: 12,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
 }));

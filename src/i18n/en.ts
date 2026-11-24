@@ -312,6 +312,7 @@ export const en: Dictionary = {
     fichierAbime: 'The downloaded file doesn\'t match the published update. Try again: it will be downloaded again.',
   },
   camera: {
+    pour: 'For {nom}',
     zoom: 'Zoom ×{valeur}',
     jeter: 'Discard',
     enregistre: 'Saved',
@@ -382,6 +383,9 @@ export const en: Dictionary = {
     envoyerPlusieurs: 'Send {n} files to',
   },
   editeur: {
+    changerStyle: 'Tap again to change the style',
+    titre: 'Edit',
+    enregistrer: 'Save',
     filtreOriginal: 'Original',
     filtreSombre: 'Dark',
     filtreHeure: 'Time',
@@ -991,6 +995,12 @@ export const en: Dictionary = {
     dejaSorties: 'Features already released',
   },
   nous: {
+    nouveaux: '{n} new',
+    appeler: 'Call',
+    position: 'Location',
+    photo: 'Photo',
+    aujourdhui: 'Today',
+    prochaineFois: 'Next time',
     etape1: 'On their phone, they open Nébula and tap “Show my code”.',
     etape2: 'On yours, tap “Scan their code” and aim at their QR code.',
     etape3: 'They get your request and accept it: you are linked.',
@@ -1203,6 +1213,7 @@ export const en: Dictionary = {
     apercuAppel: 'Call',
   },
   cycle: {
+    carteJourCourt: 'D{n}',
     douleurTitre: 'Pain',
     rienNote: 'Nothing logged',
     cEstMoi: 'I track my own cycle',

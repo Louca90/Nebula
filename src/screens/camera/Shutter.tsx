@@ -18,7 +18,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { FilterSwatch } from '../../components/editor/FilterStrip';
 import type { FilterId } from '../../components/editor/filters';
 import { DURATION, popIn, popOut, timing } from '../../motion';
-import { createMediaStyles, radius, spacing, useMediaColors } from '../../theme';
+import { createMediaStyles, fixed, radius, spacing, useMediaColors } from '../../theme';
 
 // Le dessin du déclencheur (les gestes restent dans CameraScreen) : un anneau blanc et un cœur.
 // Photo : cœur blanc (ou le filtre choisi), qui se tasse puis revient à chaque prise.
@@ -85,10 +85,12 @@ export function ShutterFace({ filming, recording, elapsed, filter, shots }: Prop
     squash.set(withSequence(timing(SQUASH, SQUASH_IN_MS), timing(1, SQUASH_OUT_MS)));
   }, [shots]);
 
+  // L'anneau blanc, et le cœur au lilas clair des boutons à grain (rouge en vidéo).
   const light = colors.background;
+  const lilac = fixed.grainButton;
   const red = colors.danger;
   const coreStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(tint.get(), [0, 1], [light, red]),
+    backgroundColor: interpolateColor(tint.get(), [0, 1], [lilac, red]),
     borderRadius: interpolate(shape.get(), [0, 1], [CORE / 2, RECORD_CORNER]),
     transform: [{ scale: interpolate(shape.get(), [0, 1], [1, RECORD_SCALE]) * squash.get() }],
   }));
@@ -153,6 +155,7 @@ const useStyles = createMediaStyles((colors) => ({
     width: CORE,
     height: CORE,
     overflow: 'hidden',
+    boxShadow: `inset 0px 1px 0px ${fixed.grainHighlight}`,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -775,6 +775,8 @@ function App() {
         onDates={() => setRoute({ name: 'dates' })}
         onCycle={() => setRoute({ name: 'cycle' })}
         onMap={(contact) => setRoute({ name: 'map', focus: contact.publicKey })}
+        onShareLocation={(contact) => setRoute({ name: 'chat', publicKey: contact.publicKey, intent: 'location' })}
+        onCamera={(contact) => setRoute({ name: 'camera', to: contact.publicKey })}
       />
     );
   };

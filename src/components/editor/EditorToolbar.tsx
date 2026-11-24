@@ -1,18 +1,22 @@
 import { ComponentType, useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions } from 'react-native';
 import Reanimated, { interpolateColor, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 
 import { t } from '../../i18n';
 import { DURATION, timing } from '../../motion';
-import { createMediaStyles, spacing, useMediaColors } from '../../theme';
+import { createMediaStyles, fixed } from '../../theme';
 import { usePressFeedback } from '../ui';
 
-// Hauteur de la barre (outil compris son léger relèvement), pour poser les panneaux juste au-dessus.
-export const TOOLBAR_HEIGHT = 70;
-const ICON_SIZE = 22;
-// L'outil choisi se relève de 2 points.
-const LIFT = 2;
+// Hauteur de la rangée : le rond de 48 points, l'écart et le nom dessous.
+export const TOOLBAR_HEIGHT = 72;
+const DISC = 48;
+const ICON_SIZE = 20;
+// Jusqu'à six outils tiennent dans la largeur ; au-delà, la rangée défile.
+const VISIBLE_TOOLS = 6;
+// Quand elle défile : cinq outils et demi, le demi dit qu'il y en a d'autres.
+const SCROLL_VISIBLE = 5.5;
+const ROW_PADDING = 6;
 // La barre s'efface (fondu et glissement vers le bas) quand un outil plein écran l'a remplacée.
 const HIDE_SHIFT = 14;
 
@@ -22,6 +26,8 @@ export type EditorTool = {
   id: string;
   icon: ComponentType<ToolIconProps>;
   label: string;
+  // Écrit dans le rond à la place de l'icône (la vitesse : « 1× »).
+  text?: string;
   // Un réglage en place (son coupé, vidéo découpée, filtre choisi…) : l'outil reste allumé en blanc.
   on?: boolean;
   onPress: () => void;
@@ -39,8 +45,7 @@ export function AmbianceIcon({ size = 24, color, strokeWidth = 1.8 }: ToolIconPr
   );
 }
 
-function ToolButton({ tool, selected }: { tool: EditorTool; selected: boolean }) {
-  const colors = useMediaColors();
+function ToolButton({ tool, selected, width }: { tool: EditorTool; selected: boolean; width: number }) {
   const styles = useStyles();
   const feedback = usePressFeedback();
   const progress = useSharedValue(selected ? 1 : 0);
@@ -48,13 +53,17 @@ function ToolButton({ tool, selected }: { tool: EditorTool; selected: boolean })
     progress.set(timing(selected ? 1 : 0, DURATION.small));
   }, [selected, progress]);
 
-  const rest = tool.on ? colors.background : colors.onDarkMuted;
-  const lit = colors.signature;
-  const lift = useAnimatedStyle(() => ({ transform: [{ translateY: -LIFT * progress.get() }] }));
+  // Au repos : un rond sombre et l'icône lilas ; réglage en place : l'icône passe en blanc ; outil
+  // ouvert : le rond se remplit du lilas clair des boutons à grain.
+  const rest = tool.on ? fixed.white : fixed.lilac;
+  const lit = fixed.onGrainButton;
+  const disc = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(progress.get(), [0, 1], [fixed.card, fixed.grainButton]) }));
   const restIcon = useAnimatedStyle(() => ({ opacity: 1 - progress.get() }));
   const litIcon = useAnimatedStyle(() => ({ opacity: progress.get() }));
-  const label = useAnimatedStyle(() => ({ color: interpolateColor(progress.get(), [0, 1], [rest, lit]) }));
+  const labelColor = tool.on ? fixed.white : fixed.mutedLight;
+  const label = useAnimatedStyle(() => ({ color: interpolateColor(progress.get(), [0, 1], [labelColor, fixed.white]) }));
   const Icon = tool.icon;
+  const face = (color: string) => (tool.text ? <Text style={[styles.text, { color }]}>{tool.text}</Text> : <Icon size={ICON_SIZE} color={color} strokeWidth={1.8} />);
 
   return (
     <Pressable
@@ -62,20 +71,17 @@ function ToolButton({ tool, selected }: { tool: EditorTool; selected: boolean })
       onPressIn={feedback.onPressIn}
       onPressOut={feedback.onPressOut}
       accessibilityRole="button"
-      accessibilityLabel={tool.label}
+      accessibilityLabel={tool.text ? `${tool.label} ${tool.text}` : tool.label}
       accessibilityState={{ selected, checked: tool.on }}
       hitSlop={4}
+      style={{ width }}
     >
-      <Reanimated.View style={[styles.tool, feedback.style, lift]}>
-        {/* Deux icônes superposées, en fondu croisé : la couleur change sur le fil natif. */}
-        <View style={styles.icon}>
-          <Reanimated.View style={[StyleSheet.absoluteFill, restIcon]}>
-            <Icon size={ICON_SIZE} color={rest} strokeWidth={1.8} />
-          </Reanimated.View>
-          <Reanimated.View style={[StyleSheet.absoluteFill, litIcon]}>
-            <Icon size={ICON_SIZE} color={lit} strokeWidth={1.8} />
-          </Reanimated.View>
-        </View>
+      <Reanimated.View style={[styles.tool, feedback.style]}>
+        <Reanimated.View style={[styles.disc, disc]}>
+          {/* Deux faces superposées, en fondu croisé : la couleur change sur le fil natif. */}
+          <Reanimated.View style={[styles.face, restIcon]}>{face(rest)}</Reanimated.View>
+          <Reanimated.View style={[styles.face, litIcon]}>{face(lit)}</Reanimated.View>
+        </Reanimated.View>
         <Reanimated.Text numberOfLines={1} style={[styles.label, label]}>
           {tool.label}
         </Reanimated.Text>
@@ -84,60 +90,62 @@ function ToolButton({ tool, selected }: { tool: EditorTool; selected: boolean })
   );
 }
 
-// La barre d'outils du bas : une icône et son nom sous chaque outil ; l'outil choisi passe en couleur
-// signature et se relève un peu. Elle défile si les outils ne tiennent pas (vidéo : huit outils).
-// `bottom` : où la barre se pose ; `inset` : la place laissée dessous, dans la barre, pour celle d'Android.
-export function EditorToolbar({ tools, selected, bottom, inset, hidden }: { tools: EditorTool[]; selected: string | null; bottom: number; inset: number; hidden: boolean }) {
+// La rangée d'outils, sous le média : un rond et son nom pour chaque outil ; l'outil ouvert se remplit
+// de lilas. Six outils tiennent dans la largeur ; au-delà (vidéo), la rangée défile.
+export function EditorToolbar({ tools, selected, bottom, hidden }: { tools: EditorTool[]; selected: string | null; bottom: number; hidden: boolean }) {
   const styles = useStyles();
+  const { width: screenWidth } = useWindowDimensions();
   const visible = useSharedValue(hidden ? 0 : 1);
   useEffect(() => {
     visible.set(timing(hidden ? 0 : 1, DURATION.small));
   }, [hidden, visible]);
   const shown = useAnimatedStyle(() => ({ opacity: visible.get(), transform: [{ translateY: HIDE_SHIFT * (1 - visible.get()) }] }));
+  const scrolls = tools.length > VISIBLE_TOOLS;
+  // Qui défile laisse voir la moitié de l'outil suivant : on comprend qu'il y en a d'autres.
+  const itemWidth = (screenWidth - ROW_PADDING * 2) / (scrolls ? SCROLL_VISIBLE : Math.max(tools.length, 1));
 
   return (
-    <Reanimated.View pointerEvents={hidden ? 'none' : 'box-none'} style={[styles.bar, inset === 0 && styles.floating, { bottom, paddingBottom: inset }, shown]} accessibilityLabel={t('editeur.outils')}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <Reanimated.View pointerEvents={hidden ? 'none' : 'box-none'} style={[styles.bar, { bottom }, shown]} accessibilityLabel={t('editeur.outils')}>
+      <ScrollView horizontal scrollEnabled={scrolls} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {tools.map((tool) => (
-          <ToolButton key={tool.id} tool={tool} selected={selected === tool.id} />
+          <ToolButton key={tool.id} tool={tool} selected={selected === tool.id} width={itemWidth} />
         ))}
       </ScrollView>
     </Reanimated.View>
   );
 }
 
-const useStyles = createMediaStyles((colors) => ({
+const useStyles = createMediaStyles(() => ({
   bar: {
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: colors.overlay,
-  },
-  // Posée au-dessus d'un bouton de l'écran parent : une pastille arrondie plutôt qu'une bande.
-  floating: {
-    left: spacing.sm,
-    right: spacing.sm,
-    borderRadius: 22,
-    overflow: 'hidden',
+    height: TOOLBAR_HEIGHT,
   },
   row: {
-    flexGrow: 1,
-    justifyContent: 'space-around',
-    paddingHorizontal: spacing.sm,
-    paddingTop: 8,
-    paddingBottom: 6,
+    paddingHorizontal: ROW_PADDING,
   },
   tool: {
-    minWidth: 60,
-    minHeight: 52,
-    paddingHorizontal: 4,
+    alignItems: 'center',
+    gap: 7,
+  },
+  disc: {
+    width: DISC,
+    height: DISC,
+    borderRadius: DISC / 2,
+  },
+  face: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
   },
-  icon: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
+  text: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   label: {
     fontSize: 11,
