@@ -1,6 +1,7 @@
 import { ComponentType, useEffect } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions } from 'react-native';
 import Reanimated, { interpolateColor, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
 
 import { t } from '../../i18n';
 import { DURATION, timing } from '../../motion';
@@ -11,7 +12,10 @@ import { usePressFeedback } from '../ui';
 export const TOOLBAR_HEIGHT = 72;
 const DISC = 48;
 const ICON_SIZE = 20;
-const VISIBLE_TOOLS = 5;
+// Jusqu'à six outils tiennent dans la largeur ; au-delà, la rangée défile.
+const VISIBLE_TOOLS = 6;
+// Quand elle défile : cinq outils et demi, le demi dit qu'il y en a d'autres.
+const SCROLL_VISIBLE = 5.5;
 const ROW_PADDING = 6;
 // La barre s'efface (fondu et glissement vers le bas) quand un outil plein écran l'a remplacée.
 const HIDE_SHIFT = 14;
@@ -28,6 +32,18 @@ export type EditorTool = {
   on?: boolean;
   onPress: () => void;
 };
+
+// L'icône de la catégorie Ambiance : trois cercles qui se chevauchent, au trait comme les autres outils.
+export function AmbianceIcon({ size = 24, color, strokeWidth = 1.8 }: ToolIconProps) {
+  const line = { fill: 'none', stroke: color, strokeWidth };
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx={12} cy={8} r={5} {...line} />
+      <Circle cx={8.5} cy={15} r={5} {...line} />
+      <Circle cx={15.5} cy={15} r={5} {...line} />
+    </Svg>
+  );
+}
 
 function ToolButton({ tool, selected, width }: { tool: EditorTool; selected: boolean; width: number }) {
   const styles = useStyles();
@@ -75,7 +91,7 @@ function ToolButton({ tool, selected, width }: { tool: EditorTool; selected: boo
 }
 
 // La rangée d'outils, sous le média : un rond et son nom pour chaque outil ; l'outil ouvert se remplit
-// de lilas. Cinq outils tiennent dans la largeur ; au-delà (vidéo), la rangée défile.
+// de lilas. Six outils tiennent dans la largeur ; au-delà (vidéo), la rangée défile.
 export function EditorToolbar({ tools, selected, bottom, hidden }: { tools: EditorTool[]; selected: string | null; bottom: number; hidden: boolean }) {
   const styles = useStyles();
   const { width: screenWidth } = useWindowDimensions();
@@ -86,7 +102,7 @@ export function EditorToolbar({ tools, selected, bottom, hidden }: { tools: Edit
   const shown = useAnimatedStyle(() => ({ opacity: visible.get(), transform: [{ translateY: HIDE_SHIFT * (1 - visible.get()) }] }));
   const scrolls = tools.length > VISIBLE_TOOLS;
   // Qui défile laisse voir la moitié de l'outil suivant : on comprend qu'il y en a d'autres.
-  const itemWidth = (screenWidth - ROW_PADDING * 2) / (scrolls ? VISIBLE_TOOLS + 0.5 : Math.max(tools.length, 1));
+  const itemWidth = (screenWidth - ROW_PADDING * 2) / (scrolls ? SCROLL_VISIBLE : Math.max(tools.length, 1));
 
   return (
     <Reanimated.View pointerEvents={hidden ? 'none' : 'box-none'} style={[styles.bar, { bottom }, shown]} accessibilityLabel={t('editeur.outils')}>

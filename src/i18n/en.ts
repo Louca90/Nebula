@@ -383,6 +383,7 @@ export const en: Dictionary = {
     envoyerPlusieurs: 'Send {n} files to',
   },
   editeur: {
+    changerStyle: 'Tap again to change the style',
     titre: 'Edit',
     enregistrer: 'Save',
     filtreOriginal: 'Original',

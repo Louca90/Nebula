@@ -7,7 +7,8 @@
 - Le calendrier du cycle se feuillette au doigt, et chaque jour a sa fiche : douleur, médicaments, humeur.
 - Les écrans vides montrent le lys et quoi faire.
 - L'onglet Nous repensé : son dernier message, les gestes rapides et la journée en un coup d'œil.
-- Appareil photo et retouche redessinés, sans les filtres : outils ronds, boutons Enregistrer et Envoyer en bas.
+- Appareil photo et retouche redessinés : outils ronds, boutons Enregistrer et Envoyer en bas.
+- Les marques heure, date, jour, lieu et batterie ont de vraies polices (serif, sans, écriture à la main).
 - Sous le capot : synchronisation du couple réunie, publication en une seule commande.
 
 ### Détails
@@ -19,7 +20,9 @@
 - États vides (Nos dates, stickers, stockage, médicaments) : le lys, une phrase claire et, quand il y en a une, l'action à faire.
 - Onglet Nous : dernier message avec un bouton pour répondre, raccourcis (Pense à toi, Appeler, Position, Photo) et la liste « Aujourd'hui » (humeur, cycle, distance, prochaine date).
 - Appareil photo : « Pour [prénom] » en haut quand on vient d'une conversation, zoom en pastilles, déclencheur au cœur lilas, onglets Photo / Vidéo en rail.
-- Retouche photo et vidéo : en-tête « Retoucher », média aux coins arrondis, outils ronds avec leur nom (la vitesse s'écrit dans son bouton), Enregistrer et Envoyer en bas. Les filtres (Ambiance et glissé) sont retirés.
+- Retouche photo et vidéo : en-tête « Retoucher », média aux coins arrondis, outils ronds avec leur nom (la vitesse s'écrit dans son bouton), Enregistrer et Envoyer en bas.
+- Ambiance : la rangée des filtres prend la place des boutons du bas (la photo reste visible en entier), vignettes de la photo écrites dans la police de chaque marque, anneau lilas ; toucher encore la marque choisie change de style ; toucher la photo referme la rangée.
+- Marques redessinées avec quatre polices embarquées (Instrument Serif, Space Grotesk, Caveat, DM Mono) : trois styles par marque, étiquette en pilule, épingle pour le lieu, écriture penchée.
 
 #### Technique
 

@@ -149,6 +149,8 @@ export const fixed = {
   // Appareil photo : le rail des onglets Photo / Vidéo et l'onglet choisi.
   segmentTrack: '#1E1A24',
   segmentOn: '#2A2433',
+  // L'ombre du texte des vignettes Ambiance.
+  stampShadow: 'rgba(0, 0, 0, 0.35)',
   ringTrack: '#26262A',
   transparent: 'transparent',
   hairline: 'rgba(255, 255, 255, 0.07)',

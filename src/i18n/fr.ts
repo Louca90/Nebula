@@ -382,6 +382,7 @@ export const fr = {
     envoyerPlusieurs: 'Envoyer {n} fichiers à',
   },
   editeur: {
+    changerStyle: 'Toucher encore pour changer de style',
     titre: 'Retoucher',
     enregistrer: 'Enregistrer',
     filtreOriginal: 'Original',

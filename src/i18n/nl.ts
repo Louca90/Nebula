@@ -289,6 +289,7 @@ export const nl: Dictionary = {
     envoyerPlusieurs: '{n} bestanden versturen naar',
   },
   editeur: {
+    changerStyle: 'Tik opnieuw om de stijl te wijzigen',
     titre: 'Bewerken',
     enregistrer: 'Opslaan',
     filtreOriginal: 'Origineel',

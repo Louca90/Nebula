@@ -289,6 +289,7 @@ export const de: Dictionary = {
     envoyerPlusieurs: '{n} Dateien senden an',
   },
   editeur: {
+    changerStyle: 'Erneut tippen, um den Stil zu ändern',
     titre: 'Bearbeiten',
     enregistrer: 'Speichern',
     filtreOriginal: 'Original',

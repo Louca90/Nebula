@@ -84,6 +84,7 @@
       "./plugins/with-screen-share",
       "./plugins/with-pip-alive",
       "./plugins/with-notification-icon",
+      "./plugins/with-stamp-fonts",
       [
         "expo-navigation-bar",
         {
