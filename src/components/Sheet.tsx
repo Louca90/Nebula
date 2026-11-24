@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Reanimated, { Easing, ReduceMotion, useAnimatedProps, useAnimatedStyle, useSharedValue, withDelay, withTiming, type EntryExitAnimationFunction } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { X } from 'lucide-react-native';
@@ -8,6 +8,7 @@ import { t } from '../i18n';
 import { EASE, timing } from '../motion';
 import { createStyles, radius, spacing, useColors } from '../theme';
 import { useNavigationBarHeight } from './ui';
+import { useSheetDrag } from './sheetDrag';
 
 // La feuille du bas commune (planche « Feuilles du bas ») : un voile, une feuille qui monte en 340 ms
 // (courbe douce, sans rebond), une poignée, un titre et un bouton fermer. Elle redescend avant de
@@ -15,7 +16,6 @@ import { useNavigationBarHeight } from './ui';
 
 const OPEN_MS = 340;
 const CLOSE_MS = 220;
-const START = 640;
 const SHEET_EASE = Easing.bezier(0.32, 0.72, 0, 1);
 
 type Props = {
@@ -36,6 +36,9 @@ export function Sheet({ title, onClose, children, height, keyboard, locked }: Pr
   const bottom = useNavigationBarHeight();
   const shown = useSharedValue(0);
   const closing = useRef(false);
+  // Nébula : la feuille descend de toute sa hauteur (mesurée) en se fermant. Avec une distance fixe de
+  // 640, une grande feuille (QR code) s'arrêtait juste au-dessus du bas de l'écran avant de disparaître.
+  const travel = useSharedValue(Dimensions.get('screen').height);
 
   useEffect(() => {
     shown.set(withTiming(1, { duration: OPEN_MS, easing: SHEET_EASE, reduceMotion: ReduceMotion.System }));
@@ -52,7 +55,8 @@ export function Sheet({ title, onClose, children, height, keyboard, locked }: Pr
   };
 
   const scrim = useAnimatedStyle(() => ({ opacity: shown.get() }));
-  const sheet = useAnimatedStyle(() => ({ transform: [{ translateY: START * (1 - shown.get()) }] }));
+  const { drag, handlers } = useSheetDrag(() => close(), !locked);
+  const sheet = useAnimatedStyle(() => ({ transform: [{ translateY: travel.get() * (1 - shown.get()) + drag.get() }] }));
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={() => close()} statusBarTranslucent navigationBarTranslucent>
@@ -60,9 +64,16 @@ export function Sheet({ title, onClose, children, height, keyboard, locked }: Pr
         <Pressable style={StyleSheet.absoluteFill} onPress={() => close()} accessibilityLabel={t('commun.fermer')} />
       </Reanimated.View>
       <KeyboardAvoidingView enabled={!!keyboard} behavior="padding" style={styles.dock} pointerEvents="box-none">
-        <Reanimated.View style={[styles.sheet, { paddingBottom: bottom + spacing.lg }, height !== undefined && { height: height + bottom }, sheet]} accessibilityViewIsModal>
-          <View style={styles.handle} />
-          <View style={styles.header}>
+        <Reanimated.View
+          style={[styles.sheet, { paddingBottom: bottom + spacing.lg }, height !== undefined && { height: height + bottom }, sheet]}
+          onLayout={(event) => travel.set(event.nativeEvent.layout.height + spacing.lg)}
+          accessibilityViewIsModal
+        >
+          {/* La poignée et le titre se tirent vers le bas pour fermer (voir sheetDrag.ts). */}
+          <View {...handlers} style={styles.grip}>
+            <View style={styles.handle} />
+          </View>
+          <View {...handlers} style={styles.header}>
             <Text style={styles.title} accessibilityRole="header">
               {title}
             </Text>
@@ -137,6 +148,8 @@ const useStyles = createStyles((colors) => ({
     borderTopRightRadius: 30,
     backgroundColor: colors.elevated,
   },
+  // Une zone de saisie plus haute que la poignée elle-même : facile à attraper.
+  grip: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 8, marginVertical: -8 },
   handle: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { flex: 1, fontSize: 20, fontWeight: '700', color: colors.text },

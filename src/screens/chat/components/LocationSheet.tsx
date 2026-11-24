@@ -9,6 +9,7 @@ import { haptics } from '../../../haptics';
 import { t } from '../../../i18n';
 import { log } from '../../../log';
 import { MiniMap } from '../../../map/MiniMap';
+import { useSheetDrag } from '../../../components/sheetDrag';
 import { isMapped } from '../../../map/offlineMap';
 import { DURATION, exitFade, timing } from '../../../motion';
 import { useBackInterceptor } from '../../../navigation/backInterceptors';
@@ -68,6 +69,9 @@ export function LocationSheet({ name, onShare, onClose }: Props) {
   const window = useWindowDimensions();
   const feedback = usePressFeedback();
   useBackInterceptor(true, onClose);
+  // Nébula : la poignée se tire vers le bas pour fermer (voir sheetDrag.ts).
+  const { drag, handlers: dragHandlers } = useSheetDrag(onClose);
+  const dragStyle = useAnimatedStyle(() => ({ transform: [{ translateY: drag.get() }] }));
   const [chosen, setChosen] = useState('60');
   const [me, setMe] = useState<{ latitude: number; longitude: number } | null>(null);
   useEffect(() => {
@@ -91,8 +95,10 @@ export function LocationSheet({ name, onShare, onClose }: Props) {
       <Reanimated.View entering={scrimIn} exiting={exitFade(DURATION.small)} style={[StyleSheet.absoluteFill, styles.scrim]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel={t('commun.fermer')} />
       </Reanimated.View>
-      <Reanimated.View entering={sheetIn} exiting={exitFade(DURATION.small)} style={[styles.sheet, { paddingBottom: bottom + spacing.lg }]} accessibilityViewIsModal>
-        <View style={styles.handle} />
+      <Reanimated.View entering={sheetIn} exiting={exitFade(DURATION.small)} style={[styles.sheet, { paddingBottom: bottom + spacing.lg }, dragStyle]} accessibilityViewIsModal>
+        <View {...dragHandlers} style={styles.grip}>
+          <View style={styles.handle} />
+        </View>
         <Text style={styles.title}>{t('position.partager')}</Text>
         {mapped && me && (
           <View style={styles.map}>
@@ -133,6 +139,7 @@ const useStyles = createStyles((colors) => ({
     borderTopRightRadius: 28,
     backgroundColor: colors.elevated,
   },
+  grip: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 8, marginVertical: -8 },
   handle: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border },
   title: { fontSize: 20, fontWeight: '700', color: colors.text },
   map: { height: 130, borderRadius: 18, overflow: 'hidden' },

@@ -1,0 +1,37 @@
+# Publie une release de Nébula à partir de l'APK déjà signé, déposé en morceaux sur la branche
+# « apk-signed » (la clé de signature ne passe jamais par GitHub). La description arrive toute prête :
+# résumé, versionCode, sha256 et signature Ed25519, vérifiés par l'app avant d'installer.
+name: Publier la release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (ex. 1.1.2)'
+        required: true
+      body:
+        description: 'Description de la release (avec versionCode, sha256 et signature)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: APK signé
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          git clone -q --depth 1 --branch apk-signed "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" signed
+          cat signed/nebula.apk.part* > "nebula-${{ inputs.version }}.apk"
+          test "$(sha256sum "nebula-${{ inputs.version }}.apk" | cut -d' ' -f1)" = "$(cat signed/nebula.apk.sha256)"
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ inputs.body }}
+        run: |
+          printf '%s' "$BODY" > body.md
+          gh release create "v${{ inputs.version }}" "nebula-${{ inputs.version }}.apk" \
+            --repo "$GITHUB_REPOSITORY" --title "Nébula ${{ inputs.version }}" --notes-file body.md --latest

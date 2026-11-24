@@ -256,9 +256,40 @@ export function clearFileProgress(id: string) {
       await notifee.cancelNotification(FILE_NOTIFICATION_ID);
       return;
     }
-    await notifee.stopForegroundService();
+    if (!mapService) await notifee.stopForegroundService();
     await notifee.cancelNotification(FILE_NOTIFICATION_ID);
   });
+}
+
+// Nébula : téléchargement de la carte. Une notification de service de premier plan, sans quoi Android
+// coupe le téléchargement quand on quitte l'app.
+const MAP_NOTIFICATION_ID = 'map-download';
+let mapService = false;
+
+export async function showMapDownload(progress: number) {
+  await ensureChannel();
+  mapService = true;
+  await notifee.displayNotification({
+    id: MAP_NOTIFICATION_ID,
+    title: t('carte.notifTelechargement'),
+    android: {
+      channelId: NOTIFICATION_CHANNEL_ID,
+      smallIcon: NOTIFICATION_SMALL_ICON,
+      onlyAlertOnce: true,
+      ongoing: true,
+      asForegroundService: activeFiles.size === 0 && !callService,
+      foregroundServiceTypes: [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC],
+      progress: { max: 100, current: Math.round(progress * 100) },
+      pressAction: { id: 'default' },
+    },
+  });
+}
+
+export async function clearMapDownload() {
+  if (!mapService) return;
+  mapService = false;
+  if (activeFiles.size === 0 && !callService) await notifee.stopForegroundService();
+  await notifee.cancelNotification(MAP_NOTIFICATION_ID);
 }
 
 // Connexion coupée en plein transfert : « Réception en pause, ouvre Pear ».

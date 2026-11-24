@@ -1,6 +1,6 @@
 {
-  "version": "1.1.1",
-  "versionCode": 3,
-  "summary": "- La position « tant que l'app est ouverte » ne s'arrête plus : elle reprend toute seule quand tu reviens.\n- Le cycle s'affiche au bon téléphone, sans rien régler.\n- Captures d'écran autorisables, et place réelle de l'app dans Stockage.\n- Plein de corrections : boutons, clavier, lien de liaison, visionneuse.",
+  "version": "1.1.2",
+  "versionCode": 4,
+  "summary": "- Glisser la lecture d'un vocal est fluide, et ne fait plus répondre ni défiler.\n- Une notification quand elle aime un de tes messages.\n- La carte se télécharge même quand tu quittes l'app, et sa barre reste.\n- Les feuilles du bas se ferment en tirant la poignée, jusqu'en bas de l'écran.",
   "pages": {}
 }

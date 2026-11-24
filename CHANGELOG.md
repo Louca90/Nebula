@@ -1,5 +1,27 @@
 # Journal des versions
 
+## 1.1.2 (versionCode 4)
+
+### Résumé
+
+- Glisser la lecture d'un vocal est fluide, et ne fait plus répondre ni défiler.
+- Une notification quand elle aime un de tes messages.
+- La carte se télécharge même quand tu quittes l'app, et sa barre reste.
+- Les feuilles du bas se ferment en tirant la poignée, jusqu'en bas de l'écran.
+
+### Détails
+
+#### Nouveautés
+
+- Notification « X a aimé ton message » (ou « a réagi 😂 ») quand l'app n'est pas ouverte.
+- Feuilles du bas : la poignée et le titre se tirent vers le bas pour fermer, partout. Toucher à côté ferme aussi.
+
+#### Corrections
+
+- Vocaux : le glisser de lecture garde la main jusqu'au lâcher, même hors de la bulle, sans répondre ni faire défiler la conversation. Zone tactile plus grande, mouvement fluide.
+- Carte : le téléchargement continue en changeant d'onglet ou en quittant l'app (notification de progression), reprend tout seul s'il a été coupé, et la barre reste affichée.
+- Fermeture du QR code et des grandes feuilles : l'animation va jusqu'en bas de l'écran.
+
 ## 1.1.1 (versionCode 3)
 
 ### Résumé
