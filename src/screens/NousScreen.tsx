@@ -4,10 +4,10 @@ import Reanimated, { useSharedValue } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { chat } from '../chat/manager';
-import { describeMessage, getContactProfile, getLastMessage, getLocationMessages, getMediaMessages, getPendingRequests, getUnreadCounts, Message, PairingRequest } from '../chat/database';
+import { acceptedPairingFrom, describeMessage, getContactProfile, getLastMessage, getLocationMessages, getMediaMessages, getPendingRequests, getUnreadCounts, Message, PairingRequest } from '../chat/database';
 import { lastKnownLocation } from '../../modules/pear-native';
 import { distanceKm, formatDistance, isSharing, parseLocationText } from '../chat/location';
-import { cycleSummary, useCycle } from '../couple/cycle';
+import { cycleOwner, cycleSummary, useCycle } from '../couple/cycle';
 import { MOOD_FRESH_MS, MoodId, MOODS, useMoods } from '../couple/mood';
 import { MoodIcon } from '../components/MoodIcon';
 import { Droplet, Plus } from 'lucide-react-native';
@@ -263,7 +263,7 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
                   </Text>
                 )}
               </View>
-              <Text style={styles.smallLabel}>{cycleText ? t('cycle.titre') : t('cycle.carteSuivre')}</Text>
+              <Text style={styles.smallLabel}>{cycleText ? t('cycle.titre') : cycleOwner(cycle, acceptedPairingFrom(key)) === 'me' ? t('cycle.carteSuivre') : t('cycle.carteAttente')}</Text>
             </Card>
           </Pressable>
           {away !== null && (

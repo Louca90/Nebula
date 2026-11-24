@@ -1197,7 +1197,8 @@ export const fr = {
     apercuAppel: 'Appel',
   },
   cycle: {
-    cEstElle: 'C’est {nom} qui note son cycle',
+    cEstMoi: 'C’est moi qui note mon cycle',
+    carteAttente: 'Son cycle',
     finPrevue: 'Fin prévue dans {n} j',
     jourDuCycleCourt: 'jour du cycle',
     aujourdhui: 'Aujourd’hui',

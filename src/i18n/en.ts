@@ -1198,7 +1198,8 @@ export const en: Dictionary = {
     apercuAppel: 'Call',
   },
   cycle: {
-    cEstElle: '{nom} tracks her own cycle',
+    cEstMoi: 'I track my own cycle',
+    carteAttente: 'Her cycle',
     finPrevue: 'Expected to end in {n} d',
     jourDuCycleCourt: 'cycle day',
     aujourdhui: 'Today',
