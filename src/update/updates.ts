@@ -5,7 +5,7 @@ import { addDownloadListener, appVersionCode, canRequestPackageInstalls, downloa
 import { isReleaseSigned, parseRelease, Release } from './release';
 import { log } from '../log';
 import { t } from '../i18n';
-import { LATEST_RELEASE_URL, RELEASES_LIST_URL, REMOTE_CONFIG_PUBLIC_KEY, UPDATE_CHECK_INTERVAL_MS, UPDATE_CHECK_TIMEOUT_MS } from '../config';
+import { LATEST_RELEASE_URL, RELEASES_LIST_URL, RELEASE_PUBLIC_KEYS, UPDATE_CHECK_INTERVAL_MS, UPDATE_CHECK_TIMEOUT_MS } from '../config';
 import { getSetting, setSetting } from '../chat/database';
 import { chooseRelease } from './channel';
 
@@ -115,10 +115,10 @@ export async function checkForUpdate(force = false) {
       if (tester && Array.isArray(json)) {
         // Programme testeur : la stable et la version de test, la stable plus récente passe devant.
         const all = json.map((item) => parseRelease(item, { allowPrerelease: true })).filter((item): item is Release => item !== null);
-        release = chooseRelease(all, installedVersionCode(), true, REMOTE_CONFIG_PUBLIC_KEY);
+        release = chooseRelease(all, installedVersionCode(), true, RELEASE_PUBLIC_KEYS);
       } else {
         const parsed = parseRelease(json);
-        if (parsed && !isReleaseSigned(parsed, REMOTE_CONFIG_PUBLIC_KEY)) log.warn('mise à jour', 'release ignorée : signature absente ou fausse');
+        if (parsed && !isReleaseSigned(parsed, RELEASE_PUBLIC_KEYS)) log.warn('mise à jour', 'release ignorée : signature absente ou fausse');
         else release = parsed;
       }
     }
