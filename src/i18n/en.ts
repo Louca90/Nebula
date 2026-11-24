@@ -890,12 +890,13 @@ export const en: Dictionary = {
     aide: 'The media is erased after being opened once.',
   },
   position: {
+    appFermee: 'Nébula closed · position from {quand}',
     ponctuelle: 'Location sent',
     seulementActuelle: 'Send only my current location',
     sArrete: 'Stops on its own',
     uneJournee: 'For a day',
     tantQueOuverte: 'While the app is open',
-    tantQueOuverteAide: 'Stops if you leave Nébula for more than 2 minutes',
+    tantQueOuverteAide: 'Resumes by itself as soon as you reopen Nébula',
     partagerDirect: 'Share live',
     seulVoit: 'Encrypted · only {nom} sees your location',
     titre: 'Live location',
@@ -1085,6 +1086,7 @@ export const en: Dictionary = {
     sousTitre: '{nom} · {n} items',
   },
   carte: {
+    derniere: 'Last position {quand}',
     telechargerAideFrance: 'Nébula downloads street-level detail {km} km around you, then all of France (cities, villages, roads). After that the map works offline: nothing leaves your phone while you look at it.',
     franceTitre: 'All of France',
     franceAide: 'Cities, villages and roads, offline (a few hundred MB, Wi-Fi recommended).',

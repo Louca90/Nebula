@@ -889,12 +889,13 @@ export const fr = {
     aide: 'Le média s\'efface après avoir été ouvert une fois.',
   },
   position: {
+    appFermee: 'Nébula fermé · position d’{quand}',
     ponctuelle: 'Position envoyée',
     seulementActuelle: 'Envoyer seulement ma position actuelle',
     sArrete: 'S’arrête tout seul',
     uneJournee: 'Pour une journée',
     tantQueOuverte: 'Tant que l’app est ouverte',
-    tantQueOuverteAide: 'S’arrête si tu quittes Nébula plus de 2 minutes',
+    tantQueOuverteAide: 'Reprend tout seul dès que tu rouvres Nébula',
     partagerDirect: 'Partager en direct',
     seulVoit: 'Chiffré · seul·e {nom} voit ta position',
     titre: 'Position en direct',
@@ -1084,6 +1085,7 @@ export const fr = {
     sousTitre: '{nom} · {n} éléments',
   },
   carte: {
+    derniere: 'Dernière position {quand}',
     telechargerAideFrance: 'Nébula télécharge le détail rue par rue à {km} km autour de toi, puis toute la France (villes, villages, routes). Ensuite la carte marche hors ligne : rien ne sort de ton téléphone quand tu la regardes.',
     franceTitre: 'Toute la France',
     franceAide: 'Villes, villages et routes, hors ligne (quelques centaines de Mo, en Wi-Fi de préférence).',
