@@ -1,4 +1,6 @@
-import { Event, EventType } from '@notifee/react-native';
+import notifee, { Event, EventType } from '@notifee/react-native';
+
+import { isMed } from '../couple/meds';
 
 import { chat } from './manager';
 import { deleteCover } from './notifications';
@@ -27,6 +29,11 @@ export async function handleNotificationEvent({ type, detail }: Event) {
   // Nébula : une pensée ouvre l'écran Pense à toi, un rappel du cycle ouvre le suivi du cycle.
   if (typeof data?.thought === 'string' || data?.cycle) {
     if (type === EventType.PRESS) setNotificationTarget(targetOf(data));
+    // « Je l'ai pris » : la prise du médicament est notée sans ouvrir l'app.
+    else if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'med-taken' && isMed(data.med)) {
+      await chat.logMedicationFromNotification(data.med).catch((e) => log.warn('médicament', e));
+      if (detail.notification?.id) await notifee.cancelNotification(detail.notification.id);
+    }
     return;
   }
   // Appel (vague 5) : Répondre ouvre Pear et décroche, Refuser et Raccrocher n'ouvrent rien.

@@ -5,7 +5,7 @@ import { Identity } from '../../crypto/pairing';
 import { PeerStatus, RouteType } from '../../network/peer';
 import { Contact, loadContacts, loadOrCreateIdentity, saveContacts } from '../../storage';
 import { t } from '../../i18n';
-import { addMessage, blockKey, dropMessageFile, getExpiredMessages, getSpentOnce, markOnceOpened, deleteMessage, deleteRelayIncoming, editMessage, getMessage, getPendingRequests, getRelayIncoming, unblockKey, markConversationRead, Message, addScheduledMessage, getDueScheduled, releaseScheduled, setConversationSetting, setMessagePinned, setIncomingStatus, setReaction, setStatus, getUndelivered, getReadMessages } from '../database';
+import { getPartnerKey, addMessage, blockKey, dropMessageFile, getExpiredMessages, getSpentOnce, markOnceOpened, deleteMessage, deleteRelayIncoming, editMessage, getMessage, getPendingRequests, getRelayIncoming, unblockKey, markConversationRead, Message, addScheduledMessage, getDueScheduled, releaseScheduled, setConversationSetting, setMessagePinned, setIncomingStatus, setReaction, setStatus, getUndelivered, getReadMessages } from '../database';
 import { latestReadId } from '../readCursor';
 import { clearMessageNotification } from '../notifications';
 import { encodeMeta, MessageMeta, parseMeta } from '../meta';
@@ -34,7 +34,8 @@ import { acceptPairing, blockPairing, declinePairing, requestPairing, startPairi
 import { deliverNow, sendStatusNow, settlePushAcks, wakeIfNeeded } from './wake';
 import { notifyMessage } from './notify';
 import { getDates } from '../../couple/dates';
-import { cycleForPartner, getCycle } from '../../couple/cycle';
+import { addMedDose, cycleForPartner, getCycle } from '../../couple/cycle';
+import { MedId } from '../../couple/meds';
 import { rescheduleCycleNotifications } from '../../couple/cycleNotifications';
 import { MoodId, setMyMood } from '../../couple/mood';
 import { addThought } from '../../couple/thoughts';
@@ -628,6 +629,15 @@ class ChatManager extends ChatCore {
   shareCycle(contact: string) {
     sendEvent(this, contact, { action: 'cycle', id: '', cycle: cycleForPartner(getCycle()) });
     rescheduleCycleNotifications(this.names.get(contact) ?? 'Nébula').catch((e) => log.warn('rappels du cycle', e));
+  }
+
+  // « Je l'ai pris » depuis la notification d'un médicament : la prise est notée, l'autre la voit.
+  async logMedicationFromNotification(med: MedId) {
+    await this.ensurePrepared();
+    addMedDose(med);
+    const partner = getPartnerKey();
+    if (partner) this.shareCycle(partner);
+    else rescheduleCycleNotifications('Nébula').catch((e) => log.warn('rappels du cycle', e));
   }
 
   // Mon humeur, choisie sur la carte Humeur.

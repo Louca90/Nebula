@@ -1,4 +1,5 @@
 import { addDays, averageCycle, averagePeriod, currentPeriod, dayKey, dayStart, DEFAULT_CYCLE, DEFAULT_PERIOD, MAX_CYCLE, MIN_CYCLE, nextStart, Period, sortedPeriods } from './cycleMath';
+import { isMed, MedDose, MedId } from './meds';
 import { readJson, useCoupleVersion, writeJson } from './store';
 
 // Nébula, suivi du cycle (carte « Cycle » de l'onglet Nous). Elle note ses règles (début, fin, douleur) ;
@@ -14,11 +15,15 @@ export type CycleData = {
   pain: Record<string, PainLevel>;
   cycleLength: number;
   periodLength: number;
+  // Nébula : les prises de médicaments des 7 derniers jours.
+  meds: MedDose[];
   updatedAt: number;
 };
 
 const KEY = 'couple.cycle';
-const EMPTY: CycleData = { owner: null, periods: [], pain: {}, cycleLength: DEFAULT_CYCLE, periodLength: DEFAULT_PERIOD, updatedAt: 0 };
+const EMPTY: CycleData = { owner: null, periods: [], pain: {}, cycleLength: DEFAULT_CYCLE, periodLength: DEFAULT_PERIOD, meds: [], updatedAt: 0 };
+const MEDS_KEEP_MS = 7 * 24 * 3600 * 1000;
+const MAX_MEDS = 60;
 const MAX_PERIODS = 60;
 const MAX_PAIN_DAYS = 120;
 
@@ -66,6 +71,13 @@ export function parseCycle(value: unknown): CycleData | null {
       if (/^\d{4}-\d{2}-\d{2}$/.test(day) && (level === 0 || level === 1 || level === 2 || level === 3)) pain[day] = level;
     }
   }
+  const meds: MedDose[] = [];
+  if (Array.isArray(data.meds)) {
+    for (const item of data.meds.slice(-MAX_MEDS)) {
+      const dose = item as Record<string, unknown> | null;
+      if (dose && isMed(dose.med) && Number.isSafeInteger(dose.at)) meds.push({ med: dose.med, at: dose.at as number });
+    }
+  }
   const length = (value: unknown, fallback: number, min: number, max: number) => (Number.isSafeInteger(value) ? Math.max(min, Math.min(max, value as number)) : fallback);
   return {
     owner,
@@ -73,6 +85,7 @@ export function parseCycle(value: unknown): CycleData | null {
     pain,
     cycleLength: length(data.cycleLength, DEFAULT_CYCLE, MIN_CYCLE, MAX_CYCLE),
     periodLength: length(data.periodLength, DEFAULT_PERIOD, 1, 10),
+    meds,
     updatedAt: data.updatedAt as number,
   };
 }
@@ -93,6 +106,7 @@ function update(change: (data: CycleData) => Partial<CycleData>): CycleData {
   next.periods = sortedPeriods(next.periods).slice(-MAX_PERIODS);
   const keys = Object.keys(next.pain).sort().slice(-MAX_PAIN_DAYS);
   next.pain = Object.fromEntries(keys.map((key) => [key, next.pain[key]]));
+  next.meds = (next.meds ?? []).filter((dose) => dose.at > Date.now() - MEDS_KEEP_MS).slice(-MAX_MEDS);
   saveCycle(next);
   return next;
 }
@@ -122,6 +136,15 @@ export function deletePeriod(start: number) {
 
 export function setPain(day: number, level: PainLevel) {
   return update((data) => ({ pain: { ...data.pain, [dayKey(day)]: level } }));
+}
+
+// Une prise de médicament (maintenant, ou à une autre heure).
+export function addMedDose(med: MedId, at = Date.now()) {
+  return update((data) => ({ meds: [...(data.meds ?? []), { med, at }].sort((a, b) => a.at - b.at) }));
+}
+
+export function deleteMedDose(at: number, med: MedId) {
+  return update((data) => ({ meds: (data.meds ?? []).filter((dose) => !(dose.at === at && dose.med === med)) }));
 }
 
 export function setCycleSettings(cycleLength: number, periodLength: number) {

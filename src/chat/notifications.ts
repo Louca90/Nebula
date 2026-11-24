@@ -156,7 +156,7 @@ export async function showCoupleNotification(id: string, title: string, body: st
 
 // Une notification programmée (rappels du cycle). Une alarme inexacte, qui sonne même en veille et ne
 // demande aucune autorisation de plus ; Notifee la reprogramme après un redémarrage du téléphone.
-export async function scheduleCoupleNotification(id: string, at: number, title: string, body: string, data: Record<string, string>) {
+export async function scheduleCoupleNotification(id: string, at: number, title: string, body: string, data: Record<string, string>, actions: { title: string; id: string }[] = []) {
   if (at <= Date.now()) return;
   await ensureChannel();
   await notifee.createTriggerNotification(
@@ -165,7 +165,13 @@ export async function scheduleCoupleNotification(id: string, at: number, title: 
       title,
       body,
       data,
-      android: { channelId: NOTIFICATION_CHANNEL_ID, visibility: AndroidVisibility.PRIVATE, smallIcon: NOTIFICATION_SMALL_ICON, pressAction: { id: 'default' } },
+      android: {
+        channelId: NOTIFICATION_CHANNEL_ID,
+        visibility: AndroidVisibility.PRIVATE,
+        smallIcon: NOTIFICATION_SMALL_ICON,
+        pressAction: { id: 'default' },
+        actions: actions.map((action) => ({ title: action.title, pressAction: { id: action.id } })),
+      },
     },
     { type: TriggerType.TIMESTAMP, timestamp: at, alarmManager: { type: AlarmType.SET_AND_ALLOW_WHILE_IDLE } },
   );
