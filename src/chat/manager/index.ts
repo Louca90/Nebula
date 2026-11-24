@@ -34,7 +34,8 @@ import { acceptPairing, blockPairing, declinePairing, requestPairing, startPairi
 import { deliverNow, sendStatusNow, settlePushAcks, wakeIfNeeded } from './wake';
 import { notifyMessage } from './notify';
 import { getDates } from '../../couple/dates';
-import { addMedDose, cycleForPartner, getCycle } from '../../couple/cycle';
+import { addMedDose } from '../../couple/cycle';
+import { SharedAction, sharedEvent } from '../../couple/shared';
 import { MedId } from '../../couple/meds';
 import { rescheduleCycleNotifications } from '../../couple/cycleNotifications';
 import { MoodId, setMyMood } from '../../couple/mood';
@@ -621,13 +622,19 @@ class ChatManager extends ChatCore {
 
   // Nos dates modifiées ici : la liste entière part chez l'autre (la plus récente gagne).
   shareDates(contact: string) {
-    sendEvent(this, contact, { action: 'dates', id: '', dates: getDates() });
+    this.shareCouple(contact, 'dates');
+  }
+
+  // Nébula : une donnée de couple partagée (voir couple/shared.ts) part chez l'autre.
+  shareCouple(contact: string, action: SharedAction) {
+    const event = sharedEvent(action);
+    if (event) sendEvent(this, contact, event);
   }
 
   // Suivi du cycle modifié ici : la copie entière part chez l'autre (la plus récente gagne), et les
   // rappels sont reprogrammés.
   shareCycle(contact: string) {
-    sendEvent(this, contact, { action: 'cycle', id: '', cycle: cycleForPartner(getCycle()) });
+    this.shareCouple(contact, 'cycle');
     rescheduleCycleNotifications(this.names.get(contact) ?? 'Nébula').catch((e) => log.warn('rappels du cycle', e));
   }
 
@@ -642,8 +649,8 @@ class ChatManager extends ChatCore {
 
   // Mon humeur, choisie sur la carte Humeur.
   sendMood(contact: string, mood: MoodId) {
-    const value = setMyMood(mood);
-    sendEvent(this, contact, { action: 'mood', id: '', mood: value.mood, at: value.at });
+    setMyMood(mood);
+    this.shareCouple(contact, 'mood');
   }
 
   // --- Messages éphémères et vue unique (lot 4.7) ---

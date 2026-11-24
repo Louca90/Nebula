@@ -13,6 +13,7 @@ import { chat } from '../chat/manager';
 import { DB_NAME } from '../config';
 import { appStorage } from '../../modules/pear-native';
 import { showDialog } from '../components/dialog';
+import { EmptyState } from '../components/EmptyState';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { Avatar, Header, Screen } from '../components/ui';
 import { haptics } from '../haptics';
@@ -196,7 +197,7 @@ export function StorageScreen({ contacts, onBack }: { contacts: Contact[]; onBac
         <Reanimated.View entering={enterUp(10, 260, 40)} style={styles.group}>
           <Text style={styles.groupTitle}>{t('stockage.parConversation')}</Text>
           {usage.byContact.length === 0 ? (
-            <Text style={styles.hint}>{t('stockage.aucunMedia')}</Text>
+            <EmptyState compact label={t('stockage.aucunMedia')} />
           ) : (
             <View style={styles.card}>
               {usage.byContact.map((row, index) => (

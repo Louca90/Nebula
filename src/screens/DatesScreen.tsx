@@ -9,6 +9,7 @@ import { chat } from '../chat/manager';
 import { CoupleDate, CoupleDates, daysUntil, MAX_DATES, MAX_TITLE, nextOccurrence, saveDates, useDates } from '../couple/dates';
 import { haptics } from '../haptics';
 import { Sheet } from '../components/Sheet';
+import { EmptyState } from '../components/EmptyState';
 import { Toggle } from '../components/Toggle';
 import { IconButton, useInsets } from '../components/ui';
 import { GrainButton } from '../components/nebula';
@@ -234,7 +235,7 @@ export function DatesScreen({ partner, onBack }: Props) {
 
         <Text style={styles.section}>{t('dates.aNePasOublier')}</Text>
         <View style={styles.list}>
-          {sorted.length === 0 && <Text style={styles.empty}>{t('dates.vide')}</Text>}
+          {sorted.length === 0 && <EmptyState compact title={t('dates.videTitre')} label={t('dates.vide')} />}
           {sorted.map((date, index) => (
             <DateRow
               key={date.id}

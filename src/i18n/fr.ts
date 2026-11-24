@@ -1042,6 +1042,7 @@ export const fr = {
     notificationTexte: 'Touche pour lui envoyer une pensée à ton tour.',
   },
   dates: {
+    videTitre: 'Aucune date pour l’instant',
     titre: 'Nos dates',
     prochaineFois: 'Prochaine fois',
     aucune: 'Pas encore de date',
@@ -1201,6 +1202,8 @@ export const fr = {
     apercuAppel: 'Appel',
   },
   cycle: {
+    douleurTitre: 'Douleur',
+    rienNote: 'Rien de noté',
     cEstMoi: 'C’est moi qui note mon cycle',
     carteAttente: 'Son cycle',
     finPrevue: 'Fin prévue dans {n} j',

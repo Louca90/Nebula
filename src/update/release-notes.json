@@ -1,6 +1,6 @@
 {
-  "version": "1.1.3",
-  "versionCode": 5,
-  "summary": "- Nouveau dans le suivi du cycle : noter un médicament pris (paracétamol, ibuprofène, Spasfon…).\n- Nébula dit quand elle peut en reprendre et l'en prévient, avec « Je l'ai pris » dans la notification.\n- Lui voit les prises, sans pouvoir rien modifier.",
+  "version": "1.1.4",
+  "versionCode": 6,
+  "summary": "- Le calendrier du cycle se feuillette au doigt, et chaque jour a sa fiche : douleur, médicaments, humeur.\n- Les écrans vides montrent le lys et quoi faire.\n- Sous le capot : synchronisation du couple réunie, publication en une seule commande.",
   "pages": {}
 }

@@ -1043,6 +1043,7 @@ export const en: Dictionary = {
     notificationTexte: 'Tap to send a thought back.',
   },
   dates: {
+    videTitre: 'No dates yet',
     titre: 'Our dates',
     prochaineFois: 'Next time',
     aucune: 'No date yet',
@@ -1202,6 +1203,8 @@ export const en: Dictionary = {
     apercuAppel: 'Call',
   },
   cycle: {
+    douleurTitre: 'Pain',
+    rienNote: 'Nothing logged',
     cEstMoi: 'I track my own cycle',
     carteAttente: 'Her cycle',
     finPrevue: 'Expected to end in {n} d',
