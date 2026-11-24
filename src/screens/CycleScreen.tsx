@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Reanimated, { useAnimatedProps, useSharedValue } from 'react-native-reanimated';
+import { useEffect, useRef, useState } from 'react';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Reanimated, { useAnimatedProps, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { ArrowLeft, ChevronLeft, ChevronRight, Droplet, Minus, Pill, Plus } from 'lucide-react-native';
 
@@ -10,9 +10,12 @@ import { addMedDose, cycleOwner, cycleStats, CycleData, cycleSummary, deleteMedD
 import { DAY_MS, dayInfo, dayKey, dayStart, MAX_CYCLE, MIN_CYCLE, Phase, sortedPeriods } from '../couple/cycleMath';
 import { painLabel } from '../couple/cycleNotifications';
 import { lastDoses, MEDS } from '../couple/meds';
+import { MoodId, useMoods } from '../couple/mood';
+import { MoodIcon } from '../components/MoodIcon';
 import { haptics } from '../haptics';
 import { showDialog } from '../components/dialog';
 import { Sheet } from '../components/Sheet';
+import { EmptyState } from '../components/EmptyState';
 import { IconButton, useInsets } from '../components/ui';
 import { GrainButton } from '../components/nebula';
 import { dateLocale, t } from '../i18n';
@@ -68,12 +71,28 @@ function CycleCalendar({ data, now, onDay }: { data: CycleData; now: number; onD
   const cells = [...Array.from({ length: offset }, () => null), ...Array.from({ length }, (_, index) => new Date(first.getFullYear(), first.getMonth(), index + 1).getTime())];
   const weekdays = Array.from({ length: 7 }, (_, index) => format(new Date(2024, 0, 1 + index).getTime(), { weekday: 'narrow' }));
   const today = dayStart(now);
+  // Nébula : le mois glisse d'un côté quand on change, au doigt (glisser) comme aux flèches.
+  const slide = useSharedValue(0);
   const shift = (step: number) => {
     haptics.select();
+    slide.set(step * 40);
+    slide.set(timing(0, 260));
     setMonth(new Date(first.getFullYear(), first.getMonth() + step, 1).getTime());
   };
+  const latestShift = useRef(shift);
+  latestShift.current = shift;
+  const swipe = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+      onPanResponderRelease: (_event, gesture) => {
+        if (gesture.dx < -50 || gesture.vx < -0.5) latestShift.current(1);
+        else if (gesture.dx > 50 || gesture.vx > 0.5) latestShift.current(-1);
+      },
+    }),
+  ).current.panHandlers;
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.get() }], opacity: 1 - Math.min(0.6, Math.abs(slide.get()) / 70) }));
   return (
-    <View style={styles.calendar}>
+    <View style={styles.calendar} {...swipe}>
       <View style={styles.monthRow}>
         <IconButton onPress={() => shift(-1)} label={t('dates.moisPrecedent')}>
           <ChevronLeft size={20} color={colors.text} strokeWidth={1.8} />
@@ -83,7 +102,7 @@ function CycleCalendar({ data, now, onDay }: { data: CycleData; now: number; onD
           <ChevronRight size={20} color={colors.text} strokeWidth={1.8} />
         </IconButton>
       </View>
-      <View style={styles.grid}>
+      <Reanimated.View style={[styles.grid, slideStyle]}>
         {weekdays.map((day, index) => (
           <Text key={`w${index}`} style={styles.weekday}>
             {day}
@@ -120,7 +139,7 @@ function CycleCalendar({ data, now, onDay }: { data: CycleData; now: number; onD
             </Pressable>
           );
         })}
-      </View>
+      </Reanimated.View>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendSwatch, styles.dayPeriod]} />
@@ -176,7 +195,7 @@ function MedsSection({ data, canEdit, now, onChange }: { data: CycleData; canEdi
       )}
       <View style={[styles.list, canEdit && styles.medList]}>
         {doses.length === 0 ? (
-          <Text style={styles.empty}>{canEdit ? t('meds.aucun') : t('meds.aucunLui')}</Text>
+          <EmptyState compact label={canEdit ? t('meds.aucun') : t('meds.aucunLui')} />
         ) : (
           doses.map((dose, index) => {
             const ready = dose.next <= now;
@@ -210,6 +229,74 @@ function MedsSection({ data, canEdit, now, onChange }: { data: CycleData; canEdi
       </View>
       <Text style={styles.note}>{t('meds.notice')}</Text>
     </>
+  );
+}
+
+// La fiche d'un jour du calendrier : sa phase, la douleur (modifiable par elle pour un jour passé ou
+// aujourd'hui), les médicaments pris ce jour-là et l'humeur notée ce jour-là.
+function DayDetail({ day, data, canEdit, now, name, onClose, onChange }: { day: number; data: CycleData; canEdit: boolean; now: number; name: string; onClose: () => void; onChange: (action: () => void) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const moods = useMoods();
+  const { cycleLength, periodLength } = cycleStats(data);
+  const info = dayInfo(day, data.periods, cycleLength, periodLength, now);
+  const key = dayKey(day);
+  const pain = data.pain[key];
+  const doses = (data.meds ?? []).filter((dose) => dayKey(dose.at) === key);
+  const dayMoods = [
+    moods.mine && dayKey(moods.mine.at) === key ? { who: t('pense.toi'), mood: moods.mine.mood } : null,
+    moods.theirs && dayKey(moods.theirs.at) === key ? { who: name, mood: moods.theirs.mood } : null,
+  ].filter((item): item is { who: string; mood: MoodId } => item !== null);
+  const past = dayStart(day) <= dayStart(now);
+  return (
+    <Sheet title={format(day, { weekday: 'long', day: 'numeric', month: 'long' })} onClose={onClose}>
+      {() => (
+        <View style={styles.dayBody}>
+          <View style={styles.dayPhase}>
+            <View style={[styles.legendSwatch, info?.phase === 'regles' ? styles.dayPeriod : info?.phase === 'ovulation' ? styles.dayOvulation : info?.phase === 'fertile' ? styles.dayFertile : styles.dayNeutral]} />
+            <Text style={styles.rowTitleFlex}>
+              {info ? `${phaseLabel(info.phase)}${info.predicted ? ` (${t('cycle.prevu')})` : ''} · ${t('cycle.jourDuCycle', { n: info.cycleDay })}` : t('cycle.pasDeDonnees')}
+            </Text>
+          </View>
+          <Text style={styles.cap}>{t('cycle.douleurTitre')}</Text>
+          {canEdit && past ? (
+            <View style={styles.pains}>
+              {PAIN_LEVELS.map((level) => (
+                <Pressable key={level} onPress={() => onChange(() => setPain(day, level))} accessibilityRole="radio" accessibilityState={{ checked: pain === level }} accessibilityLabel={painLabel(level)} style={[styles.pain, pain === level && styles.painSelected]}>
+                  <PainBars level={level} on={pain === level} />
+                  <Text style={[styles.painLabel, pain === level && styles.painLabelSelected]}>{painLabel(level)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.rowDate}>{pain !== undefined ? painLabel(pain) : t('cycle.rienNote')}</Text>
+          )}
+          <Text style={styles.cap}>{t('meds.titre')}</Text>
+          {doses.length === 0 ? (
+            <Text style={styles.rowDate}>{t('cycle.rienNote')}</Text>
+          ) : (
+            doses.map((dose) => (
+              <View key={`${dose.med}-${dose.at}`} style={styles.dayLine}>
+                <Pill size={16} color={fixed.lilac} strokeWidth={1.8} />
+                <Text style={styles.rowTitleFlex}>{t(`meds.${dose.med}`)}</Text>
+                <Text style={styles.rowDate}>{clock(dose.at)}</Text>
+              </View>
+            ))
+          )}
+          <Text style={styles.cap}>{t('humeur.titre')}</Text>
+          {dayMoods.length === 0 ? (
+            <Text style={styles.rowDate}>{t('cycle.rienNote')}</Text>
+          ) : (
+            dayMoods.map((item) => (
+              <View key={item.who} style={styles.dayLine}>
+                <MoodIcon mood={item.mood} size={16} color={colors.text} />
+                <Text style={styles.rowTitleFlex}>{`${item.who} · ${t(`humeur.${item.mood}`)}`}</Text>
+              </View>
+            ))
+          )}
+        </View>
+      )}
+    </Sheet>
   );
 }
 
@@ -279,15 +366,9 @@ export function CycleScreen({ partner, onBack }: Props) {
     haptics.success();
   };
 
-  const onDay = (day: number) => {
-    const value = dayInfo(day, data.periods, summary.cycleLength, summary.periodLength, now);
-    const pain = data.pain[dayKey(day)];
-    const lines = [
-      value ? `${phaseLabel(value.phase)}${value.predicted ? ` (${t('cycle.prevu')})` : ''} · ${t('cycle.jourDuCycle', { n: value.cycleDay })}` : t('cycle.pasDeDonnees'),
-      pain !== undefined ? t('cycle.douleurCeJour', { niveau: painLabel(pain) }) : null,
-    ].filter(Boolean);
-    showDialog(format(day, { weekday: 'long', day: 'numeric', month: 'long' }), lines.join('\n'));
-  };
+  // Nébula : un jour touché ouvre sa fiche (phase, douleur, médicaments, humeur).
+  const [openDay, setOpenDay] = useState<number | null>(null);
+  const onDay = (day: number) => setOpenDay(day);
 
   const headline = summary.current
     ? t('cycle.phase_regles')
@@ -468,6 +549,7 @@ export function CycleScreen({ partner, onBack }: Props) {
         )}
       </ScrollView>
 
+      {openDay !== null && <DayDetail day={openDay} data={data} canEdit={canEdit} now={now} name={name} onClose={() => setOpenDay(null)} onChange={change} />}
       {sheet === 'start' && <DaySheet title={t('cycle.debutTitre')} initial={now} onClose={() => setSheet(null)} onSave={(day) => change(() => startPeriod(day, 'me'))} />}
       {sheet === 'end' && <DaySheet title={t('cycle.finTitre')} initial={now} onClose={() => setSheet(null)} onSave={(day) => change(() => endPeriod(day))} />}
     </View>
@@ -498,6 +580,10 @@ const useStyles = createStyles((colors) => ({
   section: { paddingTop: 22, paddingHorizontal: 28, paddingBottom: 8, fontSize: 12, fontWeight: '600', color: colors.textMuted, letterSpacing: 0.72, textTransform: 'uppercase' },
   list: { marginHorizontal: 12, borderRadius: 22, backgroundColor: colors.surface, overflow: 'hidden' },
   calendarBox: { paddingHorizontal: 8, paddingTop: 6, paddingBottom: 14 },
+  dayBody: { gap: 10, paddingTop: 8, paddingBottom: 8 },
+  dayPhase: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  dayNeutral: { backgroundColor: fixed.ringTrack },
+  dayLine: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   medChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginHorizontal: 12, marginBottom: 10 },
   medChip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.surface, minHeight: 52 },
   medChipLabel: { fontSize: 14, fontWeight: '600', color: colors.text },

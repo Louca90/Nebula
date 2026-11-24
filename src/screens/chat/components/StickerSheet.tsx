@@ -7,6 +7,7 @@ import { deleteSticker, listStickers, Sticker } from '../../../chat/stickers';
 import { showDialog } from '../../../components/dialog';
 import { MediaPicker } from '../../../components/MediaPicker';
 import { Sheet } from '../../../components/Sheet';
+import { EmptyState } from '../../../components/EmptyState';
 import { haptics } from '../../../haptics';
 import { t } from '../../../i18n';
 import { EASE } from '../../../motion';
@@ -83,7 +84,7 @@ export function StickerSheet({ onSend, onClose }: { onSend: (sticker: Sticker) =
               </Reanimated.View>
             ))}
           </ScrollView>
-          {stickers.length === 0 && <Text style={styles.empty}>{t('stickers.vide')}</Text>}
+          {stickers.length === 0 && <EmptyState compact label={t('stickers.vide')} action={t('stickers.nouveau')} onAction={() => setPicking(true)} />}
           {picking && (
             <MediaPicker
               single

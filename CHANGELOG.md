@@ -1,5 +1,26 @@
 # Journal des versions
 
+## 1.1.4 (versionCode 6)
+
+### Résumé
+
+- Le calendrier du cycle se feuillette au doigt, et chaque jour a sa fiche : douleur, médicaments, humeur.
+- Les écrans vides montrent le lys et quoi faire.
+- Sous le capot : synchronisation du couple réunie, publication en une seule commande.
+
+### Détails
+
+#### Nouveautés
+
+- Calendrier du cycle : glisser vers la gauche ou la droite pour changer de mois.
+- Fiche d'un jour : phase, douleur (modifiable par elle pour un jour passé), médicaments pris ce jour-là, humeur notée ce jour-là.
+- États vides (Nos dates, stickers, stockage, médicaments) : le lys, une phrase claire et, quand il y en a une, l'action à faire.
+
+#### Technique
+
+- Dates, cycle et humeur partagés par un module unique (couple/shared.ts), compatible avec les versions précédentes.
+- Workflow « Publier Nébula » : compilation, signature, release et notification en une seule commande.
+
 ## 1.1.3 (versionCode 5)
 
 ### Résumé

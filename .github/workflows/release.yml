@@ -1,0 +1,100 @@
+# Publier Nébula en une seule commande : compile l'APK, le signe, publie la release signée et prévient
+# les téléphones. Lancement : Actions → « Publier Nébula » → Run workflow, avec la version d'app.json.
+#
+# Les clés ne sont jamais dans le dépôt : deux secrets GitHub (Settings → Secrets and variables → Actions)
+#   NEBULA_SECRETS  keystore, clé des mises à jour et google-services.json (archive en base64, texte prêt
+#                   dans le Drive, dossier « Nébula - clés de publication »)
+#   ANNOUNCE_SECRET le même que sur Vercel (sans lui, la release part sans notification)
+name: Publier Nébula
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version à publier (doit être celle de app.json, ex. 1.1.4)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version
+        run: |
+          test "$(node -p "require('./app.json').expo.version")" = "$VERSION" || { echo "app.json n'est pas en $VERSION"; exit 1; }
+          echo "CODE=$(node -p "require('./app.json').expo.android.versionCode")" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Clés
+        env:
+          NEBULA_SECRETS: ${{ secrets.NEBULA_SECRETS }}
+        run: |
+          test -n "$NEBULA_SECRETS" || { echo "Secret NEBULA_SECRETS absent"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$NEBULA_SECRETS" | tr -d ' \n\r' | base64 -d | tar -xz -C "$RUNNER_TEMP/keys"
+          cp "$RUNNER_TEMP/keys/google-services.json" google-services.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx jest --ci --silent
+      - run: npx expo prebuild --platform android --no-install
+        env:
+          CI: '1'
+      - name: Compilation (non signée)
+        run: |
+          sed -i '/signingConfig signingConfigs.release/d' android/app/build.gradle
+          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+      - name: Signature
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          "$BT/zipalign" -f -p 4 "$APK" aligned.apk
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/keys/nebula-release.keystore" --ks-key-alias nebula \
+            --ks-pass "file:$RUNNER_TEMP/keys/keystore-password.txt" --out "nebula-$VERSION.apk" aligned.apk
+          "$BT/apksigner" verify "nebula-$VERSION.apk"
+      - name: Description signée
+        env:
+          KEY_FILE: ${{ runner.temp }}/keys/release-key.hex
+        run: |
+          node --input-type=module -e "
+          import { createHash } from 'node:crypto';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { ed25519 } from '@noble/curves/ed25519.js';
+          import { bytesToHex, hexToBytes } from '@noble/curves/utils.js';
+          const { VERSION, CODE, KEY_FILE } = process.env;
+          const hash = createHash('sha256').update(readFileSync('nebula-' + VERSION + '.apk')).digest('hex');
+          const text = readFileSync('CHANGELOG.md', 'utf8').replace(/\r\n/g, '\n');
+          const start = text.indexOf('## ' + VERSION);
+          if (start < 0) throw new Error('Pas de section ' + VERSION + ' dans CHANGELOG.md');
+          const next = text.indexOf('\n## ', start + 4);
+          const section = text.slice(start, next < 0 ? undefined : next).split('\n').slice(1).join('\n').replace(/^###/gm, '##').trim();
+          const message = new TextEncoder().encode('pear-release-v1\n' + CODE + '\n' + hash);
+          const signature = bytesToHex(ed25519.sign(message, hexToBytes(readFileSync(KEY_FILE, 'utf8').trim())));
+          writeFileSync('body.md', section + '\n\nversionCode: ' + CODE + '\nsha256: ' + hash + '\nsignature: ' + signature + '\n');
+          "
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v$VERSION" "nebula-$VERSION.apk" --repo "$GITHUB_REPOSITORY" --title "Nébula $VERSION" --notes-file body.md --latest
+      - name: Notification aux téléphones
+        env:
+          ANNOUNCE_SECRET: ${{ secrets.ANNOUNCE_SECRET }}
+        run: |
+          if [ -z "$ANNOUNCE_SECRET" ]; then echo "ANNOUNCE_SECRET absent : pas de notification."; exit 0; fi
+          curl -sf -o /dev/null -X POST https://pear-drab.vercel.app/api/announce \
+            -H "Authorization: Bearer $ANNOUNCE_SECRET" -H "Content-Type: application/json" \
+            -d "{\"version\":\"$VERSION\",\"versionCode\":$CODE,\"app\":\"nebula\"}" && echo "Annonce envoyée."
+      - name: Nettoyage
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/keys" google-services.json
