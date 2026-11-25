@@ -443,7 +443,7 @@ export const en: Dictionary = {
     temperature: 'Temperature',
     reinitialiser: 'Reset',
     termine: 'Done',
-    aide: 'Tap to write, swipe to change filter',
+    aide: 'Swipe to change the filter',
     ajouterTexte: 'Add text',
     ecrire: 'Write something',
     valider: 'Confirm text',

@@ -3,7 +3,7 @@
     "name": "Nébula",
     "slug": "nebula",
     "scheme": "nebula",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "platforms": [
       "android"
     ],
@@ -12,7 +12,7 @@
     "userInterfaceStyle": "dark",
     "android": {
       "package": "com.louca.nebula",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundImage": "./assets/android-icon-background.png",
         "foregroundImage": "./assets/android-icon-foreground.png",

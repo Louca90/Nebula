@@ -1,6 +1,6 @@
 {
-  "version": "1.1.4",
-  "versionCode": 6,
-  "summary": "- Le calendrier du cycle se feuillette au doigt, et chaque jour a sa fiche : douleur, médicaments, humeur.\n- Les écrans vides montrent le lys et quoi faire.\n- L'onglet Nous repensé : son dernier message, les gestes rapides et la journée en un coup d'œil.\n- Appareil photo et retouche redessinés : outils ronds, boutons Enregistrer et Envoyer en bas.\n- Les marques heure, date, jour, lieu et batterie ont de vraies polices (serif, sans, écriture à la main).\n- Sous le capot : synchronisation du couple réunie, publication en une seule commande.",
+  "version": "1.1.5",
+  "versionCode": 7,
+  "summary": "- Le calendrier du cycle suit le doigt, comme une page qu'on tourne.\n- L'onglet Nous : le titre « Aujourd'hui » ne chevauche plus les boutons.\n- Retouche : toucher la photo n'ajoute plus de texte (l'outil Texte est là pour ça).",
   "pages": {}
 }

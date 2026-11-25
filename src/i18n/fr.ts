@@ -442,7 +442,7 @@ export const fr = {
     temperature: 'Température',
     reinitialiser: 'Réinitialiser',
     termine: 'Terminé',
-    aide: 'Toucher pour écrire, glisser pour changer de filtre',
+    aide: 'Glisser pour changer de filtre',
     ajouterTexte: 'Ajouter du texte',
     ecrire: 'Écrivez quelque chose',
     valider: 'Valider le texte',

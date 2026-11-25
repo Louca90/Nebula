@@ -1,5 +1,21 @@
 # Journal des versions
 
+## 1.1.5 (versionCode 7)
+
+### Résumé
+
+- Le calendrier du cycle suit le doigt, comme une page qu'on tourne.
+- L'onglet Nous : le titre « Aujourd'hui » ne chevauche plus les boutons.
+- Retouche : toucher la photo n'ajoute plus de texte (l'outil Texte est là pour ça).
+
+### Détails
+
+#### Corrections
+
+- Calendrier du cycle : les mois voisins sont dessinés de part et d'autre, le glissé se fait sous le doigt, sans saccade ; la grille garde toujours six semaines (la hauteur ne saute plus).
+- Onglet Nous : le titre « Aujourd'hui » a sa propre ligne, aligné comme « Médias partagés ».
+- Retouche : un toucher sur le média ne crée plus de texte ; toucher un texte existant le modifie toujours, et toucher la photo referme la rangée Ambiance.
+
 ## 1.1.4 (versionCode 6)
 
 ### Résumé

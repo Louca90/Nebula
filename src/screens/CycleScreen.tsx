@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Reanimated, { useAnimatedProps, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Reanimated, { Easing, useAnimatedProps, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Svg, { Circle } from 'react-native-svg';
 import { ArrowLeft, ChevronLeft, ChevronRight, Droplet, Minus, Pill, Plus } from 'lucide-react-native';
 
@@ -40,6 +42,14 @@ function format(at: number, options: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat(dateLocale(), options).format(at);
 }
 
+// Six semaines de sept jours.
+const GRID_CELLS = 42;
+const GRID_HEIGHT = 6 * 46;
+// Une page lâchée après le quart de la largeur, ou lancée assez vite, passe au mois voisin.
+const PAGE_COMMIT = 0.25;
+const PAGE_FLING = 600;
+const PAGE_TURN = { duration: 260, easing: Easing.bezier(0.2, 0.8, 0.2, 1) };
+
 const phaseLabel = (phase: Phase) => t(`cycle.phase_${phase}`);
 
 // L'intensité d'une douleur, dessinée : quatre barres qui montent, autant d'allumées que le niveau.
@@ -54,92 +64,152 @@ function PainBars({ level, on }: { level: PainLevel; on: boolean }) {
   );
 }
 
+// Un mois du calendrier, toujours sur six semaines (la hauteur ne saute pas d'un mois à l'autre).
+// Mémorisé : pendant qu'on glisse, rien n'est recalculé, seul le ruban bouge.
+const MonthGrid = memo(function MonthGrid({ month, data, now, width, onDay }: { month: number; data: CycleData; now: number; width: number; onDay: (day: number) => void }) {
+  const styles = useStyles();
+  const { cycleLength, periodLength } = cycleStats(data);
+  const first = new Date(month);
+  const offset = (first.getDay() + 6) % 7;
+  const length = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const days = Array.from({ length }, (_, index) => new Date(first.getFullYear(), first.getMonth(), index + 1).getTime());
+  const cells = [...Array.from({ length: offset }, () => null), ...days, ...Array.from({ length: GRID_CELLS - offset - length }, () => null)];
+  const today = dayStart(now);
+  return (
+    <View style={[styles.grid, { width }]}>
+      {cells.map((at, index) => {
+        if (at === null) return <View key={`e${index}`} style={styles.cell} />;
+        const info = dayInfo(at, data.periods, cycleLength, periodLength, now);
+        const pain = data.pain[dayKey(at)];
+        const period = info?.phase === 'regles';
+        const ovulation = info?.phase === 'ovulation';
+        const solid = (period || ovulation) && !info?.predicted;
+        return (
+          <Pressable
+            key={at}
+            onPress={() => onDay(at)}
+            accessibilityRole="button"
+            accessibilityLabel={`${format(at, { day: 'numeric', month: 'long' })}${info ? ` · ${phaseLabel(info.phase)}${info.predicted ? ` (${t('cycle.prevu')})` : ''}` : ''}`}
+            style={styles.cell}
+          >
+            {/* Jamais fusionnée par React Native (sinon le rond sortait carré). */}
+            <View
+              collapsable={false}
+              style={[
+                styles.day,
+                info?.phase === 'fertile' && styles.dayFertile,
+                period && (info?.predicted ? styles.dayPeriodPredicted : styles.dayPeriod),
+                ovulation && (info?.predicted ? styles.dayOvulationPredicted : styles.dayOvulation),
+              ]}
+            >
+              <Text style={[styles.dayText, solid && styles.dayTextOn, at === today && styles.dayTextToday, at < today && !info && styles.dayTextPast]}>{new Date(at).getDate()}</Text>
+            </View>
+            {at === today ? <View style={styles.todayMark} /> : pain !== undefined && pain > 0 ? <View style={styles.painMark} /> : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+});
+
+const monthAfter = (month: number, step: number) => {
+  const date = new Date(month);
+  return new Date(date.getFullYear(), date.getMonth() + step, 1).getTime();
+};
+
 // Le calendrier du cycle : un mois, ses flèches (sans fin dans les deux sens), chaque jour teinté par sa
 // phase. Règles notées : rose plein ; prévues : anneau rose. Ovulation : lilas plein ; fertile : lilas pâle.
 // Aujourd'hui : le chiffre en gras, souligné.
+// Le mois suit le doigt, comme une page : les mois voisins sont déjà dessinés de part et d'autre, le
+// glissé se fait sur le fil de l'interface, et le mois ne change qu'une fois la page posée.
 function CycleCalendar({ data, now, onDay }: { data: CycleData; now: number; onDay: (day: number) => void }) {
   const styles = useStyles();
   const colors = useColors();
-  const { cycleLength, periodLength } = cycleStats(data);
   const [month, setMonth] = useState(() => {
     const date = new Date(now);
     return new Date(date.getFullYear(), date.getMonth(), 1).getTime();
   });
-  const first = new Date(month);
-  const offset = (first.getDay() + 6) % 7;
-  const length = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
-  const cells = [...Array.from({ length: offset }, () => null), ...Array.from({ length }, (_, index) => new Date(first.getFullYear(), first.getMonth(), index + 1).getTime())];
   const weekdays = Array.from({ length: 7 }, (_, index) => format(new Date(2024, 0, 1 + index).getTime(), { weekday: 'narrow' }));
-  const today = dayStart(now);
-  // Nébula : le mois glisse d'un côté quand on change, au doigt (glisser) comme aux flèches.
-  const slide = useSharedValue(0);
-  const shift = (step: number) => {
+  const [width, setWidth] = useState(0);
+  const pageWidth = useSharedValue(0);
+  // Le déplacement du ruban sous le doigt : 0 = le mois affiché, au milieu.
+  const offset = useSharedValue(0);
+  const turning = useSharedValue(false);
+  const reset = useRef(false);
+  const commit = (step: number) => {
     haptics.select();
-    slide.set(step * 40);
-    slide.set(timing(0, 260));
-    setMonth(new Date(first.getFullYear(), first.getMonth() + step, 1).getTime());
+    reset.current = true;
+    setMonth((current) => monthAfter(current, step));
   };
-  const latestShift = useRef(shift);
-  latestShift.current = shift;
-  const swipe = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
-      onPanResponderRelease: (_event, gesture) => {
-        if (gesture.dx < -50 || gesture.vx < -0.5) latestShift.current(1);
-        else if (gesture.dx > 50 || gesture.vx > 0.5) latestShift.current(-1);
-      },
-    }),
-  ).current.panHandlers;
-  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.get() }], opacity: 1 - Math.min(0.6, Math.abs(slide.get()) / 70) }));
+  // Le nouveau mois est dessiné au milieu : on recentre le ruban dans la même image (pas de saut).
+  useLayoutEffect(() => {
+    if (!reset.current) return;
+    reset.current = false;
+    offset.set(0);
+    turning.set(false);
+  }, [month, offset, turning]);
+  const turn = (step: number) => {
+    'worklet';
+    turning.set(true);
+    offset.set(
+      withTiming(-step * pageWidth.get(), PAGE_TURN, (finished) => {
+        if (finished) scheduleOnRN(commit, step);
+      }),
+    );
+  };
+  const pan = usePanGesture({
+    activeOffsetX: [-12, 12],
+    failOffsetY: [-12, 12],
+    onUpdate: (event) => {
+      'worklet';
+      if (!turning.get()) offset.set(event.translationX);
+    },
+    onDeactivate: (event) => {
+      'worklet';
+      if (turning.get()) return;
+      const page = pageWidth.get();
+      const step = event.translationX < -page * PAGE_COMMIT || event.velocityX < -PAGE_FLING ? 1 : event.translationX > page * PAGE_COMMIT || event.velocityX > PAGE_FLING ? -1 : 0;
+      if (step === 0) offset.set(withTiming(0, PAGE_TURN));
+      else turn(step);
+    },
+  });
+  const ribbon = useAnimatedStyle(() => ({ transform: [{ translateX: -pageWidth.get() + offset.get() }] }));
   return (
-    <View style={styles.calendar} {...swipe}>
+    <View style={styles.calendar}>
       <View style={styles.monthRow}>
-        <IconButton onPress={() => shift(-1)} label={t('dates.moisPrecedent')}>
+        <IconButton onPress={() => !turning.get() && turn(-1)} label={t('dates.moisPrecedent')}>
           <ChevronLeft size={20} color={colors.text} strokeWidth={1.8} />
         </IconButton>
         <Text style={styles.monthTitle}>{format(month, { month: 'long', year: 'numeric' })}</Text>
-        <IconButton onPress={() => shift(1)} label={t('dates.moisSuivant')}>
+        <IconButton onPress={() => !turning.get() && turn(1)} label={t('dates.moisSuivant')}>
           <ChevronRight size={20} color={colors.text} strokeWidth={1.8} />
         </IconButton>
       </View>
-      <Reanimated.View style={[styles.grid, slideStyle]}>
+      <View style={styles.grid}>
         {weekdays.map((day, index) => (
           <Text key={`w${index}`} style={styles.weekday}>
             {day}
           </Text>
         ))}
-        {cells.map((at, index) => {
-          if (at === null) return <View key={`e${index}`} style={styles.cell} />;
-          const info = dayInfo(at, data.periods, cycleLength, periodLength, now);
-          const pain = data.pain[dayKey(at)];
-          const period = info?.phase === 'regles';
-          const ovulation = info?.phase === 'ovulation';
-          const solid = (period || ovulation) && !info?.predicted;
-          return (
-            <Pressable
-              key={at}
-              onPress={() => onDay(at)}
-              accessibilityRole="button"
-              accessibilityLabel={`${format(at, { day: 'numeric', month: 'long' })}${info ? ` · ${phaseLabel(info.phase)}${info.predicted ? ` (${t('cycle.prevu')})` : ''}` : ''}`}
-              style={styles.cell}
-            >
-              {/* Jamais fusionnée par React Native (sinon le rond sortait carré). */}
-              <View
-                collapsable={false}
-                style={[
-                  styles.day,
-                  info?.phase === 'fertile' && styles.dayFertile,
-                  period && (info?.predicted ? styles.dayPeriodPredicted : styles.dayPeriod),
-                  ovulation && (info?.predicted ? styles.dayOvulationPredicted : styles.dayOvulation),
-                ]}
-              >
-                <Text style={[styles.dayText, solid && styles.dayTextOn, at === today && styles.dayTextToday, at < today && !info && styles.dayTextPast]}>{new Date(at).getDate()}</Text>
-              </View>
-              {at === today ? <View style={styles.todayMark} /> : pain !== undefined && pain > 0 ? <View style={styles.painMark} /> : null}
-            </Pressable>
-          );
-        })}
-      </Reanimated.View>
+      </View>
+      <GestureDetector gesture={pan}>
+        <View
+          style={styles.pager}
+          onLayout={(event) => {
+            const measured = event.nativeEvent.layout.width;
+            pageWidth.set(measured);
+            setWidth(measured);
+          }}
+        >
+          {width > 0 && (
+            <Reanimated.View style={[styles.ribbon, { width: width * 3 }, ribbon]}>
+              <MonthGrid month={monthAfter(month, -1)} data={data} now={now} width={width} onDay={onDay} />
+              <MonthGrid month={month} data={data} now={now} width={width} onDay={onDay} />
+              <MonthGrid month={monthAfter(month, 1)} data={data} now={now} width={width} onDay={onDay} />
+            </Reanimated.View>
+          )}
+        </View>
+      </GestureDetector>
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendSwatch, styles.dayPeriod]} />
@@ -605,6 +675,8 @@ const useStyles = createStyles((colors) => ({
   monthRow: { flexDirection: 'row', alignItems: 'center' },
   monthTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '600', color: colors.text, textTransform: 'capitalize' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  pager: { height: GRID_HEIGHT, overflow: 'hidden' },
+  ribbon: { flexDirection: 'row' },
   weekday: { width: `${100 / 7}%`, textAlign: 'center', fontSize: 12, color: colors.textMuted, paddingVertical: 4, textTransform: 'uppercase' },
   cell: { width: `${100 / 7}%`, height: 46, alignItems: 'center', justifyContent: 'center' },
   day: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: fixed.transparent },

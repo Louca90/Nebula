@@ -252,7 +252,11 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
         </Reanimated.View>
 
         {/* Aujourd'hui : une seule liste, des lignes de même forme (plus de petites cartes éparpillées). */}
-        <Text style={styles.cap}>{t('nous.aujourdhui')}</Text>
+        <View style={styles.mediaHead}>
+          <Text style={styles.cap} accessibilityRole="header">
+            {t('nous.aujourdhui')}
+          </Text>
+        </View>
         <Reanimated.View entering={enterUp(8, 260, 120)} style={styles.list}>
           <TodayRow
             first
