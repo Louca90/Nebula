@@ -1,5 +1,28 @@
 # Journal des versions
 
+## 1.1.6 (versionCode 8)
+
+### Résumé
+
+- Les messages partent même si on quitte l'app juste après les avoir envoyés.
+- Android ne ralentit plus les messages de Nébula : les pushs qui n'affichent rien partent en priorité normale.
+- Une carte sur l'accueil prévient quand Android peut endormir Nébula, avec le bouton qui règle le problème.
+
+### Détails
+
+#### Corrections
+
+- Envoi en arrière-plan : avant, tout se coupait dès qu'on quittait l'app ; un message pas encore parti attendait la réouverture (Android 14 et 15 gèlent l'app et lui coupent le réseau quelques secondes après). Maintenant l'envoi se termine, au plus 45 secondes (3 minutes pour un fichier), sous une notification discrète « Envoi à… » qu'Android ne montre que si l'envoi traîne.
+- Priorité des pushs : Android 13+ fait passer en priorité normale les pushs d'une app qui en reçoit trop sans notification ; en arrière-plan, un message ralenti ne pouvait alors plus être reçu avant l'ouverture. Les accusés de réception, modifications, suppressions, épingles, curseurs de lecture, profils et dates partent désormais en priorité normale ; messages, pensées, humeur, cycle et réactions restent en priorité haute.
+- Accusés de réception : renvoyés deux fois s'ils échouent (le message de l'autre ne reste plus en « Envoi… »).
+- Réponse depuis la notification : deux nouveaux essais si le push n'est pas parti.
+- Réseau : un message n'attend plus quand Android croit à tort le téléphone sans internet.
+
+#### Nouveautés
+
+- Accueil : carte « Nébula peut s'endormir » (notifications coupées ou batterie optimisée), avec « Autoriser » et, sur Samsung, le réglage des applications jamais en veille.
+- Diagnostic : « Rapidité des messages » dit combien de pushs récents Android a ralentis.
+
 ## 1.1.5 (versionCode 7)
 
 ### Résumé

@@ -89,6 +89,7 @@ export type NewMessage = Pick<Message, 'id' | 'contact' | 'mine' | 'text' | 'sta
 export type OutboxEvent = {
   id: string;
   payload: string;
+  created_at: number;
 };
 
 const BACKUP_SUFFIX = '.bak';
@@ -417,7 +418,7 @@ export function addOutboxEvent(id: string, contact: string, payload: string) {
 }
 
 export function getOutboxEvents(contact: string): OutboxEvent[] {
-  return db().getAllSync<OutboxEvent>('SELECT id, payload FROM outbox WHERE contact = ? ORDER BY created_at', contact);
+  return db().getAllSync<OutboxEvent>('SELECT id, payload, created_at FROM outbox WHERE contact = ? ORDER BY created_at', contact);
 }
 
 export function removeOutboxEvent(id: string, contact: string) {

@@ -262,7 +262,7 @@ export function clearFileProgress(id: string) {
       await notifee.cancelNotification(FILE_NOTIFICATION_ID);
       return;
     }
-    if (!mapService) await notifee.stopForegroundService();
+    if (!mapService && !sendService) await notifee.stopForegroundService();
     await notifee.cancelNotification(FILE_NOTIFICATION_ID);
   });
 }
@@ -294,7 +294,7 @@ export async function showMapDownload(progress: number) {
 export async function clearMapDownload() {
   if (!mapService) return;
   mapService = false;
-  if (activeFiles.size === 0 && !callService) await notifee.stopForegroundService();
+  if (activeFiles.size === 0 && !callService && !sendService) await notifee.stopForegroundService();
   await notifee.cancelNotification(MAP_NOTIFICATION_ID);
 }
 
@@ -392,7 +392,7 @@ export async function showOngoingCall(contact: string, name: string, video: bool
 export async function clearCallNotification(contact: string) {
   if (callService) {
     callService = false;
-    if (activeFiles.size === 0) await notifee.stopForegroundService();
+    if (activeFiles.size === 0 && !mapService && !sendService) await notifee.stopForegroundService();
   }
   await notifee.cancelNotification(callId(contact));
 }
@@ -412,4 +412,55 @@ export async function showMissedCall(contact: string, name: string, video: boole
       pressAction: { id: 'default' },
     },
   });
+}
+
+// Nébula : un message (ou son accusé) n'était pas encore parti quand on a quitté l'app. Sans service de
+// premier plan, Android gèle l'app quelques secondes après (et, depuis Android 15, lui coupe le réseau) :
+// le message restait bloqué jusqu'à la prochaine ouverture. Le service la garde éveillée le temps de
+// finir l'envoi, au plus une minute ; Android n'affiche sa notification qu'au bout de quelques secondes,
+// on ne la voit donc que si l'envoi traîne. Canal discret : ni son ni vibration.
+const SEND_CHANNEL_ID = 'envoi';
+const SEND_NOTIFICATION_ID = 'sending';
+let sendService = false;
+
+// Rend true si le service tourne (le nôtre ou un autre déjà en cours : fichier, carte, appel).
+export async function startSendingService(name: string): Promise<boolean> {
+  if (sendService) return true;
+  sendService = true;
+  // Un autre service tient déjà l'app éveillée : rien à afficher de plus.
+  if (activeFiles.size > 0 || mapService || callService) return true;
+  try {
+    await notifee.createChannel({ id: SEND_CHANNEL_ID, name: t('notifications.canalEnvoi'), importance: AndroidImportance.LOW, vibration: false });
+    await notifee.displayNotification({
+      id: SEND_NOTIFICATION_ID,
+      title: t('notifications.envoiEnCours', { nom: name }),
+      android: {
+        channelId: SEND_CHANNEL_ID,
+        smallIcon: NOTIFICATION_SMALL_ICON,
+        ongoing: true,
+        onlyAlertOnce: true,
+        asForegroundService: true,
+        foregroundServiceTypes: [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC],
+        progress: { indeterminate: true },
+        pressAction: { id: 'default' },
+      },
+    });
+    return true;
+  } catch (e) {
+    // Android peut refuser (app déjà trop longtemps en arrière-plan) : on envoie quand même, sans garantie.
+    sendService = false;
+    log.warn('service d\'envoi', e);
+    return false;
+  }
+}
+
+export async function stopSendingService() {
+  if (!sendService) return;
+  sendService = false;
+  try {
+    if (activeFiles.size === 0 && !mapService && !callService) await notifee.stopForegroundService();
+    await notifee.cancelNotification(SEND_NOTIFICATION_ID);
+  } catch (e) {
+    log.warn('service d\'envoi', e);
+  }
 }

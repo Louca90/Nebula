@@ -5,9 +5,9 @@ import { Identity } from '../../crypto/pairing';
 import { PeerStatus, RouteType } from '../../network/peer';
 import { Contact, loadContacts, loadOrCreateIdentity, saveContacts } from '../../storage';
 import { t } from '../../i18n';
-import { getPartnerKey, addMessage, blockKey, dropMessageFile, getExpiredMessages, getSpentOnce, markOnceOpened, deleteMessage, deleteRelayIncoming, editMessage, getMessage, getPendingRequests, getRelayIncoming, unblockKey, markConversationRead, Message, addScheduledMessage, getDueScheduled, releaseScheduled, setConversationSetting, setMessagePinned, setIncomingStatus, setReaction, setStatus, getUndelivered, getReadMessages } from '../database';
+import { getPartnerKey, addMessage, blockKey, dropMessageFile, getExpiredMessages, getSpentOnce, markOnceOpened, deleteMessage, deleteRelayIncoming, editMessage, getMessage, getPendingRequests, getRelayIncoming, unblockKey, markConversationRead, Message, addScheduledMessage, getDueScheduled, releaseScheduled, setConversationSetting, setMessagePinned, setIncomingStatus, setReaction, setStatus, getUndelivered, getReadMessages, getOutboxEvents } from '../database';
 import { latestReadId } from '../readCursor';
-import { clearMessageNotification } from '../notifications';
+import { clearMessageNotification, startSendingService, stopSendingService } from '../notifications';
 import { encodeMeta, MessageMeta, parseMeta } from '../meta';
 import { isSelf } from '../self';
 import { canRetry, pendingState, recentRetries, retryAvailableAt } from '../pending';
@@ -51,6 +51,15 @@ export type { PickedFile } from './types';
 const TYPING_EVERY_MS = 3000;
 // Après un envoi, vérifie s'il faut passer par le relais (texte trop long pour un push).
 const TEXT_RELAY_CHECK_MS = 3500;
+// App quittée avec un envoi en cours : on finit l'envoi, au plus ce temps (un fichier par le relais : plus).
+const BACKGROUND_SEND_MS = 45 * 1000;
+const BACKGROUND_FILES_MS = 3 * 60 * 1000;
+const BACKGROUND_SEND_POLL_MS = 1000;
+// Seul un envoi récent retient l'app : un vieux message qui n'a jamais pu partir (pas de réseau chez
+// nous, contact sans token) ne doit pas réveiller le téléphone à chaque sortie de l'app.
+const BACKGROUND_RECENT_MS = 10 * 60 * 1000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 class ChatManager extends ChatCore {
   reconcileNow = () => reconcile(this);
@@ -90,6 +99,8 @@ class ChatManager extends ChatCore {
 
   // Ouvre les connexions des nouveaux contacts et ferme celles des contacts supprimés.
   sync(identity: Identity, contacts: Contact[]) {
+    // Retour au premier plan : la fin d'envoi en arrière-plan s'arrête, l'app reprend la main.
+    this.backgroundRun += 1;
     this.identity = identity;
     watch(this);
     this.lastActivity = Date.now();
@@ -173,7 +184,14 @@ class ChatManager extends ChatCore {
     markConversationRead(contact);
     this.queueReadCursor(contact);
     notifyMessage(this, contact);
-    await deliverNow(this, contact);
+    // La réponse part par push, app fermée : un réseau qui hésite (réveil, changement de Wi-Fi) ne doit
+    // pas la laisser en attente jusqu'à la prochaine ouverture. Deux nouveaux essais au plus.
+    for (const delay of [0, 2000, 5000]) {
+      if (delay) await sleep(delay);
+      await deliverNow(this, contact);
+      const since = Date.now() - 60 * 1000;
+      if (!getUndelivered(contact).some((message) => message.created_at > since && !message.last_attempt_at)) break;
+    }
   }
 
   // Sans connexion directe, le curseur de lecture part dans la file d'événements (push chiffré).
@@ -267,6 +285,72 @@ class ChatManager extends ChatCore {
   async blockRequestFromNotification(contact: string) {
     await this.ensurePrepared();
     blockPairing(this, contact);
+  }
+
+  // --- Nébula : finir d'envoyer après avoir quitté l'app ---
+
+  private backgroundRun = 0;
+  private backgroundSending = false;
+
+  // Ce qui n'est pas encore parti : 'short' pour des textes, événements ou accusés ; 'files' pour un
+  // fichier en cours de dépôt dans le relais ; 'none' quand tout est parti (push accepté, ou reçu en
+  // direct). Un message déjà essayé qui attend le téléphone de l'autre ne retient rien : son push est
+  // chez Google, qui le livrera.
+  private outgoingWork(): 'none' | 'short' | 'files' {
+    if (this.sendingFiles.size > 0) return 'files';
+    if (this.pushAcks.size > 0) return 'short';
+    const since = Date.now() - BACKGROUND_RECENT_MS;
+    for (const contact of this.names.keys()) {
+      if (isSelf(contact)) continue;
+      // En direct, on attend l'accusé : une connexion « connectée » peut être morte (l'autre vient de
+      // perdre le réseau) ; sa fin fait alors partir le push.
+      const connected = this.links.get(contact)?.status === 'connected';
+      // Un fichier offert en direct attend que l'autre le prenne : il ne retient pas l'app.
+      if (getUndelivered(contact).some((message) => message.created_at > since && (!message.last_attempt_at || (connected && message.kind === 'text')))) return 'short';
+      if (getOutboxEvents(contact).some((event) => event.created_at > since && (connected || !this.pushed.has(event.id)))) return 'short';
+    }
+    return 'none';
+  }
+
+  // L'app passe en arrière-plan. Rien en cours : tout se ferme. Sinon, l'envoi continue (connexions,
+  // pushs, relais) sous un service de premier plan, puis tout se ferme. Avant, tout se fermait d'un
+  // coup : un message envoyé juste avant de quitter l'app pouvait rester bloqué jusqu'à la réouverture.
+  async goBackground() {
+    if (this.backgroundSending) return;
+    const run = this.backgroundRun;
+    const stillBackground = () => run === this.backgroundRun && AppState.currentState !== 'active';
+    if (this.outgoingWork() === 'none') {
+      this.stopAll();
+      return;
+    }
+    this.backgroundSending = true;
+    const partner = [...this.names].find(([contact]) => !isSelf(contact))?.[1] ?? 'Nébula';
+    const service = await startSendingService(partner);
+    const start = Date.now();
+    log.info('envoi en arrière-plan', service ? 'avec service' : 'sans service');
+    try {
+      while (stillBackground()) {
+        const work = this.outgoingWork();
+        if (work === 'none') break;
+        if (Date.now() - start > (work === 'files' ? BACKGROUND_FILES_MS : BACKGROUND_SEND_MS)) {
+          log.warn('envoi en arrière-plan inachevé', work);
+          break;
+        }
+        this.names.forEach((_, contact) => {
+          if (isSelf(contact)) return;
+          flush(this, contact);
+          wakeIfNeeded(this, contact);
+          relayPending(this, contact);
+        });
+        await sleep(BACKGROUND_SEND_POLL_MS);
+      }
+      // Les accusés en route partent avant de fermer.
+      await this.pushAckFlush;
+    } finally {
+      this.backgroundSending = false;
+      if (service) await stopSendingService();
+    }
+    if (stillBackground()) this.stopAll();
   }
 
   stopAll() {

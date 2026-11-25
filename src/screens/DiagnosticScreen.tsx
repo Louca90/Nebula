@@ -68,6 +68,9 @@ export function DiagnosticScreen({ onBack }: { onBack: () => void }) {
         { ok: chat.getMyToken() !== null, label: t('diag.tokenFcm'), detail: chat.getMyToken() ? t('diag.present') : t('diag.absent') },
         { ok: data.inboxRegistered && data.tokenPublished, label: t('diag.tokenPublie'), detail: data.tokenPublished ? t('diag.oui') : t('diag.pasEncore') },
         { ok: data.lastPush !== null, label: t('diag.dernierPush'), detail: data.lastPush ? `${formatAgo(data.lastPush.at)} · ${data.lastPush.type}` : t('diag.aucun') },
+        ...(data.pushes.total > 0
+          ? [{ ok: data.pushes.demoted === 0, label: t('diag.priorite'), detail: data.pushes.demoted === 0 ? t('diag.prioriteOk') : t('diag.prioriteRalentie', { n: data.pushes.demoted, total: data.pushes.total }) }]
+          : []),
         { ok: true, label: t('diag.connexions'), detail: t('diag.connexionsDetail', { n: chat.countConnected() }) },
       ]
     : [];

@@ -110,7 +110,8 @@ export function watch(core: ChatCore) {
     .catch((e) => log.warn('token FCM', e));
   // App ouverte : les pushs arrivent ici. Un message qui n'a pas pu passer en direct s'affiche quand même.
   onMessage(messaging, (message) => {
-    recordPush(String(message.data?.type ?? 'wake'));
+    const { priority, originalPriority } = message as { priority?: unknown; originalPriority?: unknown };
+    recordPush(String(message.data?.type ?? 'wake'), priority, originalPriority);
     if (message.data?.type === 'msg' || message.data?.type === 'pair') receivePush(core, message.data);
     else if (message.data?.type === 'update') checkForUpdate(true);
     else if (message.data?.type === 'call') receiveCallPush(core, message.data);

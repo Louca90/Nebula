@@ -367,6 +367,8 @@ export const nl: Dictionary = {
     envoyerN: 'Verzenden ({n})',
   },
   notifications: {
+    canalEnvoi: 'Berichten verzenden',
+    envoiEnCours: 'Verzenden naar {nom}…',
     canal: 'Berichten',
     repondre: 'Beantwoorden',
     marquerLu: 'Markeren als gelezen',
@@ -398,6 +400,9 @@ export const nl: Dictionary = {
     fichierNom: 'Bestand: {nom}',
   },
   diag: {
+    priorite: 'Snelheid van berichten',
+    prioriteOk: 'Direct: Android remt Nébula niet af',
+    prioriteRalentie: '{n} van de laatste {total} berichten vertraagd door Android: zet de batterij op „Onbeperkt”',
     titre: 'Diagnose',
     ouvrir: 'Meldingsdiagnose',
     notifications: 'Meldingen',
