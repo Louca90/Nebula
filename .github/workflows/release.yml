@@ -1,5 +1,7 @@
 # Publier Nébula en une seule commande : compile l'APK, le signe, publie la release signée et prévient
 # les téléphones. Lancement : Actions → « Publier Nébula » → Run workflow, avec la version d'app.json.
+# Les dépendances (Gradle, node_modules) et le C++ déjà compilé (ccache) sont gardés en cache entre deux
+# publications : seule la première après un changement de dépendances est longue.
 #
 # Les clés ne sont jamais dans le dépôt : deux secrets GitHub (Settings → Secrets and variables → Actions)
 #   NEBULA_SECRETS  keystore, clé des mises à jour et google-services.json (archive en base64, texte prêt
@@ -13,6 +15,10 @@ on:
       version:
         description: 'Version à publier (doit être celle de app.json, ex. 1.1.4)'
         required: true
+      publier:
+        description: 'Publier la release et prévenir les téléphones (décocher : compiler seulement, pour remplir les caches ou tester)'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -37,6 +43,22 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      # Caches gardés d'une publication à l'autre (écrits seulement depuis main) : la première compilation
+      # les remplit, les suivantes ne retéléchargent ni ne recompilent ce qui n'a pas changé.
+      # 1. Gradle : dépendances, wrapper, transformations et cache de compilation.
+      - uses: gradle/actions/setup-gradle@v4
+      # 2. ccache : le C++ des bibliothèques natives (Reanimated, Expo, MapLibre…), le plus long à compiler.
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-android
+          max-size: 2G
+      # 3. node_modules, tant que package-lock.json et les correctifs (patches/) ne changent pas. Enregistré
+      #    juste après npm ci : sinon les dossiers de compilation des bibliothèques partiraient avec.
+      - id: modules
+        uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json', 'patches/**') }}
       - name: Clés
         env:
           NEBULA_SECRETS: ${{ secrets.NEBULA_SECRETS }}
@@ -45,13 +67,28 @@ jobs:
           mkdir -p "$RUNNER_TEMP/keys"
           printf '%s' "$NEBULA_SECRETS" | tr -d ' \n\r' | base64 -d | tar -xz -C "$RUNNER_TEMP/keys"
           cp "$RUNNER_TEMP/keys/google-services.json" google-services.json
-      - run: npm ci
+      - if: steps.modules.outputs.cache-hit != 'true'
+        run: npm ci
+      - if: steps.modules.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: node_modules
+          key: ${{ steps.modules.outputs.cache-primary-key }}
       - run: npx tsc --noEmit
       - run: npx jest --ci --silent
       - run: npx expo prebuild --platform android --no-install
         env:
           CI: '1'
       - name: Compilation (non signée)
+        env:
+          # Le C++ de chaque bibliothèque passe par ccache (CMake lit ces deux variables). Le contenu des
+          # fichiers compte, pas leur date : prebuild et npm ci réécrivent des fichiers identiques.
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          CCACHE_BASEDIR: ${{ github.workspace }}
+          CCACHE_NOHASHDIR: 'true'
+          CCACHE_COMPILERCHECK: content
+          CCACHE_SLOPPINESS: include_file_ctime,include_file_mtime,time_macros,file_macro
         run: |
           sed -i '/signingConfig signingConfigs.release/d' android/app/build.gradle
           # Plus de mémoire pour Gradle : la fusion des dex (mergeExtDexRelease) a déjà manqué de place avec 2 Go.
@@ -60,7 +97,11 @@ jobs:
           # collé à la dernière ligne était ignoré (Gradle tombait à 512 Mo : « Java heap space »).
           printf '\norg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8\n' >> android/gradle.properties
           grep -n 'org.gradle.jvmargs' android/gradle.properties
-          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+          # Cache de compilation de Gradle (gardé par setup-gradle).
+          printf 'org.gradle.caching=true\n' >> android/gradle.properties
+          (cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --build-cache)
+          # Combien de compilations C++ ont été reprises du cache (visible dans les logs).
+          ccache --show-stats || true
       - name: Signature
         run: |
           BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
@@ -90,10 +131,12 @@ jobs:
           writeFileSync('body.md', section + '\n\nversionCode: ' + CODE + '\nsha256: ' + hash + '\nsignature: ' + signature + '\n');
           "
       - name: Release
+        if: inputs.publier
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "v$VERSION" "nebula-$VERSION.apk" --repo "$GITHUB_REPOSITORY" --title "Nébula $VERSION" --notes-file body.md --latest
       - name: Notification aux téléphones
+        if: inputs.publier
         env:
           ANNOUNCE_SECRET: ${{ secrets.ANNOUNCE_SECRET }}
         run: |
