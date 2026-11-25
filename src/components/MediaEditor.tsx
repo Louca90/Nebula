@@ -537,20 +537,17 @@ export function MediaEditor({ uri, kind, takenAt, initialFilter = 'none', onTool
       setOverTrash(false);
       setDragging(null);
     },
-    // Un toucher : modifie le texte touché, ou en commence un nouveau.
+    // Un toucher : modifie le texte touché.
     tap: (x: number, y: number, absoluteY: number) => {
       if (busy || onChrome(absoluteY)) return;
       const hit = layerAt(layers, sizes, x, y);
-      // Rangée Ambiance ouverte : toucher le média la referme, sans commencer de texte.
-      if (ambiancing && !hit) {
-        setAmbiancing(false);
-        return;
-      }
+      // Toucher un texte le modifie ; ailleurs, le média ne fait rien (le texte s'ajoute par l'outil
+      // Texte), sauf refermer la rangée Ambiance.
       if (hit?.kind === 'text') {
         vibrate();
         setEditing(hit);
-      } else if (!hit) {
-        startNewText();
+      } else if (!hit && ambiancing) {
+        setAmbiancing(false);
       }
     },
   };

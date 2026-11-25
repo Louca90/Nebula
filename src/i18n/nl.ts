@@ -349,7 +349,7 @@ export const nl: Dictionary = {
     temperature: 'Temperatuur',
     reinitialiser: 'Opnieuw instellen',
     termine: 'Klaar',
-    aide: 'Tik om te schrijven, veeg om van filter te wisselen',
+    aide: 'Veeg om van filter te wisselen',
     ajouterTexte: 'Tekst toevoegen',
     ecrire: 'Schrijf iets',
     valider: 'Tekst bevestigen',

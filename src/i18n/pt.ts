@@ -349,7 +349,7 @@ export const pt: Dictionary = {
     temperature: 'Temperatura',
     reinitialiser: 'Repor',
     termine: 'Concluído',
-    aide: 'Toque para escrever, deslize para trocar de filtro',
+    aide: 'Deslize para mudar de filtro',
     ajouterTexte: 'Adicionar texto',
     ecrire: 'Escreva algo',
     valider: 'Confirmar o texto',
