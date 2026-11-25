@@ -56,7 +56,10 @@ jobs:
           sed -i '/signingConfig signingConfigs.release/d' android/app/build.gradle
           # Plus de mémoire pour Gradle : la fusion des dex (mergeExtDexRelease) a déjà manqué de place avec 2 Go.
           sed -i '/^org.gradle.jvmargs=/d' android/gradle.properties
-          echo 'org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8' >> android/gradle.properties
+          # Sur une nouvelle ligne : le fichier ne finit pas toujours par un retour à la ligne, et le réglage
+          # collé à la dernière ligne était ignoré (Gradle tombait à 512 Mo : « Java heap space »).
+          printf '\norg.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8\n' >> android/gradle.properties
+          grep -n 'org.gradle.jvmargs' android/gradle.properties
           cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
       - name: Signature
         run: |
