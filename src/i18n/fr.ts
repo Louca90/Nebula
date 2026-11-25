@@ -466,6 +466,8 @@ export const fr = {
     envoyerN: 'Envoyer ({n})',
   },
   notifications: {
+    canalEnvoi: 'Envoi des messages',
+    envoiEnCours: 'Envoi à {nom}…',
     canal: 'Messages',
     repondre: 'Répondre',
     marquerLu: 'Marquer comme lu',
@@ -497,6 +499,9 @@ export const fr = {
     fichierNom: 'Fichier : {nom}',
   },
   diag: {
+    priorite: 'Rapidité des messages',
+    prioriteOk: 'Immédiate : Android ne ralentit pas Nébula',
+    prioriteRalentie: '{n} des {total} derniers messages ralentis par Android : mettez la batterie sur « Sans restriction »',
     titre: 'Diagnostic',
     ouvrir: 'Diagnostic des notifications',
     notifications: 'Notifications',
@@ -994,6 +999,13 @@ export const fr = {
     dejaSorties: 'Les nouveautés déjà sorties',
   },
   nous: {
+    fondTitre: 'Nébula peut s\'endormir',
+    fondTexte: 'Android met Nébula en veille quand l\'app est fermée : les messages arrivent en retard, ou seulement à l\'ouverture. Autorise-la à fonctionner en arrière-plan (batterie « Sans restriction »).',
+    fondSamsung: 'Sur Samsung, vérifie aussi Batterie → Limites d\'utilisation en arrière-plan : Nébula ne doit pas être dans les applications en veille, ajoute-la aux « Applications jamais en veille ».',
+    fondNotifTitre: 'Notifications coupées',
+    fondNotifTexte: 'Sans notifications, tu ne sais pas quand un message arrive, et Android traite Nébula comme une app silencieuse.',
+    fondAutoriser: 'Autoriser',
+    fondReglages: 'Réglages Samsung',
     nouveaux: '{n} nouveau(x)',
     appeler: 'Appeler',
     position: 'Position',

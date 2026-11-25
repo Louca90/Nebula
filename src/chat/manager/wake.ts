@@ -11,11 +11,16 @@ import { noteAttempt, pushKeysFor, sealedText, sealSecure } from './secure';
 import { textPayload } from './payloads';
 import { WAKE_INTERVAL_MS } from './types';
 import { log } from '../../log';
+import { eventNotifies } from '../pushPriority';
 
 // Pas plus de pushs d'un coup : le serveur limite à 20 par minute et par destinataire.
 const MAX_PUSHES_PER_ROUND = 5;
 // Les accusés reçus en rafale partent dans un seul push.
 const ACK_DELAY_MS = 300;
+// Un accusé qui n'a pas pu partir (réseau qui hésite au réveil) est retenté deux fois, avec le même
+// contenu chiffré : sans accusé, l'expéditeur croit son message perdu.
+const ACK_RETRY_MS = [1500, 4000];
+
 
 // Réglage « Relais des fichiers » : activé tant qu'il n'a pas été coupé. Il sert aussi aux textes trop
 // longs pour un push.
@@ -31,7 +36,10 @@ export function textPushPayload(core: ChatCore, contact: string, message: Messag
 // tout de suite, même app fermée. Un texte trop long pour un push passe par le relais (relay.ts) ; un
 // fichier déclenche en plus un simple réveil : l'autre téléphone se connecte et le reçoit en direct.
 export function wakeIfNeeded(core: ChatCore, contact: string) {
-  if (!core.online || core.links.get(contact)?.status === 'connected') return;
+  // Plus de garde sur « pas de réseau » : Android dit parfois « sans internet » sur un réseau qui marche
+  // (Wi-Fi non validé, VPN, DNS privé) et le message attendait pour rien. Sans réseau, l'essai échoue
+  // aussitôt et le suivant repart au prochain tour.
+  if (core.links.get(contact)?.status === 'connected') return;
   if (getUndelivered(contact).length === 0 && getOutboxEvents(contact).length === 0) return;
   resolveToken(core, contact)
     .then((token) => (token ? pushPending(core, contact, token) : undefined))
@@ -82,12 +90,12 @@ async function pushPending(core: ChatCore, contact: string, token: string) {
   let needsWake = false;
   const waking: string[] = [];
   // payload : le push déjà préparé ; messageId : le message dont c'est un essai (pas pour un événement).
-  const send = async (id: string, payload: string, messageId?: string) => {
+  const send = async (id: string, payload: string, messageId?: string, quiet = false) => {
     if (core.pushed.has(id)) return true;
     if (sent >= MAX_PUSHES_PER_ROUND) return false;
     core.pushed.add(id);
     sent += 1;
-    const result = await sendPush(token, 'msg', payload);
+    const result = await sendPush(token, 'msg', payload, { quiet });
     if (messageId && countsAsAttempt(result)) noteAttempt(core, contact, messageId);
     return handleResult(core, contact, result, id);
   };
@@ -120,14 +128,15 @@ async function pushPending(core: ChatCore, contact: string, token: string) {
     // Vérifié avant de chiffrer : chaque chiffrement d'un événement consomme une clé du ratchet.
     if (core.pushed.has(event.id)) continue;
     if (sent >= MAX_PUSHES_PER_ROUND) return;
-    const payload = encodePushPayload(keys.tag, keys.key, sealSecure(core, contact, { type: 'event', eventId: event.id, ...JSON.parse(event.payload) }));
+    const body = JSON.parse(event.payload);
+    const payload = encodePushPayload(keys.tag, keys.key, sealSecure(core, contact, { type: 'event', eventId: event.id, ...body }));
     if (!payload) {
       // Trop gros pour un push : il partira en direct, sans être rechiffré à chaque tour.
       core.pushed.add(event.id);
       needsWake = true;
       continue;
     }
-    if (!(await send(event.id, payload))) return;
+    if (!(await send(event.id, payload, undefined, !eventNotifies(body)))) return;
   }
   if ((needsWake || waking.length > 0) && Date.now() - (core.lastWake.get(contact) ?? 0) >= WAKE_INTERVAL_MS) {
     core.lastWake.set(contact, Date.now());
@@ -181,7 +190,16 @@ async function flushPushAcks(core: ChatCore) {
     if (!token) continue;
     const keys = pushKeysFor(core, contact);
     const payload = encodePushPayload(keys.tag, keys.key, sealSecure(core, contact, { type: 'acks', ids: [...ids], events: [...events] }));
-    if (payload) handleResult(core, contact, await sendPush(token, 'msg', payload));
+    if (!payload) continue;
+    // Un accusé n'affiche rien : priorité normale. Chiffré une seule fois, renvoyé tel quel.
+    let result = await sendPush(token, 'msg', payload, { quiet: true });
+    for (const delay of ACK_RETRY_MS) {
+      if (result !== 'failed' && result !== 'limited') break;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      if (core.links.get(contact)?.status === 'connected') break;
+      result = await sendPush(token, 'msg', payload, { quiet: true });
+    }
+    handleResult(core, contact, result);
   }
 }
 

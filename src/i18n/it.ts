@@ -367,6 +367,8 @@ export const it: Dictionary = {
     envoyerN: 'Invia ({n})',
   },
   notifications: {
+    canalEnvoi: 'Invio dei messaggi',
+    envoiEnCours: 'Invio a {nom}…',
     canal: 'Messaggi',
     repondre: 'Rispondi',
     marquerLu: 'Segna come letto',
@@ -398,6 +400,9 @@ export const it: Dictionary = {
     fichierNom: 'File: {nom}',
   },
   diag: {
+    priorite: 'Velocità dei messaggi',
+    prioriteOk: 'Immediata: Android non rallenta Nébula',
+    prioriteRalentie: '{n} degli ultimi {total} messaggi rallentati da Android: imposta la batteria su «Senza restrizioni»',
     titre: 'Diagnostica',
     ouvrir: 'Diagnostica delle notifiche',
     notifications: 'Notifiche',

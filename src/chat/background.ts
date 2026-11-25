@@ -16,9 +16,9 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 //   de suite et on confirme par push : aucune connexion directe n'est nécessaire.
 // - « wake » : il y a autre chose à récupérer (fichier, texte trop long). On se connecte au seul
 //   contact concerné (à tous pour un réveil d'une ancienne version), puis on se rendort.
-export async function handleWake(message: { data?: { [key: string]: unknown } }) {
+export async function handleWake(message: { data?: { [key: string]: unknown }; priority?: unknown; originalPriority?: unknown }) {
   log.info('push reçu', message.data?.type ?? 'wake');
-  recordPush(String(message.data?.type ?? 'wake'));
+  recordPush(String(message.data?.type ?? 'wake'), message.priority, message.originalPriority);
   if (AppState.currentState === 'active') return;
 
   // Annonce d'une version (topic « updates », envoyée par /api/announce) : aucun contact à réveiller.

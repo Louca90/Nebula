@@ -28,6 +28,7 @@ import { createStyles, fixed, useColors } from '../theme';
 import { relativeTime } from './home/listFormat';
 import { daysUntil, useNextDate } from '../couple/dates';
 import { useThoughtsToday } from '../couple/thoughts';
+import { BackgroundCard } from './nous/BackgroundCard';
 
 // Onglet Nous : la planche « Elvira · Accueil ». Sa photo, son état, la conversation, Pense à toi,
 // le compte à rebours et les médias partagés, sur le fond Horizon.
@@ -214,6 +215,9 @@ export function NousScreen({ contacts, onOpenChat, onProfile, onMedia, onPense, 
             <Text style={[styles.status, { color: online || typing ? fixed.lilac : colors.textMuted }]}>{status}</Text>
           </View>
         </Reanimated.View>
+
+        {/* Notifications coupées ou batterie « optimisée » : les messages arrivent en retard app fermée. */}
+        <BackgroundCard />
 
         {/* Nébula : la conversation est une barre de message (son dernier message, l'heure, les nouveaux),
             avec un bouton rond qui ouvre la discussion : plus de carte « Conversation ». */}

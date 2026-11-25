@@ -467,6 +467,8 @@ export const en: Dictionary = {
     envoyerN: 'Send ({n})',
   },
   notifications: {
+    canalEnvoi: 'Sending messages',
+    envoiEnCours: 'Sending to {nom}…',
     canal: 'Messages',
     repondre: 'Reply',
     marquerLu: 'Mark as read',
@@ -498,6 +500,9 @@ export const en: Dictionary = {
     fichierNom: 'File: {nom}',
   },
   diag: {
+    priorite: 'Message speed',
+    prioriteOk: 'Immediate: Android does not slow Nébula down',
+    prioriteRalentie: '{n} of the last {total} messages slowed down by Android: set battery to “Unrestricted”',
     titre: 'Diagnostics',
     ouvrir: 'Notification diagnostics',
     notifications: 'Notifications',
@@ -995,6 +1000,13 @@ export const en: Dictionary = {
     dejaSorties: 'Features already released',
   },
   nous: {
+    fondTitre: 'Nébula may fall asleep',
+    fondTexte: 'Android puts Nébula to sleep when the app is closed: messages arrive late, or only when you open it. Allow it to run in the background (battery “Unrestricted”).',
+    fondSamsung: 'On Samsung, also check Battery → Background usage limits: Nébula must not be in sleeping apps; add it to “Never sleeping apps”.',
+    fondNotifTitre: 'Notifications are off',
+    fondNotifTexte: 'Without notifications you don\'t know when a message arrives, and Android treats Nébula as a silent app.',
+    fondAutoriser: 'Allow',
+    fondReglages: 'Samsung settings',
     nouveaux: '{n} new',
     appeler: 'Call',
     position: 'Location',

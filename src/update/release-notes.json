@@ -1,6 +1,6 @@
 {
-  "version": "1.1.5",
-  "versionCode": 7,
-  "summary": "- Le calendrier du cycle suit le doigt, comme une page qu'on tourne.\n- L'onglet Nous : le titre « Aujourd'hui » ne chevauche plus les boutons.\n- Retouche : toucher la photo n'ajoute plus de texte (l'outil Texte est là pour ça).",
+  "version": "1.1.6",
+  "versionCode": 8,
+  "summary": "- Les messages partent même si on quitte l'app juste après les avoir envoyés.\n- Android ne ralentit plus les messages de Nébula : les pushs qui n'affichent rien partent en priorité normale.\n- Une carte sur l'accueil prévient quand Android peut endormir Nébula, avec le bouton qui règle le problème.",
   "pages": {}
 }

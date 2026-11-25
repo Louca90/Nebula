@@ -352,7 +352,8 @@ function App() {
       // Nébula : un téléchargement de carte coupé (app fermée) reprend tout seul.
       resumeMapDownloads();
     }
-    else chat.stopAll();
+    // Nébula : un envoi en cours se termine avant que tout se ferme (voir goBackground).
+    else chat.goBackground().catch((e) => log.warn('envoi en arrière-plan', e));
   }, [identity, contacts, active]);
 
   const openKey = ({ publicKey, name }: PairingLink) => {

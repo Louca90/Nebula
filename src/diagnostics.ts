@@ -10,9 +10,24 @@ import { log } from './log';
 const LAST_PUSH = 'last_push';
 
 // Appelé à chaque push reçu (réveil ou message), app ouverte ou fermée.
-export function recordPush(type: string) {
+// Les 30 derniers pushs envoyés en priorité haute : true pour ceux qu'Android a fait passer en priorité
+// normale (FCM le fait quand une app reçoit trop de pushs hauts sans notification). Un push ralenti
+// attend que le téléphone se réveille : c'est la première cause d'un message qui arrive en retard.
+const PUSH_PRIORITY = 'push_priority';
+const PUSH_PRIORITY_KEEP = 30;
+// Les valeurs de RemoteMessage côté Android.
+const PRIORITY_HIGH = 1;
+const PRIORITY_NORMAL = 2;
+
+export function recordPush(type: string, priority?: unknown, originalPriority?: unknown) {
   try {
     setSetting(LAST_PUSH, JSON.stringify({ at: Date.now(), type }));
+    if (originalPriority === PRIORITY_HIGH) {
+      const recent = readJson<boolean[]>(PUSH_PRIORITY) ?? [];
+      const demoted = priority === PRIORITY_NORMAL;
+      if (demoted) log.warn('push ralenti par Android', type);
+      setSetting(PUSH_PRIORITY, JSON.stringify([...recent, demoted].slice(-PUSH_PRIORITY_KEEP)));
+    }
   } catch (e) {
     log.warn('diagnostic', e);
   }
@@ -26,6 +41,8 @@ export type Diagnostics = {
   powerManager: boolean;
   manufacturer: string;
   lastPush: { at: number; type: string } | null;
+  // Parmi les derniers pushs hauts reçus : combien Android a ralentis.
+  pushes: { total: number; demoted: number };
   inboxRegistered: boolean;
   tokenPublished: boolean;
 };
@@ -54,6 +71,10 @@ export async function collectDiagnostics(): Promise<Diagnostics> {
     powerManager: Boolean(power?.activity),
     manufacturer: String((Platform.constants as { Manufacturer?: string }).Manufacturer ?? power?.manufacturer ?? ''),
     lastPush: readJson(LAST_PUSH),
+    pushes: (() => {
+      const recent = readJson<boolean[]>(PUSH_PRIORITY) ?? [];
+      return { total: recent.length, demoted: recent.filter(Boolean).length };
+    })(),
     inboxRegistered: readJson('inbox') !== null,
     tokenPublished: published !== null && Object.keys(published).length > 0,
   };
