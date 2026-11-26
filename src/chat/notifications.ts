@@ -198,6 +198,17 @@ export async function showStatusNotification(contact: string, name: string, stat
   });
 }
 
+// Nébula : l'app est ouverte, ses notifications n'ont plus lieu d'être (messages, pensées, humeur,
+// rappels affichés, mise à jour, appel manqué…). Restent celles d'un travail en cours : fichier reçu,
+// carte téléchargée, envoi qui se termine, appel. Les rappels programmés ne sont pas touchés.
+export async function clearShownNotifications() {
+  const keep = new Set([FILE_NOTIFICATION_ID, MAP_NOTIFICATION_ID, SEND_NOTIFICATION_ID]);
+  const shown = await notifee.getDisplayedNotifications();
+  const ids = shown.map((item) => item.id).filter((id): id is string => !!id && !keep.has(id) && !id.startsWith('call:'));
+  if (ids.length > 0) await notifee.cancelDisplayedNotifications(ids);
+  await pruneCovers();
+}
+
 export function clearMessageNotification(contact: string) {
   deleteCover(contact);
   notifee.cancelNotification(contact).catch((e) => log.warn('notification', e));

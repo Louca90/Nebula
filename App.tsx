@@ -16,6 +16,7 @@ import { shouldLock } from './src/lockRules';
 import { cleanupCache } from './src/chat/cleanup';
 import { migrateStoredFiles } from './src/chat/media';
 import { handleNotificationEvent } from './src/chat/notificationActions';
+import { clearShownNotifications } from './src/chat/notifications';
 import { refreshRemoteConfig } from './src/remoteConfig';
 import { deleteMessages, getContactProfile, getSetting, isBlocked, openDatabase, setContactVerified } from './src/chat/database';
 import { clearNotificationTarget, CYCLE_TARGET, PENSE_PREFIX, REQUESTS_TARGET, setNotificationTarget, targetOf, useNotificationTarget } from './src/chat/notificationTarget';
@@ -349,6 +350,8 @@ function App() {
     if (!identity) return;
     if (active) {
       chat.sync(identity, contacts);
+      // Nébula : ouvrir l'app efface ses notifications (sauf un envoi, un fichier ou un appel en cours).
+      clearShownNotifications().catch((e) => log.warn('notifications', e));
       // Nébula : un téléchargement de carte coupé (app fermée) reprend tout seul.
       resumeMapDownloads();
     }
