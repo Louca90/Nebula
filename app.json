@@ -3,7 +3,7 @@
     "name": "Nébula",
     "slug": "nebula",
     "scheme": "nebula",
-    "version": "1.1.9",
+    "version": "1.1.10",
     "platforms": [
       "android"
     ],
@@ -12,7 +12,7 @@
     "userInterfaceStyle": "dark",
     "android": {
       "package": "com.louca.nebula",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "backgroundImage": "./assets/android-icon-background.png",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -86,6 +86,7 @@
       "./plugins/with-notification-icon",
       "./plugins/with-stamp-fonts",
       "./plugins/with-no-emoji-compat",
+      "./plugins/with-prepared-text-layout",
       [
         "expo-navigation-bar",
         {

@@ -1,5 +1,17 @@
 # Journal des versions
 
+## 1.1.10 (versionCode 12)
+
+### Résumé
+
+- Le dernier emoji d'un message ne disparaît plus de la bulle (Android 15 et plus).
+
+### Détails
+
+#### Corrections
+
+- Emojis : depuis Android 15, une app qui vise l'API 35 ou plus voit le texte calculer sa largeur sur le dessin des caractères, un peu plus large pour les emojis, alors que React Native mesure le texte sur leur avance. À l'affichage, le dernier emoji ne tenait plus sur la ligne et passait dessous, hors de la bulle. Le texte est maintenant dessiné avec exactement la mise en page mesurée (réglage enablePreparedTextLayout de React Native), à partir d'Android 15.
+
 ## 1.1.9 (versionCode 11)
 
 ### Résumé
