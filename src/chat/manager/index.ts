@@ -31,7 +31,7 @@ import { resumeRelayTexts } from './messageIO';
 import { reconcile } from './strategy';
 import { downloadRelayFile, relayPending, resumeRelayDownloads } from './relay';
 import { acceptPairing, blockPairing, declinePairing, requestPairing, startPairing, syncPairRequests } from './pairing';
-import { deliverNow, sendStatusNow, settlePushAcks, wakeIfNeeded } from './wake';
+import { deliverNow, repushUnconfirmed, sendStatusNow, settlePushAcks, wakeIfNeeded } from './wake';
 import { notifyMessage } from './notify';
 import { getDates } from '../../couple/dates';
 import { addMedDose } from '../../couple/cycle';
@@ -125,11 +125,14 @@ class ChatManager extends ChatCore {
         resumeRelayTexts(this);
         if (AppState.currentState === 'active') resumeRelayDownloads(this);
         this.names.forEach((_, contact) => {
+          repushUnconfirmed(this, contact);
           wakeIfNeeded(this, contact);
           relayPending(this, contact);
         });
       }, WAKE_CHECK_MS);
     }
+    // Retour dans l'app : un texte resté sans accusé repart (voir repushUnconfirmed).
+    this.names.forEach((_, contact) => repushUnconfirmed(this, contact, true));
     this.markOpenConversationRead();
     this.names.forEach((_, contact) => shareProfile(this, contact));
     if (!this.pairingStarted) {

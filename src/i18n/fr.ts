@@ -882,11 +882,11 @@ export const fr = {
   attente: {
     envoi: 'Envoi…',
     envoiEssai: 'Envoi… · dernier essai {heure}',
-    contactHorsLigne: "Envoi… · ton contact n'a pas de connexion",
-    contactHorsLigneEssai: "Envoi… · ton contact n'a pas de connexion · dernier essai {heure}",
+    contactHorsLigne: "Envoyé · pas encore reçu par son téléphone",
+    contactHorsLigneEssai: "Envoyé · pas encore reçu · dernier essai {heure}",
     pasEnvoye: 'Pas encore envoyé',
     pasEnvoyeHorsLigne: "Pas encore envoyé · tu n'as pas de connexion",
-    toujours: 'Toujours pas de confirmation. Le téléphone de ton contact doit être joignable.',
+    toujours: "Pas encore de confirmation. Nébula le renvoie tout seul ; son téléphone doit être allumé et joignable.",
     reessayer: 'Réessayer',
   },
   unique: {

@@ -883,11 +883,11 @@ export const en: Dictionary = {
   attente: {
     envoi: 'Sending…',
     envoiEssai: 'Sending… · last try {heure}',
-    contactHorsLigne: 'Sending… · your contact has no connection',
-    contactHorsLigneEssai: 'Sending… · your contact has no connection · last try {heure}',
+    contactHorsLigne: "Sent · not received by their phone yet",
+    contactHorsLigneEssai: "Sent · not received yet · last try {heure}",
     pasEnvoye: 'Not sent yet',
     pasEnvoyeHorsLigne: "Not sent yet · you're offline",
-    toujours: "Still waiting. Delivery needs your contact's phone to be reachable.",
+    toujours: "No confirmation yet. Nébula resends it on its own; their phone must be on and reachable.",
     reessayer: 'Retry',
   },
   unique: {

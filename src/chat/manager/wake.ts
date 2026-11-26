@@ -46,6 +46,33 @@ export function wakeIfNeeded(core: ChatCore, contact: string) {
     .catch((e) => log.warn('push', e));
 }
 
+// Un texte parti par push dont l'accusé n'est jamais revenu. Souvent il est bien arrivé et c'est
+// l'accusé qui s'est perdu : il voyage en priorité normale, qu'Android jette quand notre app dort (sans
+// batterie « sans restriction »). Parfois c'est le push lui-même. Dans les deux cas, le même paquet
+// chiffré repart : s'il est déjà arrivé, l'autre téléphone le reconnaît, ne notifie rien et renvoie
+// son accusé. Au retour dans l'app après 45 s sans accusé, puis toutes les 2 minutes, au plus 4 essais
+// en tout (« Réessayer » reste là ensuite).
+const REPUSH_ON_RETURN_MS = 45 * 1000;
+const REPUSH_EVERY_MS = 2 * 60 * 1000;
+const MAX_AUTO_ATTEMPTS = 4;
+
+export function repushUnconfirmed(core: ChatCore, contact: string, returning = false) {
+  if (core.links.get(contact)?.status === 'connected') return;
+  const now = Date.now();
+  const wait = returning ? REPUSH_ON_RETURN_MS : REPUSH_EVERY_MS;
+  let again = false;
+  for (const message of getUndelivered(contact)) {
+    if (message.kind !== 'text' || !message.last_attempt_at || !core.pushed.has(message.id)) continue;
+    if ((message.attempts ?? 0) >= MAX_AUTO_ATTEMPTS || now - message.last_attempt_at < wait) continue;
+    core.pushed.delete(message.id);
+    again = true;
+  }
+  if (again) {
+    log.info('renvoi sans accusé', contact.slice(0, 6));
+    wakeIfNeeded(core, contact);
+  }
+}
+
 // Le token du contact : celui reçu en direct, sinon celui qu'il a publié (chiffré) dans Firebase. Relu
 // au plus une fois par minute, par exemple après un token périmé.
 export async function resolveToken(core: ChatCore, contact: string) {

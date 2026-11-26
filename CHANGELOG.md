@@ -1,5 +1,19 @@
 # Journal des versions
 
+## 1.1.7 (versionCode 9)
+
+### Résumé
+
+- Un message n'affiche plus « ton contact n'a pas de connexion » à tort : sans confirmation, il dit « Envoyé · pas encore reçu ».
+- Un message resté sans confirmation repart tout seul au retour dans l'app, puis toutes les 2 minutes.
+
+### Détails
+
+#### Corrections
+
+- Confirmation de réception perdue : elle voyage en priorité normale (1.1.6), et Android la jette quand l'app de l'expéditeur dort. Le message restait alors en attente alors qu'il était arrivé. Maintenant, un texte sans confirmation repart (même paquet chiffré : s'il était déjà arrivé, l'autre téléphone ne notifie rien et renvoie sa confirmation) au retour dans l'app après 45 s, puis toutes les 2 minutes, au plus 4 essais.
+- Libellé sous un message en attente : « Envoyé · pas encore reçu par son téléphone » 30 s après l'envoi, au lieu de « ton contact n'a pas de connexion », qui n'était pas forcément vrai. Un renvoi automatique ne fait plus revenir « Envoi… ».
+
 ## 1.1.6 (versionCode 8)
 
 ### Résumé
