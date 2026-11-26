@@ -1,5 +1,17 @@
 # Journal des versions
 
+## 1.1.11 (versionCode 13)
+
+### Résumé
+
+- Ouvrir Nébula efface ses notifications.
+
+### Détails
+
+#### Nouveautés
+
+- À chaque ouverture (ou retour dans l'app), les notifications de Nébula disparaissent : messages, pensées, humeur, rappels déjà affichés, appel manqué, mise à jour. Restent celles d'un travail en cours : fichier reçu, carte téléchargée, message qui finit de partir, appel. Les rappels programmés ne sont pas touchés.
+
 ## 1.1.10 (versionCode 12)
 
 ### Résumé
