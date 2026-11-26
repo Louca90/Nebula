@@ -1,5 +1,21 @@
 # Journal des versions
 
+## 1.1.12 (versionCode 14)
+
+### Résumé
+
+- La pastille d'un appel réduit se déplace au doigt, et un appui ramène l'appel.
+- Les écouteurs Bluetooth n'apparaissent plus deux fois dans les sorties du son.
+- Allumer la caméra ne fait plus passer le son sur le haut-parleur.
+
+### Détails
+
+#### Corrections
+
+- Pastille d'appel : ni le glissé ni l'appui n'arrivaient (gestes de gesture-handler par-dessus toute l'app). Elle utilise maintenant le système de toucher de React Native, et passe au-dessus de tout.
+- Sorties du son : des écouteurs récents existent deux fois pour Android (Bluetooth classique et LE Audio, même nom) ; une seule ligne par appareil.
+- Caméra : l'allumer ne change plus la sortie du son ; écouteur, casque ou haut-parleur restent ce qu'ils étaient.
+
 ## 1.1.11 (versionCode 13)
 
 ### Résumé

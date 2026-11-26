@@ -118,7 +118,14 @@ function startAudio(speaker: boolean) {
 
 // La liste des sorties relue (l'appareil change de route un instant après la demande).
 export function refreshOutputs() {
-  const outputs = callOutputs();
+  // Nébula : des écouteurs Bluetooth récents apparaissent deux fois (Bluetooth classique et Bluetooth
+  // LE Audio, même nom) : une seule ligne par type et par nom, celle qui est active si c'est l'une d'elles.
+  const outputs: CallOutput[] = [];
+  for (const output of callOutputs()) {
+    const twin = outputs.findIndex((other) => other.type === output.type && other.name === output.name && output.type !== 'earpiece' && output.type !== 'speaker');
+    if (twin < 0) outputs.push(output);
+    else if (output.active) outputs[twin] = output;
+  }
   const active = outputs.find((output) => output.active);
   set({ outputs, ...(active ? { speaker: active.type === 'speaker' } : {}) });
 }
@@ -477,8 +484,7 @@ export async function toggleCamera(core: ChatCore) {
   }
   if (!state) return;
   sendCall(core, state.contact, { action: 'media', id: state.id, camera: !!videoTrack });
-  // Caméra allumée : le son passe au haut-parleur, comme pour un appel vidéo.
-  if (videoTrack && !state.speaker) toggleSpeaker();
+  // Nébula : allumer la caméra ne change plus la sortie du son (écouteur, casque ou haut-parleur restent).
   // Le service doit déclarer la caméra pour qu'elle continue Pear en arrière-plan.
   showActive(core);
 }
