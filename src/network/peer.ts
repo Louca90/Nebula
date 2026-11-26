@@ -6,6 +6,7 @@ import { open, seal } from '../crypto/box';
 import { deriveMessageKey } from '../crypto/pairing';
 import { Role, SignalingChannel } from './signaling';
 import { log } from '../log';
+import { backgroundSleep } from '../../modules/pear-native';
 import { CALL_ICE_GRACE_MS, CALL_PEER_TIMEOUT_MS, DRAIN_POLL_MS, HEARTBEAT_MS, MAX_BUFFERED_BYTES, PEER_TIMEOUT_MS, RETRY_MS } from '../config';
 import { iceServers } from '../remoteConfig';
 
@@ -52,7 +53,8 @@ export class PeerLink {
   private session: string | null = null;
   private pendingCandidates: IceCandidateInit[] = [];
   private queue: Promise<void> = Promise.resolve();
-  private timer?: ReturnType<typeof setInterval>;
+  // La boucle du battement de cœur tourne (une seule par connexion).
+  private beating = false;
   private lastSeen = 0;
   private lastAttempt = 0;
   private stopped = false;
@@ -77,7 +79,7 @@ export class PeerLink {
       if (this.stopped) return;
       this.callbacks.onStatus('searching');
       this.tick();
-      this.timer = setInterval(() => this.tick(), HEARTBEAT_MS);
+      this.heartbeatLoop().catch((e) => log.warn('battement', e));
     } catch (e) {
       this.fail(e);
     }
@@ -85,7 +87,6 @@ export class PeerLink {
 
   stop() {
     this.stopped = true;
-    clearInterval(this.timer);
     this.closeConnection();
     this.signaling.close();
   }
@@ -101,7 +102,7 @@ export class PeerLink {
   // Renvoie false si la connexion a changé : le destinataire redemandera la suite à la reconnexion.
   async sendChunk(epoch: number, bytes: Uint8Array): Promise<boolean> {
     while (this.isCurrent(epoch) && (this.channel?.bufferedAmount ?? 0) > MAX_BUFFERED_BYTES) {
-      await new Promise((resolve) => setTimeout(resolve, DRAIN_POLL_MS));
+      await backgroundSleep(DRAIN_POLL_MS);
     }
     if (!this.isCurrent(epoch) || !this.channel) return false;
     this.channel.send(bytes);
@@ -120,6 +121,22 @@ export class PeerLink {
 
   isCurrent(epoch: number) {
     return !this.stopped && this.epoch === epoch && this.channel?.readyState === 'open';
+  }
+
+  // Nébula : le battement de cœur suit une attente native, pas setInterval. En arrière-plan écran éteint,
+  // les minuteurs de React Native s'arrêtent : l'app qui finissait un envoi (ou réveillée par un push) ne
+  // battait plus, et l'autre téléphone coupait la connexion toutes les 16 s.
+  private async heartbeatLoop() {
+    if (this.beating) return;
+    this.beating = true;
+    try {
+      while (!this.stopped) {
+        await backgroundSleep(HEARTBEAT_MS);
+        if (!this.stopped) this.tick();
+      }
+    } finally {
+      this.beating = false;
+    }
   }
 
   // Annonce tout de suite l'état au premier plan (l'app vient de s'ouvrir ou de passer en arrière-plan).

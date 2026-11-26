@@ -24,6 +24,7 @@ declare class PearNativeModule extends NativeModule<{ onBack: (event: BackEvent)
   completeBack(): Promise<void>;
   backHookAvailable(): boolean;
   appVersionCode(): number | null;
+  sleep?(ms: number): Promise<void>;
   appVersionName(): string | null;
   isIgnoringBatteryOptimizations(): boolean;
   batteryStatus?(): { level: number; charging: boolean } | null;
@@ -82,6 +83,13 @@ export function addBackListener(listener: (event: BackEvent) => void) {
 }
 
 // Le versionCode de l'APK installé. null si l'app n'est pas encore prête.
+// Attendre ms millisecondes, même app en arrière-plan écran éteint (voir sleep dans PearNativeModule.kt).
+// Sans le module natif (version d'avant, tests), un setTimeout ordinaire.
+export function backgroundSleep(ms: number): Promise<void> {
+  if (PearNative.sleep) return PearNative.sleep(ms).catch(() => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function appVersionCode() {
   return PearNative.appVersionCode();
 }

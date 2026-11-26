@@ -4,12 +4,13 @@ import { loadContacts, loadOrCreateIdentity } from '../storage';
 import { chat } from './manager';
 import { showUpdateNotification } from './notifications';
 import { announcedVersion } from '../update/announce';
-import { appVersionCode } from '../../modules/pear-native';
+import { appVersionCode, backgroundSleep } from '../../modules/pear-native';
 import { BACKGROUND_MAX_AWAKE_MS, BACKGROUND_QUIET_MS } from '../config';
 import { recordPush } from '../diagnostics';
 import { log } from '../log';
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// Attente native : app en arrière-plan écran éteint, setTimeout ne tourne pas (voir backgroundSleep).
+const sleep = backgroundSleep;
 
 // Appelée par Android quand un push arrive, app fermée ou en arrière-plan.
 // - « msg » : le message chiffré est dans le push. On le déchiffre, on l'enregistre, on notifie tout

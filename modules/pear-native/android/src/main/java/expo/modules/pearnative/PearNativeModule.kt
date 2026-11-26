@@ -415,6 +415,14 @@ class PearNativeModule : Module() {
       (bottom / activity.resources.displayMetrics.density).toDouble()
     }
 
+    // Nébula : une attente qui marche app en arrière-plan. Les minuteurs JavaScript de React Native
+    // (setTimeout) ne tournent que quand l'app est à l'écran ou pendant une tâche « headless », et pas du
+    // tout écran éteint (ils suivent l'affichage) : un accusé de réception attendait que le téléphone se
+    // rallume. Un Handler du fil principal, lui, tourne tant que le processus est éveillé.
+    AsyncFunction("sleep") { ms: Double, promise: Promise ->
+      android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ promise.resolve(null) }, ms.toLong().coerceIn(0L, 600_000L))
+    }
+
     // Le versionCode de l'APK installé, pour le comparer à celui de la dernière release.
     Function("appVersionCode") {
       val context = appContext.reactContext ?: return@Function null

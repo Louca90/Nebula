@@ -11,6 +11,7 @@ import { noteAttempt, pushKeysFor, sealedText, sealSecure } from './secure';
 import { textPayload } from './payloads';
 import { WAKE_INTERVAL_MS } from './types';
 import { log } from '../../log';
+import { backgroundSleep } from '../../../modules/pear-native';
 import { eventNotifies } from '../pushPriority';
 
 // Pas plus de pushs d'un coup : le serveur limite à 20 par minute et par destinataire.
@@ -195,16 +196,24 @@ export function queuePushAck(core: ChatCore, contact: string, ack: { id?: string
   }
   if (ack.id) pending.ids.add(ack.id);
   if (ack.eventId) pending.events.add(ack.eventId);
-  clearTimeout(core.pushAckTimer);
-  core.pushAckTimer = setTimeout(() => {
-    core.pushAckFlush = flushPushAcks(core);
-  }, ACK_DELAY_MS);
+  if (core.pushAckScheduled) return;
+  core.pushAckScheduled = true;
+  // Attente native, pas setTimeout : écran éteint, les minuteurs de React Native sont arrêtés et
+  // l'accusé attendait que le téléphone se rallume (l'expéditeur voyait « Envoi… » pendant ce temps).
+  core.pushAckFlush = Promise.all([core.pushAckFlush, backgroundSleep(ACK_DELAY_MS)]).then(() => {
+    core.pushAckScheduled = false;
+    return flushPushAcks(core);
+  });
 }
 
-// Attendue par le réveil en arrière-plan avant de rendre la main à Android.
+// Attendue par le réveil en arrière-plan avant de rendre la main à Android : jusqu'au dernier envoi
+// d'accusés prévu.
 export async function settlePushAcks(core: ChatCore) {
-  await new Promise((resolve) => setTimeout(resolve, ACK_DELAY_MS + 50));
-  await core.pushAckFlush;
+  let current: Promise<void>;
+  do {
+    current = core.pushAckFlush;
+    await current.catch(() => undefined);
+  } while (current !== core.pushAckFlush);
 }
 
 async function flushPushAcks(core: ChatCore) {
@@ -222,7 +231,7 @@ async function flushPushAcks(core: ChatCore) {
     let result = await sendPush(token, 'msg', payload, { quiet: true });
     for (const delay of ACK_RETRY_MS) {
       if (result !== 'failed' && result !== 'limited') break;
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await backgroundSleep(delay);
       if (core.links.get(contact)?.status === 'connected') break;
       result = await sendPush(token, 'msg', payload, { quiet: true });
     }

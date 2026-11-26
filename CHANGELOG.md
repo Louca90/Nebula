@@ -1,5 +1,19 @@
 # Journal des versions
 
+## 1.1.8 (versionCode 10)
+
+### Résumé
+
+- Les confirmations de réception partent tout de suite, même téléphone verrouillé : un message ne reste plus en « Envoi… » alors qu'il est arrivé.
+- La connexion directe ne se coupe plus toutes les 16 secondes quand l'un des deux téléphones est en veille.
+
+### Détails
+
+#### Corrections
+
+- Cause trouvée dans les journaux des deux téléphones : écran éteint, React Native arrête ses minuteurs (setTimeout) tant que l'app n'est pas à l'écran. La confirmation de réception, envoyée 300 ms après le message, attendait donc que le téléphone se rallume ; les confirmations arrivaient par paquets de 10 à 20 au déverrouillage. Elles passent maintenant par une attente native Android, qui tourne écran éteint.
+- Même correction pour le battement de cœur de la connexion directe (l'autre téléphone coupait la connexion toutes les 16 s), la fin d'envoi après avoir quitté l'app (elle restait bloquée jusqu'à la réouverture), le réveil par push et l'envoi d'un fichier en arrière-plan.
+
 ## 1.1.7 (versionCode 9)
 
 ### Résumé
