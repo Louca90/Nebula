@@ -15,6 +15,7 @@ import { canRetry, pendingState, recentRetries, retryAvailableAt } from '../pend
 import { deleteRelay } from '../../network/relay';
 import { unpublishToken } from '../../network/tokens';
 import { log } from '../../log';
+import { backgroundSleep } from '../../../modules/pear-native';
 import { parisNow } from '../../time';
 
 import { publishMyToken, retryAll, watch } from './connections';
@@ -59,7 +60,8 @@ const BACKGROUND_SEND_POLL_MS = 1000;
 // nous, contact sans token) ne doit pas réveiller le téléphone à chaque sortie de l'app.
 const BACKGROUND_RECENT_MS = 10 * 60 * 1000;
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// Attente native : en arrière-plan, setTimeout ne tourne pas (voir backgroundSleep).
+const sleep = backgroundSleep;
 
 class ChatManager extends ChatCore {
   reconcileNow = () => reconcile(this);

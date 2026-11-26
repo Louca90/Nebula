@@ -37,7 +37,8 @@ export class ChatCore {
   tokenFetches = new Map<string, number>();
   // Accusés de réception à renvoyer par push, par contact.
   pushAcks = new Map<string, { ids: Set<string>; events: Set<string> }>();
-  pushAckTimer?: ReturnType<typeof setTimeout>;
+  // Un envoi d'accusés est déjà prévu : les nouveaux s'y ajoutent.
+  pushAckScheduled = false;
   pushAckFlush: Promise<void> = Promise.resolve();
   wakeTimer?: ReturnType<typeof setInterval>;
   version = 0;
