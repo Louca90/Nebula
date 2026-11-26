@@ -1,5 +1,17 @@
 # Journal des versions
 
+## 1.1.9 (versionCode 11)
+
+### Résumé
+
+- Les emojis s'affichent tous : un message de 3 emojis n'en montre plus 2, dans la conversation comme dans l'aperçu.
+
+### Détails
+
+#### Corrections
+
+- Emojis coupés : Android dessinait certains emojis avec une autre police (EmojiCompat) que celle avec laquelle React Native mesure le texte. Le texte était dessiné plus large que mesuré, et le dernier emoji passait à la ligne, hors de la bulle ou de l'aperçu (bug connu de React Native, #59850 et #57995). EmojiCompat est coupé : mesure et dessin utilisent la même police.
+
 ## 1.1.8 (versionCode 10)
 
 ### Résumé

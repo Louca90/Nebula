@@ -1,6 +1,6 @@
 {
-  "version": "1.1.8",
-  "versionCode": 10,
-  "summary": "- Les confirmations de réception partent tout de suite, même téléphone verrouillé : un message ne reste plus en « Envoi… » alors qu'il est arrivé.\n- La connexion directe ne se coupe plus toutes les 16 secondes quand l'un des deux téléphones est en veille.",
+  "version": "1.1.9",
+  "versionCode": 11,
+  "summary": "- Les emojis s'affichent tous : un message de 3 emojis n'en montre plus 2, dans la conversation comme dans l'aperçu.",
   "pages": {}
 }
