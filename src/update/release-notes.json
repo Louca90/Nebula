@@ -1,6 +1,6 @@
 {
-  "version": "1.1.6",
-  "versionCode": 8,
-  "summary": "- Les messages partent même si on quitte l'app juste après les avoir envoyés.\n- Android ne ralentit plus les messages de Nébula : les pushs qui n'affichent rien partent en priorité normale.\n- Une carte sur l'accueil prévient quand Android peut endormir Nébula, avec le bouton qui règle le problème.",
+  "version": "1.1.7",
+  "versionCode": 9,
+  "summary": "- Un message n'affiche plus « ton contact n'a pas de connexion » à tort : sans confirmation, il dit « Envoyé · pas encore reçu ».\n- Un message resté sans confirmation repart tout seul au retour dans l'app, puis toutes les 2 minutes.",
   "pages": {}
 }

@@ -74,9 +74,14 @@ describe('libellé sous un message en attente', () => {
     expect(label({ last_attempt_at: NOW - 5_000, attempts: 1 }, false, true)).toBe('sending');
   });
 
-  it('pas d’accusé après le délai, ou un deuxième essai : le contact n’a pas de connexion', () => {
-    expect(label({ last_attempt_at: NOW - UNREACHABLE_AFTER_MS, attempts: 1 }, false, true)).toBe('unreachable');
-    expect(label({ last_attempt_at: NOW - 1_000, attempts: 2 }, false, true)).toBe('unreachable');
+  it('pas d’accusé ce délai après l’envoi : envoyé, pas encore reçu', () => {
+    expect(label({ created_at: NOW - UNREACHABLE_AFTER_MS, last_attempt_at: NOW - UNREACHABLE_AFTER_MS, attempts: 1 }, false, true)).toBe('unreachable');
+  });
+
+  it('un renvoi automatique ne fait pas revenir « Envoi… »', () => {
+    expect(label({ created_at: NOW - 2 * UNREACHABLE_AFTER_MS, last_attempt_at: NOW - 1_000, attempts: 2 }, false, true)).toBe('unreachable');
+    // Un deuxième essai juste après l'envoi (direct puis push) : on attend toujours le délai.
+    expect(label({ created_at: NOW - 2_000, last_attempt_at: NOW - 1_000, attempts: 2 }, false, true)).toBe('sending');
   });
 
   it('notre téléphone sans connexion, ou rien n’a pu partir', () => {
