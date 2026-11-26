@@ -513,7 +513,7 @@ function CallPill({ call, name, onPress }: { call: CallState; name: string; onPr
     return ys.flatMap((y) => xs.map((x) => ({ x, y })));
   }, [pillWidth, width, height, top, bottom]);
   return (
-    <Reanimated.View entering={FadeIn.duration(DURATION.small).easing(EASE)} exiting={FadeOut.duration(DURATION.small).easing(EASE)} style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <Reanimated.View entering={FadeIn.duration(DURATION.small).easing(EASE)} exiting={FadeOut.duration(DURATION.small).easing(EASE)} style={[StyleSheet.absoluteFill, styles.pillLayer]} pointerEvents="box-none">
       <SnapDraggable slots={slots} initial={1} onTap={onPress}>
       <View onLayout={(event) => setPillWidth(event.nativeEvent.layout.width)} accessibilityRole="button" accessibilityLabel={t('appel.revenir')} style={[styles.pill, { maxWidth: width - 24 }]}>
         <View style={[styles.pillDot, { backgroundColor: call.reconnecting ? colors.textMuted : colors.signatureStrong }]} />
@@ -693,6 +693,11 @@ const useStyles = createStyles((colors) => ({
   pipStatus: {
     fontSize: 12,
     fontVariant: ['tabular-nums'],
+  },
+  // Au-dessus de tout, toucher compris (sur Android, l'élévation décide aussi de qui reçoit le doigt).
+  pillLayer: {
+    zIndex: 1000,
+    elevation: 50,
   },
   pill: {
     flexDirection: 'row',

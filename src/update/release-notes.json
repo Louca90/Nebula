@@ -1,6 +1,6 @@
 {
-  "version": "1.1.11",
-  "versionCode": 13,
-  "summary": "- Ouvrir Nébula efface ses notifications.",
+  "version": "1.1.12",
+  "versionCode": 14,
+  "summary": "- La pastille d'un appel réduit se déplace au doigt, et un appui ramène l'appel.\n- Les écouteurs Bluetooth n'apparaissent plus deux fois dans les sorties du son.\n- Allumer la caméra ne fait plus passer le son sur le haut-parleur.",
   "pages": {}
 }
